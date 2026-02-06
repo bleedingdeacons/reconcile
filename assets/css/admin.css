@@ -1,0 +1,245 @@
+/* Reconcile Admin Styles */
+
+.reconcile-wrap {
+    max-width: 800px;
+}
+
+.reconcile-card {
+    background: #fff;
+    border: 1px solid #c3c4c7;
+    border-radius: 4px;
+    padding: 24px;
+    margin-top: 20px;
+    box-shadow: 0 1px 1px rgba(0, 0, 0, 0.04);
+}
+
+.reconcile-card h2 {
+    margin-top: 0;
+    padding-top: 0;
+    border-bottom: 1px solid #eee;
+    padding-bottom: 12px;
+}
+
+.reconcile-card .description {
+    color: #646970;
+    margin-bottom: 20px;
+    line-height: 1.6;
+}
+
+/* Column reference table */
+.reconcile-column-table {
+    margin-bottom: 24px;
+}
+
+.reconcile-column-table code {
+    display: inline-block;
+    background: #f0f0f1;
+    padding: 3px 8px;
+    border-radius: 3px;
+    font-size: 12px;
+    font-family: Consolas, Monaco, monospace;
+    color: #1d2327;
+    border: 1px solid #dcdcde;
+    line-height: 1.6;
+    margin: 2px 0;
+}
+
+.reconcile-column-table td:last-child {
+    font-size: 13px;
+    color: #50575e;
+    line-height: 1.5;
+}
+
+.reconcile-column-table td:last-child code {
+    font-size: 11px;
+}
+
+.reconcile-note-muted {
+    color: #a7aaad;
+}
+
+/* Form rows */
+.reconcile-form-row {
+    margin-bottom: 16px;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+
+.reconcile-form-row label {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    cursor: pointer;
+}
+
+.reconcile-form-row input[type="file"] {
+    padding: 6px 0;
+}
+
+/* Spinner */
+#reconcile-spinner.is-active {
+    visibility: visible;
+    float: none;
+    margin: 0;
+}
+
+/* Results panel */
+.reconcile-results {
+    margin-top: 24px;
+    padding: 16px;
+    border-radius: 4px;
+    line-height: 1.6;
+}
+
+.reconcile-results.success {
+    background: #edfaef;
+    border: 1px solid #46b450;
+}
+
+.reconcile-results.error {
+    background: #fef1f1;
+    border: 1px solid #dc3232;
+}
+
+.reconcile-results.dry-run {
+    background: #fff8e5;
+    border: 1px solid #ffb900;
+}
+
+.reconcile-results h3 {
+    margin-top: 0;
+}
+
+.reconcile-results .reconcile-summary {
+    font-size: 14px;
+    font-weight: 600;
+    margin-bottom: 8px;
+}
+
+.reconcile-results .reconcile-stats {
+    display: flex;
+    gap: 24px;
+    margin: 12px 0;
+    flex-wrap: wrap;
+}
+
+.reconcile-results .reconcile-stat {
+    text-align: center;
+}
+
+.reconcile-results .reconcile-stat-value {
+    display: block;
+    font-size: 28px;
+    font-weight: 700;
+    line-height: 1;
+}
+
+.reconcile-results .reconcile-stat-label {
+    display: block;
+    font-size: 12px;
+    color: #646970;
+    text-transform: uppercase;
+    margin-top: 4px;
+}
+
+.reconcile-results .reconcile-warnings,
+.reconcile-results .reconcile-errors {
+    margin-top: 12px;
+    padding: 0;
+    list-style: none;
+}
+
+.reconcile-results .reconcile-warnings li,
+.reconcile-results .reconcile-errors li {
+    padding: 4px 0;
+    font-size: 13px;
+    border-bottom: 1px solid rgba(0, 0, 0, 0.05);
+}
+
+.reconcile-results .reconcile-warnings li::before {
+    content: "⚠ ";
+}
+
+.reconcile-results .reconcile-errors li::before {
+    content: "✕ ";
+    color: #dc3232;
+}
+
+/* Skipped rows table */
+.reconcile-results .reconcile-skipped {
+    margin-top: 16px;
+}
+
+.reconcile-results .reconcile-skipped h4 {
+    margin: 0 0 8px 0;
+    font-size: 13px;
+    text-transform: uppercase;
+    color: #646970;
+    letter-spacing: 0.5px;
+}
+
+.reconcile-results .reconcile-skipped table {
+    border-collapse: collapse;
+    width: 100%;
+    font-size: 13px;
+}
+
+.reconcile-results .reconcile-skipped th {
+    text-align: left;
+    font-weight: 600;
+    padding: 6px 10px;
+    background: rgba(0, 0, 0, 0.03);
+}
+
+.reconcile-results .reconcile-skipped th:first-child {
+    width: 60px;
+}
+
+.reconcile-results .reconcile-skipped td {
+    padding: 6px 10px;
+    vertical-align: top;
+}
+
+.reconcile-results .reconcile-toggle-details {
+    font-size: 12px;
+    text-decoration: none;
+    color: #2271b1;
+    margin-left: 6px;
+    white-space: nowrap;
+}
+
+.reconcile-results .reconcile-toggle-details:hover {
+    color: #135e96;
+    text-decoration: underline;
+}
+
+.reconcile-results .reconcile-details-row td {
+    padding: 0 10px 10px;
+    border-top: none;
+}
+
+.reconcile-results .reconcile-details-list {
+    margin: 4px 0 0;
+    padding: 10px 14px;
+    background: rgba(0, 0, 0, 0.02);
+    border: 1px solid rgba(0, 0, 0, 0.06);
+    border-radius: 3px;
+    font-size: 12px;
+    display: grid;
+    grid-template-columns: auto 1fr;
+    gap: 2px 12px;
+}
+
+.reconcile-results .reconcile-details-list dt {
+    font-weight: 600;
+    color: #50575e;
+    white-space: nowrap;
+}
+
+.reconcile-results .reconcile-details-list dd {
+    margin: 0;
+    color: #1d2327;
+    font-family: Consolas, Monaco, monospace;
+    word-break: break-all;
+}
