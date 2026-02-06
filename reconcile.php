@@ -4,8 +4,7 @@ declare(strict_types=1);
 
 /**
  * Plugin Name: Reconcile
- * Plugin URI: https://github.com/bleeding-deacons/reconcile
- * Description: Import and reconcile member data from spreadsheets using the Unity framework.
+ * Description: Import and reconciliation of member data from spreadsheets using Unity framework.
  * Version: 1.4.0
  * Requires at least: 6.0
  * Requires PHP: 8.0
