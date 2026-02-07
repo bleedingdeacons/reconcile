@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace Reconcile;
 
-use Reconcile\Admin\AdminPage;
+use Reconcile\Admin\MemberImportAdmin;
 use Reconcile\Admin\ImportHandler;
 use Reconcile\Import\GroupLookup;
 use Reconcile\Import\MemberImporter;
@@ -22,7 +22,7 @@ use Unity\Positions\Interfaces\PositionRepositoryInterface;
 class Plugin
 {
     private static ?DependencyContainer $container = null;
-    private static ?AdminPage $adminPage = null;
+    private static ?MemberImportAdmin $adminPage = null;
     private static ?ImportHandler $importHandler = null;
 
     /**
@@ -84,7 +84,7 @@ class Plugin
         self::$importHandler = new ImportHandler($memberImporter);
         self::$importHandler->register();
 
-        self::$adminPage = new AdminPage();
+        self::$adminPage = new MemberImportAdmin();
         self::$adminPage->register();
     }
 

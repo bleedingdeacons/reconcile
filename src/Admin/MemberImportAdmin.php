@@ -13,7 +13,7 @@ use Reconcile\Import\MemberImporter;
  * Registers a submenu page under "Intergroup" where administrators
  * can upload a spreadsheet to import member data.
  */
-class AdminPage
+class MemberImportAdmin
 {
     /**
      * Register the admin page and assets.
@@ -32,7 +32,7 @@ class AdminPage
         add_submenu_page(
                 'intergroup',
                 __('Reconcile — Member Import', 'reconcile'),
-                __('Reconcile', 'reconcile'),
+                __('Import', 'reconcile'),
                 'manage_options',
                 'reconcile',
                 [$this, 'renderPage']
