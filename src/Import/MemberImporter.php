@@ -6,7 +6,7 @@ namespace Reconcile\Import;
 
 use Unity\Members\Interfaces\Member;
 use Unity\Members\Interfaces\MemberRepository;
-use Unity\Members\Member;
+
 use RuntimeException;
 
 /**
