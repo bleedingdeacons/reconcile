@@ -4,8 +4,8 @@ declare(strict_types=1);
 
 namespace Reconcile\Import;
 
-use Unity\Members\Interfaces\MemberInterface;
-use Unity\Members\Interfaces\MemberRepositoryInterface;
+use Unity\Members\Interfaces\Member;
+use Unity\Members\Interfaces\MemberRepository;
 use Unity\Members\Member;
 use RuntimeException;
 
@@ -43,14 +43,14 @@ class MemberImporter
         'dd/MM/yy',
     ];
 
-    private ?MemberRepositoryInterface $memberRepository;
+    private ?MemberRepository $memberRepository;
     private GroupLookup $groupLookup;
     private PositionLookup $positionLookup;
     private ColumnMapper $columnMapper;
     private SpreadsheetReader $reader;
 
     public function __construct(
-        ?MemberRepositoryInterface $memberRepository,
+        ?MemberRepository $memberRepository,
         GroupLookup $groupLookup,
         PositionLookup $positionLookup
     ) {
@@ -472,7 +472,7 @@ class MemberImporter
     /**
      * Try to find an existing member by anonymous name.
      */
-    private function findExistingMember(string $anonymousName): ?MemberInterface
+    private function findExistingMember(string $anonymousName): ?Member
     {
         if ($this->memberRepository === null) {
             return null;
@@ -507,7 +507,7 @@ class MemberImporter
      * @param int $intergroupPositionId Resolved intergroup position post ID
      * @param string $positionRotation Position rotation value from spreadsheet
      * @param bool $isGSR Parsed GSR status
-     * @param MemberInterface|null $existing Existing member for field preservation
+     * @param Member|null $existing Existing member for field preservation
      */
     private function buildMember(
         int $id,
@@ -516,7 +516,7 @@ class MemberImporter
         int $intergroupPositionId,
         string $positionRotation,
         bool $isGSR,
-        ?MemberInterface $existing = null
+        ?Member $existing = null
     ): Member {
         return new Member(
             id: $id,
@@ -546,11 +546,11 @@ class MemberImporter
     /**
      * Save a member via the repository, capturing any PHP errors or exceptions.
      *
-     * @param MemberInterface $member The member to save
+     * @param Member $member The member to save
      * @param string $errorMessage Populated with the error/exception message on failure
      * @return bool Whether the save succeeded
      */
-    private function saveMember(MemberInterface $member, string &$errorMessage = ''): bool
+    private function saveMember(Member $member, string &$errorMessage = ''): bool
     {
         $capturedError = '';
 

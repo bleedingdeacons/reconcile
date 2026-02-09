@@ -4,8 +4,8 @@ declare(strict_types=1);
 
 namespace Reconcile\Import;
 
-use Unity\Positions\Interfaces\PositionRepositoryInterface;
-use Unity\Positions\Interfaces\PositionInterface;
+use Unity\Positions\Interfaces\PositionRepository;
+use Unity\Positions\Interfaces\Position;
 
 /**
  * Position Lookup
@@ -18,7 +18,7 @@ use Unity\Positions\Interfaces\PositionInterface;
  */
 class PositionLookup
 {
-    private ?PositionRepositoryInterface $positionRepository;
+    private ?PositionRepository $positionRepository;
 
     /**
      * Cached map of lowercase position long name => post ID
@@ -36,7 +36,7 @@ class PositionLookup
      */
     private array $unresolvedNames = [];
 
-    public function __construct(?PositionRepositoryInterface $positionRepository)
+    public function __construct(?PositionRepository $positionRepository)
     {
         $this->positionRepository = $positionRepository;
     }
@@ -120,7 +120,7 @@ class PositionLookup
         }
 
         foreach ($positions as $position) {
-            if (!$position instanceof PositionInterface) {
+            if (!$position instanceof Position) {
                 continue;
             }
 

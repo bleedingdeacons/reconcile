@@ -10,9 +10,9 @@ use Reconcile\Import\GroupLookup;
 use Reconcile\Import\MemberImporter;
 use Reconcile\Import\PositionLookup;
 use Unity\Core\DependencyContainer;
-use Unity\Members\Interfaces\MemberRepositoryInterface;
-use Unity\Groups\Interfaces\GroupRepositoryInterface;
-use Unity\Positions\Interfaces\PositionRepositoryInterface;
+use Unity\Members\Interfaces\MemberRepository;
+use Unity\Groups\Interfaces\GroupRepository;
+use Unity\Positions\Interfaces\PositionRepository;
 
 /**
  * Main Plugin Class
@@ -39,9 +39,9 @@ class Plugin
      */
     public static function unityMembersAvailable(): bool
     {
-        return interface_exists('Unity\\Members\\Interfaces\\MemberFactoryInterface')
-            && interface_exists('Unity\\Members\\Interfaces\\MemberInterface')
-            && interface_exists('Unity\\Members\\Interfaces\\MemberRepositoryInterface');
+        return interface_exists('Unity\\Members\\Interfaces\\MemberFactory')
+            && interface_exists('Unity\\Members\\Interfaces\\Member')
+            && interface_exists('Unity\\Members\\Interfaces\\MemberRepository');
     }
 
     /**
@@ -49,9 +49,9 @@ class Plugin
      */
     public static function unityGroupsAvailable(): bool
     {
-        return interface_exists('Unity\\Groups\\Interfaces\\GroupFactoryInterface')
-            && interface_exists('Unity\\Groups\\Interfaces\\GroupInterface')
-            && interface_exists('Unity\\Groups\\Interfaces\\GroupRepositoryInterface');
+        return interface_exists('Unity\\Groups\\Interfaces\\GroupFactory')
+            && interface_exists('Unity\\Groups\\Interfaces\\Group')
+            && interface_exists('Unity\\Groups\\Interfaces\\GroupRepository');
     }
 
     /**
@@ -59,9 +59,9 @@ class Plugin
      */
     public static function unityPositionsAvailable(): bool
     {
-        return interface_exists('Unity\\Positions\\Interfaces\\PositionFactoryInterface')
-            && interface_exists('Unity\\Positions\\Interfaces\\PositionInterface')
-            && interface_exists('Unity\\Positions\\Interfaces\\PositionRepositoryInterface');
+        return interface_exists('Unity\\Positions\\Interfaces\\PositionFactory')
+            && interface_exists('Unity\\Positions\\Interfaces\\Position')
+            && interface_exists('Unity\\Positions\\Interfaces\\PositionRepository');
     }
 
     /**
@@ -99,14 +99,14 @@ class Plugin
     /**
      * Get the MemberRepository from Unity's container
      */
-    public static function getMemberRepository(): ?MemberRepositoryInterface
+    public static function getMemberRepository(): ?MemberRepository
     {
         if (self::$container === null || !self::unityMembersAvailable()) {
             return null;
         }
 
         try {
-            return self::$container->get(MemberRepositoryInterface::class);
+            return self::$container->get(MemberRepository::class);
         } catch (\Exception $e) {
             error_log('Reconcile: Could not resolve MemberRepository - ' . $e->getMessage());
             return null;
@@ -116,14 +116,14 @@ class Plugin
     /**
      * Get the GroupRepository from Unity's container
      */
-    public static function getGroupRepository(): ?GroupRepositoryInterface
+    public static function getGroupRepository(): ?GroupRepository
     {
         if (self::$container === null || !self::unityGroupsAvailable()) {
             return null;
         }
 
         try {
-            return self::$container->get(GroupRepositoryInterface::class);
+            return self::$container->get(GroupRepository::class);
         } catch (\Exception $e) {
             error_log('Reconcile: Could not resolve GroupRepository - ' . $e->getMessage());
             return null;
@@ -133,14 +133,14 @@ class Plugin
     /**
      * Get the PositionRepository from Unity's container
      */
-    public static function getPositionRepository(): ?PositionRepositoryInterface
+    public static function getPositionRepository(): ?PositionRepository
     {
         if (self::$container === null || !self::unityPositionsAvailable()) {
             return null;
         }
 
         try {
-            return self::$container->get(PositionRepositoryInterface::class);
+            return self::$container->get(PositionRepository::class);
         } catch (\Exception $e) {
             error_log('Reconcile: Could not resolve PositionRepository - ' . $e->getMessage());
             return null;

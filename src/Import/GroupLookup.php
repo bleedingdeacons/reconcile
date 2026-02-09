@@ -4,8 +4,8 @@ declare(strict_types=1);
 
 namespace Reconcile\Import;
 
-use Unity\Groups\Interfaces\GroupRepositoryInterface;
-use Unity\Groups\Interfaces\GroupInterface;
+use Unity\Groups\Interfaces\GroupRepository;
+use Unity\Groups\Interfaces\Group;
 
 /**
  * Group Lookup
@@ -17,7 +17,7 @@ use Unity\Groups\Interfaces\GroupInterface;
  */
 class GroupLookup
 {
-    private ?GroupRepositoryInterface $groupRepository;
+    private ?GroupRepository $groupRepository;
 
     /**
      * Cached map of lowercase group title => post ID
@@ -35,7 +35,7 @@ class GroupLookup
      */
     private array $unresolvedNames = [];
 
-    public function __construct(?GroupRepositoryInterface $groupRepository)
+    public function __construct(?GroupRepository $groupRepository)
     {
         $this->groupRepository = $groupRepository;
     }
@@ -119,7 +119,7 @@ class GroupLookup
         }
 
         foreach ($groups as $group) {
-            if (!$group instanceof GroupInterface) {
+            if (!$group instanceof Group) {
                 continue;
             }
 
