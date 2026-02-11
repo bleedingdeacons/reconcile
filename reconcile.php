@@ -51,7 +51,7 @@ spl_autoload_register(function ($class) {
 });
 
 // Initialize the plugin after Unity is fully loaded
-add_action('unity_loaded', function ($container) {
+add_action('unity/loaded', function ($container) {
     try {
         if (!class_exists('Reconcile\Plugin')) {
             throw new \Exception('Reconcile\Plugin class not found. Check that Plugin.php exists in the src/ directory.');
