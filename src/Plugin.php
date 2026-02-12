@@ -10,6 +10,7 @@ use Reconcile\Import\GroupLookup;
 use Reconcile\Import\MemberImporter;
 use Reconcile\Import\PositionLookup;
 use Unity\Core\DependencyContainer;
+use Unity\Members\Interfaces\MemberFactory;
 use Unity\Members\Interfaces\MemberRepository;
 use Unity\Groups\Interfaces\GroupRepository;
 use Unity\Positions\Interfaces\PositionRepository;
@@ -77,9 +78,10 @@ class Plugin
 
         // Build the import handler with Unity dependencies
         $memberRepository = self::getMemberRepository();
+        $memberFactory = self::getMemberFactory();
         $groupLookup = new GroupLookup(self::getGroupRepository());
         $positionLookup = new PositionLookup(self::getPositionRepository());
-        $memberImporter = new MemberImporter($memberRepository, $groupLookup, $positionLookup);
+        $memberImporter = new MemberImporter($memberRepository, $memberFactory, $groupLookup, $positionLookup);
 
         self::$importHandler = new ImportHandler($memberImporter);
         self::$importHandler->register();
@@ -109,6 +111,23 @@ class Plugin
             return self::$container->get(MemberRepository::class);
         } catch (\Exception $e) {
             error_log('Reconcile: Could not resolve MemberRepository - ' . $e->getMessage());
+            return null;
+        }
+    }
+
+    /**
+     * Get the MemberFactory from Unity's container
+     */
+    public static function getMemberFactory(): ?MemberFactory
+    {
+        if (self::$container === null || !self::unityMembersAvailable()) {
+            return null;
+        }
+
+        try {
+            return self::$container->get(MemberFactory::class);
+        } catch (\Exception $e) {
+            error_log('Reconcile: Could not resolve MemberFactory - ' . $e->getMessage());
             return null;
         }
     }

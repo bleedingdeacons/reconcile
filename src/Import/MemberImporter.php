@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Reconcile\Import;
 
 use Unity\Members\Interfaces\Member;
+use Unity\Members\Interfaces\MemberFactory;
 use Unity\Members\Interfaces\MemberRepository;
 
 use RuntimeException;
@@ -44,6 +45,7 @@ class MemberImporter
     ];
 
     private ?MemberRepository $memberRepository;
+    private ?MemberFactory $memberFactory;
     private GroupLookup $groupLookup;
     private PositionLookup $positionLookup;
     private ColumnMapper $columnMapper;
@@ -51,10 +53,12 @@ class MemberImporter
 
     public function __construct(
         ?MemberRepository $memberRepository,
+        ?MemberFactory $memberFactory,
         GroupLookup $groupLookup,
         PositionLookup $positionLookup
     ) {
         $this->memberRepository = $memberRepository;
+        $this->memberFactory = $memberFactory;
         $this->groupLookup = $groupLookup;
         $this->positionLookup = $positionLookup;
         $this->columnMapper = new ColumnMapper();
@@ -74,6 +78,11 @@ class MemberImporter
 
         if ($this->memberRepository === null) {
             $result->addError('Unity MemberRepository is not available. Is Unity fully configured?');
+            return $result;
+        }
+
+        if ($this->memberFactory === null) {
+            $result->addError('Unity MemberFactory is not available. Is Unity fully configured?');
             return $result;
         }
 
@@ -518,10 +527,9 @@ class MemberImporter
         bool $isGSR,
         ?Member $existing = null
     ): Member {
-        return new Member(
+        return $this->memberFactory->createNew(
             id: $id,
             anonymousName: $rowData['anonymous_name'],
-            email: $existing ? $existing->getEmail() : '',
             showAnonymousName: $existing ? $existing->showAnonymousName() : false,
             showMemberProfile: $existing ? $existing->showMemberProfile() : false,
             anonymousProfile: $existing ? $existing->getAnonymousProfile() : '',
