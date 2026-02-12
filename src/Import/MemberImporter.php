@@ -521,7 +521,6 @@ class MemberImporter
         return new Member(
             id: $id,
             anonymousName: $rowData['anonymous_name'],
-            privateName: $existing ? $existing->getPrivateName() : '',
             email: $existing ? $existing->getEmail() : '',
             showAnonymousName: $existing ? $existing->showAnonymousName() : false,
             showMemberProfile: $existing ? $existing->showMemberProfile() : false,

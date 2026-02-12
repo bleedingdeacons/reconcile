@@ -10,7 +10,7 @@ declare(strict_types=1);
  * Requires PHP: 8.0
  * Author: The Bleeding Deacons
  * Author URI: thebleedingdeacons@gmail.com
- * License: MIT (Modified) (Modified)
+ * License: MIT (Modified)
  */
 
 if (!defined('ABSPATH')) {
