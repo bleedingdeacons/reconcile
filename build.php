@@ -86,15 +86,8 @@ class PluginBuilder
         // Build script
             'build.php',
 
-        // ==== ALL VENDOR PACKAGES (no production dependencies) ====
-            'vendor/bin',
-            'vendor/myclabs',
-            'vendor/nikic',
-            'vendor/phar-io',
-            'vendor/phpstan',
-            'vendor/phpunit',
-            'vendor/sebastian',
-            'vendor/theseer',
+        // Vendor (no production dependencies needed)
+            'vendor',
     ];
 
     // Files and directories to exclude in dev builds
@@ -244,9 +237,12 @@ class PluginBuilder
         $this->createZip($archiveName, $excludes);
 
         // Display file size
-        $size = $this->formatBytes(filesize($archiveName));
         $this->log("Archive created successfully: " . basename($archiveName));
-        $this->log("File size: {$size}");
+        $fileSize = filesize($archiveName);
+        if ($fileSize !== false) {
+            $size = $this->formatBytes($fileSize);
+            $this->log("File size: {$size}");
+        }
         $this->log("Location: {$archiveName}");
     }
 
@@ -306,14 +302,25 @@ class PluginBuilder
             $relativePath = str_replace('\\', '/', $relativePath);
 
             if (is_file($file)) {
-                $zip->addFile($file, $relativePath);
+                // Read file content and add as string to avoid keeping file handles
+                // open (which causes failures on Windows with many files)
+                $contents = file_get_contents($file);
+                if ($contents === false) {
+                    $this->error("Warning: Could not read file: {$file}");
+                    continue;
+                }
+                $zip->addFromString($relativePath, $contents);
                 $fileCount++;
             } elseif (is_dir($file)) {
                 $zip->addEmptyDir($relativePath);
             }
         }
 
-        $zip->close();
+        if (!$zip->close()) {
+            $this->error("Failed to write ZIP archive to: {$archiveName}");
+            exit(1);
+        }
+
         $this->log("Added {$fileCount} files to archive");
     }
 
