@@ -1,0 +1,626 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Reconcile Plugin — User Documentation</title>
+    <link href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700;1,9..40,400&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --bg: #FAFAF8;
+            --surface: #FFFFFF;
+            --border: #E8E5E0;
+            --text: #1A1A18;
+            --text-secondary: #6B6860;
+            --accent: #D97706;
+            --accent-bg: #FEF3C7;
+            --accent-dark: #B45309;
+            --info: #1D4ED8;
+            --info-bg: #DBEAFE;
+            --danger: #DC2626;
+            --danger-bg: #FEE2E2;
+            --success: #16A34A;
+            --success-bg: #DCFCE7;
+            --code-bg: #F5F3EF;
+            --nav-width: 280px;
+            --header-height: 64px;
+            --radius: 10px;
+            --shadow-sm: 0 1px 3px rgba(0,0,0,0.04);
+            --shadow-md: 0 4px 12px rgba(0,0,0,0.06);
+        }
+
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        html { scroll-behavior: smooth; scroll-padding-top: calc(var(--header-height) + 24px); }
+
+        body {
+            font-family: 'DM Sans', sans-serif;
+            font-size: 16px;
+            line-height: 1.7;
+            color: var(--text);
+            background: var(--bg);
+            -webkit-font-smoothing: antialiased;
+        }
+
+        .site-header {
+            position: fixed; top: 0; left: 0; right: 0; z-index: 100;
+            height: var(--header-height);
+            background: rgba(250,250,248,0.92);
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
+            border-bottom: 1px solid var(--border);
+            display: flex; align-items: center; padding: 0 24px; gap: 16px;
+        }
+        .site-header .logo {
+            display: flex; align-items: center; gap: 10px;
+            font-weight: 700; font-size: 20px; color: var(--text);
+            text-decoration: none; letter-spacing: -0.3px;
+        }
+        .site-header .logo span { color: var(--accent); }
+        .site-header .version {
+            font-size: 12px; font-weight: 500; color: var(--text-secondary);
+            background: var(--code-bg); padding: 2px 8px; border-radius: 6px;
+        }
+        .hamburger {
+            display: none; background: none; border: none; cursor: pointer;
+            width: 36px; height: 36px; flex-shrink: 0;
+            border-radius: 8px; align-items: center; justify-content: center;
+        }
+        .hamburger:hover { background: var(--code-bg); }
+        .hamburger svg { width: 22px; height: 22px; color: var(--text); }
+
+        .sidebar {
+            position: fixed; top: var(--header-height); left: 0; bottom: 0;
+            width: var(--nav-width); overflow-y: auto;
+            border-right: 1px solid var(--border);
+            background: var(--bg); padding: 24px 0; z-index: 90;
+        }
+        .sidebar::-webkit-scrollbar { width: 4px; }
+        .sidebar::-webkit-scrollbar-thumb { background: var(--border); border-radius: 4px; }
+
+        .nav-section { padding: 0 20px; margin-bottom: 24px; }
+        .nav-section-title {
+            font-size: 11px; font-weight: 600; text-transform: uppercase;
+            letter-spacing: 1px; color: var(--text-secondary); margin-bottom: 8px;
+            padding-left: 12px;
+        }
+        .nav-link {
+            display: block; padding: 6px 12px; border-radius: 8px;
+            color: var(--text-secondary); text-decoration: none;
+            font-size: 14px; font-weight: 400; transition: all 0.15s; line-height: 1.5;
+        }
+        .nav-link:hover { color: var(--text); background: var(--surface); }
+        .nav-link.active { color: var(--accent-dark); background: var(--accent-bg); font-weight: 500; }
+
+        .main {
+            margin-left: var(--nav-width);
+            padding: calc(var(--header-height) + 40px) 48px 80px;
+            max-width: 860px;
+        }
+
+        h1 { font-size: 36px; font-weight: 700; letter-spacing: -0.8px; line-height: 1.2; margin-bottom: 12px; }
+        h1 .emoji { font-size: 32px; margin-right: 4px; }
+        .subtitle { font-size: 18px; color: var(--text-secondary); font-weight: 400; margin-bottom: 40px; line-height: 1.6; }
+        h2 {
+            font-size: 24px; font-weight: 700; letter-spacing: -0.4px;
+            margin-top: 56px; margin-bottom: 16px; padding-top: 24px;
+            border-top: 1px solid var(--border);
+        }
+        h2:first-of-type { border-top: none; margin-top: 0; padding-top: 0; }
+        h3 { font-size: 18px; font-weight: 600; margin-top: 32px; margin-bottom: 10px; }
+        p { margin-bottom: 16px; }
+        ul, ol { margin-bottom: 16px; padding-left: 24px; }
+        li { margin-bottom: 6px; }
+
+        .card {
+            background: var(--surface); border: 1px solid var(--border);
+            border-radius: var(--radius); padding: 24px; margin-bottom: 24px;
+            box-shadow: var(--shadow-sm);
+        }
+        .callout {
+            border-radius: var(--radius); padding: 16px 20px; margin-bottom: 24px;
+            font-size: 15px; display: flex; gap: 12px; align-items: flex-start; line-height: 1.6;
+        }
+        .callout-icon { font-size: 18px; flex-shrink: 0; margin-top: 1px; }
+        .callout.info { background: var(--info-bg); border-left: 4px solid var(--info); }
+        .callout.warning { background: var(--accent-bg); border-left: 4px solid var(--accent); }
+        .callout.danger { background: var(--danger-bg); border-left: 4px solid var(--danger); }
+        .callout.success { background: var(--success-bg); border-left: 4px solid var(--success); }
+
+        code {
+            font-family: 'JetBrains Mono', monospace; font-size: 13.5px;
+            background: var(--code-bg); padding: 2px 7px; border-radius: 5px;
+            color: var(--accent-dark);
+        }
+        pre {
+            background: #1E1E1C; color: #D4D0C8; border-radius: var(--radius);
+            padding: 20px 24px; margin-bottom: 24px; overflow-x: auto;
+            font-family: 'JetBrains Mono', monospace; font-size: 13px; line-height: 1.7;
+        }
+        pre code { background: none; padding: 0; color: inherit; }
+
+        .status-table { width: 100%; border-collapse: collapse; margin-bottom: 24px; font-size: 15px; }
+        .status-table th {
+            text-align: left; padding: 10px 16px; font-weight: 600;
+            border-bottom: 2px solid var(--border); font-size: 13px;
+            text-transform: uppercase; letter-spacing: 0.5px; color: var(--text-secondary);
+        }
+        .status-table td { padding: 10px 16px; border-bottom: 1px solid var(--border); vertical-align: top; }
+
+        .alias-list { display: flex; flex-wrap: wrap; gap: 4px; }
+        .alias-list code { font-size: 12px; }
+
+        .steps { counter-reset: step; list-style: none; padding-left: 0; }
+        .steps li {
+            counter-increment: step; padding-left: 44px; position: relative;
+            margin-bottom: 20px; min-height: 32px;
+        }
+        .steps li::before {
+            content: counter(step);
+            position: absolute; left: 0; top: 0;
+            width: 30px; height: 30px; border-radius: 50%;
+            background: var(--accent); color: #fff;
+            font-weight: 700; font-size: 14px;
+            display: flex; align-items: center; justify-content: center;
+        }
+
+        .flow-diagram {
+            display: flex; align-items: center; gap: 8px; flex-wrap: wrap;
+            margin: 16px 0 24px; font-size: 14px;
+        }
+        .flow-step {
+            background: var(--surface); border: 1px solid var(--border);
+            border-radius: 8px; padding: 8px 14px; font-weight: 500;
+        }
+        .flow-arrow { color: var(--accent); font-weight: 700; font-size: 18px; }
+
+        .overlay { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.3); z-index: 80; }
+
+        @media (max-width: 860px) {
+            .sidebar { transform: translateX(-100%); transition: transform 0.25s ease; box-shadow: var(--shadow-md); }
+            .sidebar.open { transform: translateX(0); }
+            .overlay.visible { display: block; }
+            .hamburger { display: flex; }
+            .main { margin-left: 0; padding: calc(var(--header-height) + 24px) 20px 60px; }
+            h1 { font-size: 28px; }
+            h2 { font-size: 20px; }
+            pre { padding: 16px; font-size: 12px; }
+            .status-table { font-size: 14px; }
+            .status-table th, .status-table td { padding: 8px 10px; }
+            .flow-diagram { font-size: 12px; }
+        }
+
+        @media print {
+            .site-header, .sidebar, .hamburger, .overlay { display: none !important; }
+            .main { margin-left: 0; padding: 20px; max-width: 100%; }
+        }
+    </style>
+</head>
+<body>
+
+<header class="site-header">
+    <button class="hamburger" onclick="toggleNav()" aria-label="Toggle navigation">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/></svg>
+    </button>
+    <a href="#" class="logo">
+        <span>📋</span> Reconcile <span>Docs</span>
+    </a>
+    <span class="version">February 2026</span>
+</header>
+
+<div class="overlay" onclick="toggleNav()"></div>
+
+<nav class="sidebar" id="sidebar">
+    <div class="nav-section">
+        <div class="nav-section-title">Getting Started</div>
+        <a href="#overview" class="nav-link active">Overview</a>
+        <a href="#requirements" class="nav-link">Requirements</a>
+        <a href="#installation" class="nav-link">Installation</a>
+    </div>
+    <div class="nav-section">
+        <div class="nav-section-title">Importing</div>
+        <a href="#import-page" class="nav-link">The Import Page</a>
+        <a href="#how-it-works" class="nav-link">How Import Works</a>
+        <a href="#dry-run" class="nav-link">Dry Run Mode</a>
+    </div>
+    <div class="nav-section">
+        <div class="nav-section-title">Spreadsheet Format</div>
+        <a href="#file-formats" class="nav-link">File Formats</a>
+        <a href="#column-reference" class="nav-link">Column Reference</a>
+        <a href="#column-matching" class="nav-link">Column Matching</a>
+    </div>
+    <div class="nav-section">
+        <div class="nav-section-title">Field Rules</div>
+        <a href="#group-lookup" class="nav-link">Home Group Lookup</a>
+        <a href="#position-lookup" class="nav-link">Position Lookup</a>
+        <a href="#date-formats" class="nav-link">Date Formats</a>
+        <a href="#gsr-values" class="nav-link">GSR Boolean Values</a>
+    </div>
+    <div class="nav-section">
+        <div class="nav-section-title">Results</div>
+        <a href="#results" class="nav-link">Understanding Results</a>
+        <a href="#skipped-rows" class="nav-link">Skipped Rows</a>
+        <a href="#warnings" class="nav-link">Warnings</a>
+    </div>
+    <div class="nav-section">
+        <div class="nav-section-title">Help</div>
+        <a href="#troubleshooting" class="nav-link">Troubleshooting</a>
+        <a href="#faq" class="nav-link">FAQ</a>
+    </div>
+</nav>
+
+<main class="main">
+
+    <!-- Overview -->
+    <section id="overview">
+        <h1><span class="emoji">📋</span> Reconcile Plugin</h1>
+        <p class="subtitle">
+            Import and reconcile member data from spreadsheets. Upload a CSV or XLSX file, and Reconcile will create new members or update existing ones — matching Home Groups and Intergroup Positions automatically by name.
+        </p>
+
+        <div class="card">
+            <h3>What Reconcile Does</h3>
+            <p>Reconcile adds an <strong>Import</strong> page under the Intergroup menu. You upload a spreadsheet containing member data, and the plugin reads each row, maps the columns to member fields, resolves text names (like "Tuesday Night Group" or "Treasurer") to their matching WordPress posts, and either creates a new member or updates the existing one.</p>
+            <p style="margin-bottom:0;">It includes a <strong>dry run</strong> mode so you can validate your spreadsheet before committing any changes.</p>
+        </div>
+
+        <div class="flow-diagram">
+            <span class="flow-step">Upload spreadsheet</span>
+            <span class="flow-arrow">→</span>
+            <span class="flow-step">Map columns</span>
+            <span class="flow-arrow">→</span>
+            <span class="flow-step">Resolve names</span>
+            <span class="flow-arrow">→</span>
+            <span class="flow-step">Validate rows</span>
+            <span class="flow-arrow">→</span>
+            <span class="flow-step">Create / Update</span>
+        </div>
+    </section>
+
+    <!-- Requirements -->
+    <section id="requirements">
+        <h2>Requirements</h2>
+        <ul>
+            <li><strong>WordPress</strong> 6.0 or later</li>
+            <li><strong>PHP</strong> 8.0 or later</li>
+            <li><strong>Unity plugin</strong> — must be installed and activated (provides the member, group, and position data layer)</li>
+            <li><strong>Scrutiny plugin</strong> — listed as a required dependency for GDPR compliance</li>
+            <li><strong>PHP zip extension</strong> — required for XLSX file support (most servers have this by default)</li>
+        </ul>
+    </section>
+
+    <!-- Installation -->
+    <section id="installation">
+        <h2>Installation</h2>
+        <ol class="steps">
+            <li>Make sure <strong>Unity</strong> and <strong>Scrutiny</strong> are installed and activated.</li>
+            <li>Upload the <code>reconcile</code> folder to <code>/wp-content/plugins/</code>, or install via the WordPress plugin uploader.</li>
+            <li>Go to <strong>Plugins → Installed Plugins</strong> and activate <strong>Reconcile</strong>.</li>
+            <li>A new <strong>Import</strong> submenu appears under <strong>Intergroup</strong>.</li>
+        </ol>
+    </section>
+
+    <!-- Import Page -->
+    <section id="import-page">
+        <h2>The Import Page</h2>
+        <p>Navigate to <strong>Intergroup → Import</strong>. The page has three sections:</p>
+        <ul>
+            <li><strong>Column reference table</strong> — shows every accepted column header, its aliases, and any special rules (dates, booleans, name lookups)</li>
+            <li><strong>File upload form</strong> — choose a <code>.csv</code> or <code>.xlsx</code> file, toggle dry run on or off, and click Import</li>
+            <li><strong>Results panel</strong> — appears after the import runs, showing counts and any warnings or errors</li>
+        </ul>
+
+        <div class="callout info">
+            <span class="callout-icon">💡</span>
+            <div>Only users with the <code>manage_options</code> capability (typically Administrators) can access the Import page and run imports.</div>
+        </div>
+    </section>
+
+    <!-- How It Works -->
+    <section id="how-it-works">
+        <h2>How Import Works</h2>
+        <p>When you click Import, Reconcile processes your spreadsheet in this order:</p>
+        <ol class="steps">
+            <li><strong>Read the file</strong> — CSV files are streamed line-by-line; XLSX files are parsed using PHP's built-in ZIP and XML extensions (no external library needed).</li>
+            <li><strong>Map columns</strong> — the first row is treated as headers. Each header is normalised (lowercased, trimmed) and matched against the known aliases for each property. If required columns are missing, the import stops with an error.</li>
+            <li><strong>Resolve names</strong> — Home Group and Intergroup Position values are matched (case-insensitive) against existing WordPress posts. Unmatched names generate warnings but don't block the import.</li>
+            <li><strong>Validate each row</strong> — Anonymous Name must not be empty. If an Intergroup Position is set, a valid Rotation Date is required. Invalid rows are skipped with a reason.</li>
+            <li><strong>Create or update</strong> — Reconcile looks for an existing member by matching the Anonymous Name. If found, the member is updated. If not, a new member post is created. Existing fields that are not part of the import (like profile text or display settings) are preserved on updates.</li>
+        </ol>
+    </section>
+
+    <!-- Dry Run -->
+    <section id="dry-run">
+        <h2>Dry Run Mode</h2>
+        <p>The <strong>"Dry run"</strong> checkbox is enabled by default. When checked, Reconcile validates every row and reports what <em>would</em> happen — how many members would be created, updated, or skipped — without actually writing anything to the database.</p>
+
+        <div class="callout success">
+            <span class="callout-icon">✅</span>
+            <div><strong>Always run a dry run first.</strong> This catches missing columns, unrecognised group/position names, and invalid dates before any data is changed. Once you're happy with the dry run results, uncheck the box and import again for real.</div>
+        </div>
+    </section>
+
+    <!-- File Formats -->
+    <section id="file-formats">
+        <h2>File Formats</h2>
+        <p>Reconcile accepts two file types:</p>
+
+        <table class="status-table">
+            <thead><tr><th>Format</th><th>Extension</th><th>Notes</th></tr></thead>
+            <tbody>
+            <tr><td><strong>CSV</strong></td><td><code>.csv</code></td><td>Comma-separated values. UTF-8 encoding recommended. BOM is stripped automatically if present.</td></tr>
+            <tr><td><strong>Excel</strong></td><td><code>.xlsx</code></td><td>Modern Excel format. Only the first worksheet (sheet1) is read. Requires the PHP zip extension.</td></tr>
+            </tbody>
+        </table>
+
+        <p>In both cases, the <strong>first row must contain column headers</strong>. All subsequent rows are treated as data.</p>
+    </section>
+
+    <!-- Column Reference -->
+    <section id="column-reference">
+        <h2>Column Reference</h2>
+        <p>Your spreadsheet needs columns for each member property. The header text is flexible — Reconcile accepts several aliases for each property:</p>
+
+        <table class="status-table">
+            <thead><tr><th>Property</th><th>Accepted Headers</th><th>Notes</th></tr></thead>
+            <tbody>
+            <tr>
+                <td><strong>Anonymous Name</strong></td>
+                <td><div class="alias-list"><code>Anonymous Name</code> <code>anonymous_name</code> <code>anonymousname</code></div></td>
+                <td>Required. Must not be empty. Used to match existing members for updates.</td>
+            </tr>
+            <tr>
+                <td><strong>Home Group</strong></td>
+                <td><div class="alias-list"><code>Home Group</code> <code>home_group</code> <code>homegroup</code></div></td>
+                <td>Text value — looked up against existing group titles to resolve the post ID.</td>
+            </tr>
+            <tr>
+                <td><strong>Personal Email</strong></td>
+                <td><div class="alias-list"><code>Personal Email</code> <code>personal_email</code> <code>personalemail</code></div></td>
+                <td>The member's private email address.</td>
+            </tr>
+            <tr>
+                <td><strong>Mobile</strong></td>
+                <td><div class="alias-list"><code>Mobile Number</code> <code>mobile_number</code> <code>mobilenumber</code> <code>mobile</code></div></td>
+                <td>The member's phone number.</td>
+            </tr>
+            <tr>
+                <td><strong>GSR Status</strong></td>
+                <td><div class="alias-list"><code>GSR</code> <code>Is GSR</code> <code>is_gsr</code> <code>isgsr</code></div></td>
+                <td>Boolean — see <a href="#gsr-values">GSR Boolean Values</a>.</td>
+            </tr>
+            <tr>
+                <td><strong>Intergroup Position</strong></td>
+                <td><div class="alias-list"><code>Intergroup Position</code> <code>intergroup_position</code> <code>intergroupposition</code> <code>position</code></div></td>
+                <td>Text value — looked up against existing position names to resolve the post ID.</td>
+            </tr>
+            <tr>
+                <td><strong>Position Rotation</strong></td>
+                <td><div class="alias-list"><code>Intergroup Position Rotation</code> <code>intergroup_position_rotation</code></div></td>
+                <td>Required when a Position is set. See <a href="#date-formats">Date Formats</a>. Row is skipped if position is present but rotation is missing or invalid.</td>
+            </tr>
+            </tbody>
+        </table>
+
+        <div class="callout warning">
+            <span class="callout-icon">⚠️</span>
+            <div>The first six columns (Anonymous Name through Intergroup Position) are <strong>required</strong> in the spreadsheet. Position Rotation is conditionally required — it must be present if a Position value is provided.</div>
+        </div>
+    </section>
+
+    <!-- Column Matching -->
+    <section id="column-matching">
+        <h2>Column Matching</h2>
+        <p>Reconcile normalises your column headers before matching: it lowercases the text, trims whitespace, and strips special characters (keeping only letters, numbers, spaces, and underscores). This means all of the following would match the "Anonymous Name" property:</p>
+        <ul>
+            <li><code>Anonymous Name</code></li>
+            <li><code>anonymous_name</code></li>
+            <li><code>ANONYMOUS NAME</code></li>
+            <li><code>  anonymous name  </code></li>
+        </ul>
+        <p>Extra columns in your spreadsheet that don't match any known property are silently ignored — they won't cause errors.</p>
+    </section>
+
+    <!-- Group Lookup -->
+    <section id="group-lookup">
+        <h2>Home Group Lookup</h2>
+        <p>The Home Group column should contain the <strong>group name as text</strong> (e.g. "Tuesday Night Group"). Reconcile loads all existing groups into a cache and matches your text against group titles, case-insensitively.</p>
+        <ul>
+            <li>If a match is found, the group's post ID is assigned to the member.</li>
+            <li>If no match is found, the Home Group is set to 0 (unassigned) and a warning is added to the results listing all unresolved group names.</li>
+            <li>An empty Home Group cell is valid — it simply means no group is assigned.</li>
+        </ul>
+    </section>
+
+    <!-- Position Lookup -->
+    <section id="position-lookup">
+        <h2>Position Lookup</h2>
+        <p>The Intergroup Position column should contain the <strong>position's long name as text</strong> (e.g. "Treasurer", "GSR Liaison"). Reconcile matches against position long names, case-insensitively.</p>
+        <ul>
+            <li>If a match is found, the position's post ID is assigned.</li>
+            <li>If no match is found, the position is set to 0 and a warning is generated.</li>
+            <li>An empty position cell is valid — it means the member holds no intergroup position.</li>
+        </ul>
+
+        <div class="callout danger">
+            <span class="callout-icon">🚨</span>
+            <div>If a Position <em>is</em> set, a valid <strong>Position Rotation</strong> date is required. Rows with a position but no rotation date (or an invalid one) are <strong>skipped entirely</strong>.</div>
+        </div>
+    </section>
+
+    <!-- Date Formats -->
+    <section id="date-formats">
+        <h2>Date Formats</h2>
+        <p>The Position Rotation column accepts these date formats. All separators (<code>/</code> <code>-</code> <code>.</code>) are interchangeable:</p>
+
+        <table class="status-table">
+            <thead><tr><th>Format</th><th>Example</th></tr></thead>
+            <tbody>
+            <tr><td><code>yyyy/MM/dd</code></td><td>2025/01/15 &nbsp; 2025-01-15 &nbsp; 2025.01.15</td></tr>
+            <tr><td><code>dd/MM/yyyy</code></td><td>15/01/2025 &nbsp; 15-01-2025 &nbsp; 15.01.2025</td></tr>
+            <tr><td><code>dd/MM/yy</code></td><td>15/01/25 &nbsp; 15-01-25 &nbsp; 15.01.25</td></tr>
+            </tbody>
+        </table>
+
+        <p>All dates are normalised to <code>yyyy-MM-dd</code> (ISO format) on import. Two-digit years are interpreted as 2000+, so <code>25</code> becomes <code>2025</code>. The date must be a real calendar date — <code>31/02/2025</code> will be rejected.</p>
+    </section>
+
+    <!-- GSR Values -->
+    <section id="gsr-values">
+        <h2>GSR Boolean Values</h2>
+        <p>The GSR Status column is parsed as a boolean. The following values (case-insensitive) are treated as <strong>true</strong>:</p>
+        <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:16px;">
+            <code>yes</code> <code>y</code> <code>true</code> <code>1</code> <code>gsr</code>
+        </div>
+        <p>Everything else — including empty cells, "no", "n", "false", "0" — is treated as <strong>false</strong>.</p>
+    </section>
+
+    <!-- Results -->
+    <section id="results">
+        <h2>Understanding Results</h2>
+        <p>After an import (or dry run), the results panel shows a summary with four counts:</p>
+
+        <table class="status-table">
+            <thead><tr><th>Metric</th><th>Meaning</th></tr></thead>
+            <tbody>
+            <tr><td><strong>Total Rows</strong></td><td>The number of data rows in the spreadsheet (excluding the header row).</td></tr>
+            <tr><td><strong>Created</strong></td><td>New member posts that were created (or would be created in dry run).</td></tr>
+            <tr><td><strong>Updated</strong></td><td>Existing members that were matched by Anonymous Name and updated.</td></tr>
+            <tr><td><strong>Skipped</strong></td><td>Rows that could not be imported due to validation errors.</td></tr>
+            </tbody>
+        </table>
+    </section>
+
+    <!-- Skipped Rows -->
+    <section id="skipped-rows">
+        <h2>Skipped Rows</h2>
+        <p>When a row is skipped, Reconcile reports the row number, the reason for skipping, and a detail view showing the raw cell values and any resolved IDs. Common skip reasons:</p>
+
+        <div class="card">
+            <h3>Anonymous Name is empty</h3>
+            <p>Every member must have an Anonymous Name. Rows with a blank name are skipped.</p>
+        </div>
+
+        <div class="card">
+            <h3>Position set but Rotation missing or invalid</h3>
+            <p>If an Intergroup Position value is provided, a valid Rotation Date is required in the same row. If the date cell is empty, blank, or in an unrecognised format, the row is skipped.</p>
+        </div>
+
+        <div class="card">
+            <h3>Failed to create/update WordPress post</h3>
+            <p style="margin-bottom:0;">Rare, but can happen if there's a database error or permissions issue. The error message from WordPress is included in the skip reason.</p>
+        </div>
+    </section>
+
+    <!-- Warnings -->
+    <section id="warnings">
+        <h2>Warnings</h2>
+        <p>Warnings don't prevent an import — they flag things you should review:</p>
+        <ul>
+            <li><strong>Unresolved Home Groups</strong> — group names that didn't match any existing group. The member is imported with Home Group set to 0 (unassigned). Check the spelling matches the group title in WordPress exactly.</li>
+            <li><strong>Unresolved Intergroup Positions</strong> — position names that didn't match. Same as groups — check the spelling against the position's long name in WordPress.</li>
+            <li><strong>Per-row lookup warnings</strong> — a specific row's Home Group or Position couldn't be matched. Shown inline with the row number.</li>
+        </ul>
+    </section>
+
+    <!-- Troubleshooting -->
+    <section id="troubleshooting">
+        <h2>Troubleshooting</h2>
+
+        <div class="card">
+            <h3>"Missing required columns" error</h3>
+            <p>Your spreadsheet header row doesn't contain all required columns. Check the <a href="#column-reference">Column Reference</a> for accepted header names. Remember: the first row must be headers, not data.</p>
+        </div>
+
+        <div class="card">
+            <h3>All rows are being skipped</h3>
+            <p>Check that Anonymous Name is populated in every row. If you're providing Intergroup Positions, make sure every row with a position also has a valid rotation date.</p>
+        </div>
+
+        <div class="card">
+            <h3>Group/Position names aren't matching</h3>
+            <p>Matching is case-insensitive but otherwise exact. Check for extra spaces, typos, or abbreviated names. The group name must match the <strong>post title</strong> in WordPress; the position name must match the position's <strong>long name</strong>.</p>
+        </div>
+
+        <div class="card">
+            <h3>XLSX files fail with "zip extension required"</h3>
+            <p>The PHP <code>zip</code> extension is needed to read XLSX files. Ask your hosting provider to enable it, or convert your file to CSV as a workaround.</p>
+        </div>
+
+        <div class="card">
+            <h3>CSV encoding issues (garbled characters)</h3>
+            <p>Save your CSV in <strong>UTF-8</strong> encoding. Reconcile strips the UTF-8 BOM automatically, but other encodings (like Windows-1252) may cause garbled text.</p>
+        </div>
+
+        <div class="card">
+            <h3>Import page not visible</h3>
+            <p>The Import page requires <code>manage_options</code> — only Administrators can see it. It also requires both Unity and Scrutiny to be active, and appears under the <strong>Intergroup</strong> menu (added by Amber).</p>
+        </div>
+    </section>
+
+    <!-- FAQ -->
+    <section id="faq">
+        <h2>FAQ</h2>
+
+        <div class="card">
+            <h3>Does importing overwrite existing member data?</h3>
+            <p>Yes — for the fields included in the import. If an existing member is found (by Anonymous Name), the imported values replace the current ones for those fields. However, fields that are <em>not</em> part of the import (such as profile text, display settings, and meeting PO) are preserved.</p>
+        </div>
+
+        <div class="card">
+            <h3>How does Reconcile match existing members?</h3>
+            <p>By <strong>Anonymous Name</strong> (exact match). If a member with the same Anonymous Name already exists in WordPress, that member is updated. If no match is found, a new member is created.</p>
+        </div>
+
+        <div class="card">
+            <h3>Can I import members without a Home Group or Position?</h3>
+            <p>Yes. The columns must exist in the spreadsheet (they're structurally required), but the cells can be left empty. An empty Home Group or Position simply means "none assigned".</p>
+        </div>
+
+        <div class="card">
+            <h3>What happens to the uploaded file?</h3>
+            <p>The file is moved to a temporary directory inside <code>wp-content/uploads/reconcile-tmp/</code>, processed, and then <strong>deleted immediately</strong> — whether the import succeeds or fails. No spreadsheet data is stored permanently.</p>
+        </div>
+
+        <div class="card">
+            <h3>Can I undo an import?</h3>
+            <p>There is no built-in undo. If you've made a mistake, you'll need to correct the data manually or re-import a corrected spreadsheet. This is why the <strong>dry run</strong> mode exists — always validate first.</p>
+        </div>
+
+        <div class="card" style="margin-bottom:0;">
+            <h3>Can I use Reconcile without Amber?</h3>
+            <p style="margin-bottom:0;">Reconcile registers its menu page under the "Intergroup" menu slug, which is created by Amber. If Amber is not active, the Import page won't appear in the menu. You need at minimum Unity, Scrutiny, and Amber for the full menu structure.</p>
+        </div>
+    </section>
+
+</main>
+
+<script>
+    function toggleNav() {
+        document.getElementById('sidebar').classList.toggle('open');
+        document.querySelector('.overlay').classList.toggle('visible');
+    }
+
+    const sections = document.querySelectorAll('section[id]');
+    const navLinks = document.querySelectorAll('.nav-link');
+
+    function updateActiveLink() {
+        let current = '';
+        const scrollY = window.scrollY + 100;
+        sections.forEach(section => {
+            if (section.offsetTop <= scrollY) current = section.getAttribute('id');
+        });
+        navLinks.forEach(link => {
+            link.classList.remove('active');
+            if (link.getAttribute('href') === '#' + current) link.classList.add('active');
+        });
+    }
+
+    window.addEventListener('scroll', updateActiveLink, { passive: true });
+    navLinks.forEach(link => {
+        link.addEventListener('click', () => {
+            if (window.innerWidth <= 860) toggleNav();
+        });
+    });
+</script>
+</body>
+</html>
