@@ -9,7 +9,7 @@ use Reconcile\Admin\ImportHandler;
 use Reconcile\Import\GroupLookup;
 use Reconcile\Import\MemberImporter;
 use Reconcile\Import\PositionLookup;
-use Unity\Core\DependencyContainer;
+use Psr\Container\ContainerInterface;
 use Unity\Members\Interfaces\MemberFactory;
 use Unity\Members\Interfaces\MemberRepository;
 use Unity\Groups\Interfaces\GroupRepository;
@@ -22,7 +22,7 @@ use Unity\Positions\Interfaces\PositionRepository;
  */
 class Plugin
 {
-    private static ?DependencyContainer $container = null;
+    private static ?ContainerInterface $container = null;
     private static ?MemberImportAdmin $adminPage = null;
     private static ?ImportHandler $importHandler = null;
 
@@ -31,7 +31,7 @@ class Plugin
      */
     public static function unityIsAvailable(): bool
     {
-        return class_exists('Unity\\Core\\DependencyContainer')
+        return class_exists('Unity\\Core\\Interfaces\\Container')
             && class_exists('Unity\\Core\\UnityServiceProvider');
     }
 
@@ -68,7 +68,7 @@ class Plugin
     /**
      * Initialise the plugin with Unity's container
      */
-    public static function init(DependencyContainer $container): void
+    public static function init(ContainerInterface $container): void
     {
         self::$container = $container;
 
@@ -93,7 +93,7 @@ class Plugin
     /**
      * Get the Unity dependency container
      */
-    public static function getContainer(): ?DependencyContainer
+    public static function getContainer(): ?ContainerInterface
     {
         return self::$container;
     }
