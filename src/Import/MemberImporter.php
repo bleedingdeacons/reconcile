@@ -31,7 +31,7 @@ class MemberImporter
     /**
      * Values recognised as boolean true when parsing the GSR Status column.
      */
-    private const TRUTHY_VALUES = ['yes', 'y', 'true', '1', 'gsr'];
+    private const TRUTHY_VALUES = ['yes', 'y', 'true', '1'];
 
     /**
      * Accepted date formats for Position Rotation, shown in help text.

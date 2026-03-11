@@ -47,20 +47,16 @@ class ColumnMapper
         'mobile_number' => [
             'mobile number',
             'mobile_number',
-            'mobilenumber',
             'mobile',
         ],
         'is_gsr' => [
             'gsr',
-            'is gsr',
             'is_gsr',
             'isgsr',
         ],
         'intergroup_position' => [
             'intergroup position',
             'intergroup_position',
-            'intergroupposition',
-            'position',
         ],
         'intergroup_position_rotation' => [
             'intergroup position rotation',

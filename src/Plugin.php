@@ -5,13 +5,18 @@ declare(strict_types=1);
 namespace Reconcile;
 
 use Reconcile\Admin\MemberImportAdmin;
+use Reconcile\Admin\GroupImportAdmin;
 use Reconcile\Admin\ImportHandler;
+use Reconcile\Admin\GroupImportHandler;
 use Reconcile\Import\GroupLookup;
 use Reconcile\Import\MemberImporter;
+use Reconcile\Import\GroupImporter;
 use Reconcile\Import\PositionLookup;
 use Psr\Container\ContainerInterface;
+use Unity\Contacts\Interfaces\ContactFactory;
 use Unity\Members\Interfaces\MemberFactory;
 use Unity\Members\Interfaces\MemberRepository;
+use Unity\Groups\Interfaces\GroupFactory;
 use Unity\Groups\Interfaces\GroupRepository;
 use Unity\Positions\Interfaces\PositionRepository;
 
@@ -19,12 +24,76 @@ use Unity\Positions\Interfaces\PositionRepository;
  * Main Plugin Class
  *
  * Initialises admin pages and import services using Unity's container.
+ *
+ * Menu registration happens early (via registerMenus) to guarantee the
+ * admin_menu hook has not yet fired. AJAX handlers are wired later
+ * (via init) once Unity's container is available.
  */
 class Plugin
 {
     private static ?ContainerInterface $container = null;
-    private static ?MemberImportAdmin $adminPage = null;
+    private static ?MemberImportAdmin $memberAdminPage = null;
+    private static ?GroupImportAdmin $groupAdminPage = null;
     private static ?ImportHandler $importHandler = null;
+    private static ?GroupImportHandler $groupImportHandler = null;
+
+    /**
+     * Register the top-level Reconcile menu and submenu pages.
+     *
+     * Called early — before unity/loaded — so the menu is guaranteed
+     * to appear regardless of when Unity finishes initialising.
+     */
+    public static function registerMenus(): void
+    {
+        if (!is_admin()) {
+            return;
+        }
+
+        self::$memberAdminPage = new MemberImportAdmin();
+        self::$memberAdminPage->register();
+
+        self::$groupAdminPage = new GroupImportAdmin();
+        self::$groupAdminPage->register();
+
+        add_action('admin_menu', [self::class, 'addMenuPages']);
+    }
+
+    /**
+     * WordPress admin_menu callback — creates the top-level menu and submenus.
+     */
+    public static function addMenuPages(): void
+    {
+        // Top-level menu
+        add_menu_page(
+            __('Reconcile', 'reconcile'),
+            __('Reconcile', 'reconcile'),
+            'manage_options',
+            'reconcile',
+            [self::$memberAdminPage, 'renderPage'],
+            'dashicons-update',
+            30
+        );
+
+        // First submenu replaces the auto-generated top-level duplicate
+        add_submenu_page(
+            'reconcile',
+            __('Reconcile — Member Import', 'reconcile'),
+            __('Member Import', 'reconcile'),
+            'manage_options',
+            'reconcile',
+            [self::$memberAdminPage, 'renderPage']
+        );
+
+        // Group Import submenu
+        add_submenu_page(
+            'reconcile',
+            __('Reconcile — Group Import', 'reconcile'),
+            __('Group Import', 'reconcile'),
+            'manage_options',
+            'reconcile-groups',
+            [self::$groupAdminPage, 'renderPage']
+        );
+    }
 
     /**
      * Check if Unity plugin is active and has required interfaces
@@ -66,7 +135,18 @@ class Plugin
     }
 
     /**
-     * Initialise the plugin with Unity's container
+     * Check if Unity's contact interfaces are available
+     */
+    public static function unityContactsAvailable(): bool
+    {
+        return interface_exists('Unity\\Contacts\\Interfaces\\ContactFactory')
+            && interface_exists('Unity\\Contacts\\Interfaces\\Contact');
+    }
+
+    /**
+     * Initialise import services with Unity's container.
+     *
+     * Called from the unity/loaded hook once the container is ready.
      */
     public static function init(ContainerInterface $container): void
     {
@@ -76,7 +156,7 @@ class Plugin
             return;
         }
 
-        // Build the import handler with Unity dependencies
+        // --- Member Import AJAX handler ---
         $memberRepository = self::getMemberRepository();
         $memberFactory = self::getMemberFactory();
         $groupLookup = new GroupLookup(self::getGroupRepository());
@@ -86,8 +166,14 @@ class Plugin
         self::$importHandler = new ImportHandler($memberImporter);
         self::$importHandler->register();
 
-        self::$adminPage = new MemberImportAdmin();
-        self::$adminPage->register();
+        // --- Group Import AJAX handler ---
+        $groupRepository = self::getGroupRepository();
+        $groupFactory = self::getGroupFactory();
+        $contactFactory = self::getContactFactory();
+        $groupImporter = new GroupImporter($groupRepository, $groupFactory, $contactFactory);
+
+        self::$groupImportHandler = new GroupImportHandler($groupImporter);
+        self::$groupImportHandler->register();
     }
 
     /**
@@ -145,6 +231,40 @@ class Plugin
             return self::$container->get(GroupRepository::class);
         } catch (\Exception $e) {
             error_log('Reconcile: Could not resolve GroupRepository - ' . $e->getMessage());
+            return null;
+        }
+    }
+
+    /**
+     * Get the GroupFactory from Unity's container
+     */
+    public static function getGroupFactory(): ?GroupFactory
+    {
+        if (self::$container === null || !self::unityGroupsAvailable()) {
+            return null;
+        }
+
+        try {
+            return self::$container->get(GroupFactory::class);
+        } catch (\Exception $e) {
+            error_log('Reconcile: Could not resolve GroupFactory - ' . $e->getMessage());
+            return null;
+        }
+    }
+
+    /**
+     * Get the ContactFactory from Unity's container
+     */
+    public static function getContactFactory(): ?ContactFactory
+    {
+        if (self::$container === null || !self::unityContactsAvailable()) {
+            return null;
+        }
+
+        try {
+            return self::$container->get(ContactFactory::class);
+        } catch (\Exception $e) {
+            error_log('Reconcile: Could not resolve ContactFactory - ' . $e->getMessage());
             return null;
         }
     }

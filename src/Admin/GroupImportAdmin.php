@@ -4,16 +4,16 @@ declare(strict_types=1);
 
 namespace Reconcile\Admin;
 
-use Reconcile\Import\ColumnMapper;
-use Reconcile\Import\MemberImporter;
+use Reconcile\Import\GroupColumnMapper;
+use Reconcile\Import\GroupImporter;
 
 /**
- * Member Import Admin Page
+ * Group Import Admin Page
  *
- * Renders the Member Import admin page and enqueues its assets.
+ * Renders the Group Import admin page and enqueues its assets.
  * Menu registration is handled by the Plugin class to ensure correct timing.
  */
-class MemberImportAdmin
+class GroupImportAdmin
 {
     /**
      * Register asset enqueuing.
@@ -28,7 +28,7 @@ class MemberImportAdmin
      */
     public function enqueueAssets(string $hookSuffix): void
     {
-        if ($hookSuffix !== 'toplevel_page_reconcile') {
+        if ($hookSuffix !== 'reconcile_page_reconcile-groups') {
             return;
         }
 
@@ -40,16 +40,16 @@ class MemberImportAdmin
         );
 
         wp_enqueue_script(
-            'reconcile-admin',
-            RECONCILE_URL . 'assets/js/admin.js',
+            'reconcile-group-admin',
+            RECONCILE_URL . 'assets/js/group-admin.js',
             ['jquery'],
             RECONCILE_VERSION,
             true
         );
 
-        wp_localize_script('reconcile-admin', 'reconcileAdmin', [
+        wp_localize_script('reconcile-group-admin', 'reconcileGroupAdmin', [
             'ajaxUrl' => admin_url('admin-ajax.php'),
-            'nonce'   => wp_create_nonce('reconcile_import'),
+            'nonce'   => wp_create_nonce('reconcile_group_import'),
         ]);
     }
 
@@ -58,23 +58,24 @@ class MemberImportAdmin
      */
     public function renderPage(): void
     {
-        $acceptedHeaders = ColumnMapper::getAcceptedHeaders();
-        $labels = ColumnMapper::getPropertyLabels();
+        $acceptedHeaders = GroupColumnMapper::getAcceptedHeaders();
+        $labels = GroupColumnMapper::getPropertyLabels();
         $notes = self::getPropertyNotes();
-        $truthyValues = MemberImporter::getTruthyValues();
+        $truthyValues = GroupImporter::getTruthyValues();
 
         ?>
         <div class="wrap reconcile-wrap">
-            <h1><?php esc_html_e('Reconcile — Member Import', 'reconcile'); ?></h1>
+            <h1><?php esc_html_e('Reconcile — Group Import', 'reconcile'); ?></h1>
 
             <div class="reconcile-card">
-                <h2><?php esc_html_e('Import Members from Spreadsheet', 'reconcile'); ?></h2>
+                <h2><?php esc_html_e('Import Groups from Spreadsheet', 'reconcile'); ?></h2>
                 <p class="description">
                     <?php esc_html_e(
-                        'Upload a .csv or .xlsx file with member data. The first row must contain column headers '
-                        . 'that match the expected property names. The Home Group and Intergroup Position columns '
-                        . 'should contain the name as text — they will be automatically matched to the corresponding '
-                        . 'WordPress posts.',
+                        'Upload a .csv or .xlsx file with group data. The first row must contain column headers '
+                        . 'that match the expected property names. Each row must include a Group ID matching an '
+                        . 'existing group — the group will be updated with the imported data. '
+                        . 'Up to 3 contacts can be specified per group, each with a name, email address, and '
+                        . 'telephone number.',
                         'reconcile'
                     ); ?>
                 </p>
@@ -119,16 +120,16 @@ class MemberImportAdmin
                     </tbody>
                 </table>
 
-                <form id="reconcile-import-form" enctype="multipart/form-data">
-                    <?php wp_nonce_field('reconcile_import', 'reconcile_nonce'); ?>
+                <form id="reconcile-group-import-form" enctype="multipart/form-data">
+                    <?php wp_nonce_field('reconcile_group_import', 'reconcile_group_nonce'); ?>
 
                     <div class="reconcile-form-row">
-                        <label for="reconcile-file">
+                        <label for="reconcile-group-file">
                             <?php esc_html_e('Select spreadsheet file (.csv or .xlsx)', 'reconcile'); ?>
                         </label>
                         <input
                                 type="file"
-                                id="reconcile-file"
+                                id="reconcile-group-file"
                                 name="import_file"
                                 accept=".csv,.xlsx"
                                 required
@@ -137,20 +138,20 @@ class MemberImportAdmin
 
                     <div class="reconcile-form-row">
                         <label>
-                            <input type="checkbox" name="dry_run" id="reconcile-dry-run" value="1" checked />
+                            <input type="checkbox" name="dry_run" id="reconcile-group-dry-run" value="1" checked />
                             <?php esc_html_e('Dry run (validate only, no changes will be made)', 'reconcile'); ?>
                         </label>
                     </div>
 
                     <div class="reconcile-form-row">
-                        <button type="submit" class="button button-primary" id="reconcile-submit">
+                        <button type="submit" class="button button-primary" id="reconcile-group-submit">
                             <?php esc_html_e('Import', 'reconcile'); ?>
                         </button>
-                        <span class="spinner" id="reconcile-spinner"></span>
+                        <span class="spinner" id="reconcile-group-spinner"></span>
                     </div>
                 </form>
 
-                <div id="reconcile-results" class="reconcile-results" style="display:none;"></div>
+                <div id="reconcile-group-results" class="reconcile-results" style="display:none;"></div>
             </div>
         </div>
         <?php
@@ -163,29 +164,29 @@ class MemberImportAdmin
      */
     private static function getPropertyNotes(): array
     {
-        $truthyValues = MemberImporter::getTruthyValues();
+        $truthyValues = GroupImporter::getTruthyValues();
         $truthyCodes = array_map(
             fn($v) => '<code>' . esc_html($v) . '</code>',
             $truthyValues
         );
 
-        $dateFormats = MemberImporter::getAcceptedDateFormats();
-        $dateCodes = array_map(
-            fn($f) => '<code>' . esc_html($f) . '</code>',
-            $dateFormats
-        );
-
         return [
-            'home_group' => 'Text value — looked up against existing group titles to resolve the post ID.',
-            'intergroup_position' => 'Text value — looked up against existing position names to resolve the post ID.',
-            'intergroup_position_rotation' => 'Required when an Intergroup Position is specified. '
-                . 'Accepted date formats: ' . implode(', ', $dateCodes)
-                . ' (separators <code>/</code> <code>-</code> <code>.</code> all accepted). '
-                . 'Normalised to <code>yyyy-MM-dd</code> on import. '
-                . 'Row is <strong>skipped</strong> if position is set and rotation is missing or invalid.',
-            'is_gsr' => 'Boolean — recognised as <strong>true</strong>: '
+            'group_id' => '<strong>Required.</strong> Numeric WordPress post ID of the existing group to update. '
+                . 'Row is <strong>skipped</strong> if the ID does not match an existing group.',
+            'group_name' => 'Optional. If provided, the group title will be updated.',
+            'group_email' => 'The group\'s dedicated email address.',
+            'group_email_active' => 'Boolean — recognised as <strong>true</strong>: '
                 . implode(', ', $truthyCodes)
                 . '. Everything else is treated as <strong>false</strong>.',
+            'contact_1_name' => 'Optional. Name of the first contact person.',
+            'contact_1_email' => 'Optional. Email address of the first contact person.',
+            'contact_1_phone' => 'Optional. Telephone number of the first contact person.',
+            'contact_2_name' => 'Optional. Name of the second contact person.',
+            'contact_2_email' => 'Optional. Email address of the second contact person.',
+            'contact_2_phone' => 'Optional. Telephone number of the second contact person.',
+            'contact_3_name' => 'Optional. Name of the third contact person.',
+            'contact_3_email' => 'Optional. Email address of the third contact person.',
+            'contact_3_phone' => 'Optional. Telephone number of the third contact person.',
         ];
     }
 }

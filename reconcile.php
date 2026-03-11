@@ -4,8 +4,8 @@ declare(strict_types=1);
 
 /**
  * Plugin Name: Reconcile
- * Description: Import and reconciliation of member data from spreadsheets using Unity framework.
- * Version: 1.6.0
+ * Description: Import and reconciliation of member and group data from spreadsheets using Unity framework.
+ * Version: 1.7.0
  * Requires at least: 6.0
  * Requires Plugins: scrutiny
  * Requires PHP: 8.0
@@ -51,7 +51,13 @@ spl_autoload_register(function ($class) {
     }
 });
 
-// Initialize the plugin after Unity is fully loaded
+// Register admin menus early — does not depend on Unity's container.
+// This runs at plugin-load time, well before the admin_menu hook fires.
+if (is_admin()) {
+    \Reconcile\Plugin::registerMenus();
+}
+
+// Initialize AJAX handlers after Unity is fully loaded (container available)
 add_action('unity/loaded', function ($container) {
     try {
         if (!class_exists('Reconcile\Plugin')) {
