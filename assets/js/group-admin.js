@@ -45,10 +45,16 @@
                     if (data && (data.errors || data.message)) {
                         renderResults(data, false);
                     } else {
+                        var detail = 'HTTP ' + xhr.status;
+                        if (xhr.responseText) {
+                            // Truncate very long responses for display
+                            var body = xhr.responseText.substring(0, 500);
+                            detail += ' — Response: ' + body;
+                        }
                         renderResults({
                             success: false,
-                            summary: 'An unexpected error occurred. Check the server error log.',
-                            errors: [],
+                            summary: 'An unexpected error occurred.',
+                            errors: [detail],
                             warnings: []
                         }, false);
                     }

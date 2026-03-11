@@ -95,7 +95,6 @@ class GroupColumnMapper
     private const REQUIRED = [
         'group_id',
         'group_email',
-        'group_email_active',
     ];
 
     /**

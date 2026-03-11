@@ -152,7 +152,10 @@ class Plugin
     {
         self::$container = $container;
 
+        error_log('Reconcile: Plugin::init() called.');
+
         if (!is_admin()) {
+            error_log('Reconcile: Not in admin context — skipping AJAX handler registration.');
             return;
         }
 
@@ -166,6 +169,8 @@ class Plugin
         self::$importHandler = new ImportHandler($memberImporter);
         self::$importHandler->register();
 
+        error_log('Reconcile: Member import AJAX handler registered.');
+
         // --- Group Import AJAX handler ---
         $groupRepository = self::getGroupRepository();
         $groupFactory = self::getGroupFactory();
@@ -174,6 +179,8 @@ class Plugin
 
         self::$groupImportHandler = new GroupImportHandler($groupImporter);
         self::$groupImportHandler->register();
+
+        error_log('Reconcile: Group import AJAX handler registered.');
     }
 
     /**
