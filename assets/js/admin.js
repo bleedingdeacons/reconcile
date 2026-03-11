@@ -45,15 +45,23 @@
                     if (data && (data.errors || data.message)) {
                         renderResults(data, false);
                     } else {
-                        var detail = 'HTTP ' + xhr.status;
-                        if (xhr.responseText) {
-                            var body = xhr.responseText.substring(0, 500);
-                            detail += ' — Response: ' + body;
+                        var message;
+                        if (xhr.status === 400 && xhr.responseText === '0') {
+                            message = 'The import handler is not available. '
+                                + 'Please check that the Unity plugin is active and fully configured, '
+                                + 'then reload this page and try again.';
+                        } else if (xhr.status === 0) {
+                            message = 'Could not reach the server. Please check your connection and try again.';
+                        } else if (xhr.status >= 500) {
+                            message = 'A server error occurred. Please check the PHP error log for details.';
+                        } else {
+                            message = 'The server returned an unexpected response. '
+                                + 'Please check the PHP error log for details.';
                         }
                         renderResults({
                             success: false,
-                            summary: 'An unexpected error occurred.',
-                            errors: [detail],
+                            summary: 'Import Failed',
+                            errors: [message],
                             warnings: []
                         }, false);
                     }

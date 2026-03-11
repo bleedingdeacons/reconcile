@@ -5,7 +5,7 @@ declare(strict_types=1);
 /**
  * Plugin Name: Reconcile
  * Description: Import and reconciliation of member and group data from spreadsheets using Unity framework.
- * Version: 1.8.0
+ * Version: 1.7.1
  * Requires at least: 6.0
  * Requires Plugins: scrutiny
  * Requires PHP: 8.0
@@ -61,10 +61,12 @@ if (is_admin()) {
 add_action('unity/loaded', function ($container) {
     try {
         if (!class_exists('Reconcile\Plugin')) {
+            error_log('Reconcile: Plugin class not found — aborting init.');
             throw new \Exception('Reconcile\Plugin class not found. Check that Plugin.php exists in the src/ directory.');
         }
 
         if (!\Reconcile\Plugin::unityIsAvailable()) {
+            error_log('Reconcile: unityIsAvailable() returned false — Unity core classes not found. Aborting init.');
             return;
         }
 
@@ -99,6 +101,19 @@ add_action('unity/loaded', function ($container) {
         }
     }
 });
+
+// Safety net: if unity/loaded never fired by the time WordPress is ready to
+// serve an admin page or AJAX request, log a diagnostic message.
+add_action('admin_init', function () {
+    if (\Reconcile\Plugin::getContainer() === null) {
+        error_log(
+            'Reconcile: Container is still null at admin_init. '
+            . 'The unity/loaded hook has not fired. '
+            . 'Unity plugin status: ' . (class_exists('Unity\\Plugin') ? 'class exists' : 'class NOT found') . '. '
+            . 'did_action(unity/loaded): ' . did_action('unity/loaded') . '.'
+        );
+    }
+}, 999);
 
 // Show admin notice if Unity is not available
 add_action('plugins_loaded', function () {
