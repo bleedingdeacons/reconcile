@@ -2,7 +2,6 @@
     "name": "bleeding-deacons/reconcile",
     "description": "Import and reconcile member data from spreadsheets using the Unity framework",
     "type": "wordpress-plugin",
-    "version": "1.4.0",
     "license": "MIT (Modified)",
     "authors": [
         {
