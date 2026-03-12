@@ -13,13 +13,14 @@ namespace Reconcile\Import;
  * and then matched against a known set of aliases for each property.
  *
  * Currently supported properties:
- *  - group_id       (required — existing group post ID for updates)
- *  - group_name     (optional — updates the group title if provided)
+ *  - group_id       (identifies group by post ID — required if group_name not provided)
+ *  - group_name     (identifies group by title, or updates title if group_id also provided)
  *  - group_email    (the group's dedicated email address)
- *  - group_email_active (whether the group email is active)
  *  - contact_1_name, contact_1_email, contact_1_phone
  *  - contact_2_name, contact_2_email, contact_2_phone
  *  - contact_3_name, contact_3_email, contact_3_phone
+ *
+ * Either group_id or group_name (or both) must be present as a column header.
  */
 class GroupColumnMapper
 {
@@ -43,11 +44,6 @@ class GroupColumnMapper
             'group email',
             'group_email',
             'groupemail',
-        ],
-        'group_email_active' => [
-            'group email active',
-            'group_email_active',
-            'groupemailactive',
         ],
         'contact_1_name' => [
             'contact 1 name',
@@ -93,8 +89,17 @@ class GroupColumnMapper
      * @var string[]
      */
     private const REQUIRED = [
-        'group_id',
         'group_email',
+    ];
+
+    /**
+     * At least one of these properties must be present for group identification.
+     *
+     * @var string[]
+     */
+    private const REQUIRED_ONE_OF = [
+        'group_id',
+        'group_name',
     ];
 
     /**
@@ -138,6 +143,22 @@ class GroupColumnMapper
             }
         }
 
+        // At least one of the identification columns must be present
+        $hasOneOf = false;
+        foreach (self::REQUIRED_ONE_OF as $property) {
+            if (in_array($property, $mapped, true)) {
+                $hasOneOf = true;
+                break;
+            }
+        }
+
+        if (!$hasOneOf) {
+            // Report all of them as missing so the error message lists the options
+            foreach (self::REQUIRED_ONE_OF as $property) {
+                $missing[] = $property;
+            }
+        }
+
         return $missing;
     }
 
@@ -152,7 +173,6 @@ class GroupColumnMapper
             'group_id'            => 'Group ID',
             'group_name'          => 'Group Name',
             'group_email'         => 'Group Email',
-            'group_email_active'  => 'Group Email Active',
             'contact_1_name'      => 'Contact 1 Name',
             'contact_1_email'     => 'Contact 1 Email',
             'contact_1_phone'     => 'Contact 1 Telephone',

@@ -17,11 +17,13 @@ use RuntimeException;
  * Orchestrates the import of group data from a spreadsheet file:
  *  1. Reads the file (CSV or XLSX)
  *  2. Maps column headers to Group properties via GroupColumnMapper
- *  3. Validates required fields (Group ID must be populated)
- *  4. Group Name is optional — if provided the group title is updated
- *  5. Parses Group Email Active from common truthy/falsy strings
- *  6. Builds contact arrays from up to 3 contact column sets
- *  7. Updates groups through the Unity GroupRepository
+ *  3. Validates required fields (either Group ID or Group Name must be populated)
+ *  4. Resolves the target group:
+ *     - If Group ID is provided, looks up by ID. If Group Name is also provided,
+ *       updates the group title.
+ *     - If only Group Name is provided (no ID column or ID is empty), looks up by name.
+ *  5. Builds contact arrays from up to 3 contact column sets
+ *  6. Updates groups through the Unity GroupRepository
  *
  * Rows that cannot be imported are skipped with a "Skipped – [reason]" warning.
  *
@@ -29,16 +31,12 @@ use RuntimeException;
  */
 class GroupImporter
 {
-    /**
-     * Values recognised as boolean true when parsing the Group Email Active column.
-     */
-    private const TRUTHY_VALUES = ['yes', 'y', 'true'];
-
     private ?GroupRepository $groupRepository;
     private ?GroupFactory $groupFactory;
     private ?ContactFactory $contactFactory;
     private GroupColumnMapper $columnMapper;
     private SpreadsheetReader $reader;
+    private GroupLookup $groupLookup;
 
     public function __construct(
         ?GroupRepository $groupRepository,
@@ -50,6 +48,7 @@ class GroupImporter
         $this->contactFactory = $contactFactory;
         $this->columnMapper = new GroupColumnMapper();
         $this->reader = new SpreadsheetReader();
+        $this->groupLookup = new GroupLookup($groupRepository);
     }
 
     /**
@@ -118,45 +117,70 @@ class GroupImporter
             try {
                 $rowData = $this->extractRowData($row, $mapping);
 
-                // Validate: group ID is required and must be numeric
                 $rawGroupId = trim($rowData['group_id']);
-                if ($rawGroupId === '') {
-                    $result->skipRow($lineNumber, 'Group ID is empty.', $this->buildRowDetails($rowData));
+                $rawGroupName = trim($rowData['group_name']);
+
+                // Validate: at least one of group ID or group name must be provided
+                if ($rawGroupId === '' && $rawGroupName === '') {
+                    $result->skipRow($lineNumber, 'Both Group ID and Group Name are empty. At least one is required.', $this->buildRowDetails($rowData));
                     continue;
                 }
 
-                if (!ctype_digit($rawGroupId)) {
-                    $result->skipRow(
-                        $lineNumber,
-                        "Group ID \"{$rawGroupId}\" is not a valid numeric ID.",
-                        $this->buildRowDetails($rowData)
-                    );
-                    continue;
+                $existingGroup = null;
+
+                if ($rawGroupId !== '') {
+                    // ID was supplied — use it to find the group
+                    if (!ctype_digit($rawGroupId)) {
+                        $result->skipRow(
+                            $lineNumber,
+                            "Group ID \"{$rawGroupId}\" is not a valid numeric ID.",
+                            $this->buildRowDetails($rowData)
+                        );
+                        continue;
+                    }
+
+                    $groupId = (int) $rawGroupId;
+                    $existingGroup = $this->findExistingGroup($groupId);
+
+                    if ($existingGroup === null) {
+                        $result->skipRow(
+                            $lineNumber,
+                            "Group ID {$groupId} does not match an existing group.",
+                            $this->buildRowDetails($rowData)
+                        );
+                        continue;
+                    }
+                } else {
+                    // No ID supplied — use group name to find the group
+                    $resolvedId = $this->groupLookup->resolve($rawGroupName);
+
+                    if ($resolvedId === 0) {
+                        $result->skipRow(
+                            $lineNumber,
+                            "Group Name \"{$rawGroupName}\" does not match an existing group.",
+                            $this->buildRowDetails($rowData)
+                        );
+                        continue;
+                    }
+
+                    $existingGroup = $this->findExistingGroup($resolvedId);
+
+                    if ($existingGroup === null) {
+                        $result->skipRow(
+                            $lineNumber,
+                            "Group Name \"{$rawGroupName}\" resolved to ID {$resolvedId} but the group could not be loaded.",
+                            $this->buildRowDetails($rowData)
+                        );
+                        continue;
+                    }
                 }
-
-                $groupId = (int) $rawGroupId;
-
-                // Parse Group Email Active boolean
-                $groupEmailActive = $this->parseBool($rowData['group_email_active']);
 
                 // Build contacts array
                 $contacts = $this->buildContacts($rowData);
 
-                // Check for existing group by ID
-                $existingGroup = $this->findExistingGroup($groupId);
-                if ($existingGroup === null) {
-                    $result->skipRow(
-                        $lineNumber,
-                        "Group ID {$groupId} does not match an existing group.",
-                        $this->buildRowDetails($rowData)
-                    );
-                    continue;
-                }
-
                 // Full context for reporting
                 $fullDetails = $this->buildRowDetails(
                     $rowData,
-                    $groupEmailActive,
                     $existingGroup->getId()
                 );
 
@@ -170,16 +194,16 @@ class GroupImporter
                 $saved = $this->updateGroup(
                     $existingGroup,
                     $rowData,
-                    $groupEmailActive,
                     $contacts,
                     $saveError
                 );
                 if ($saved) {
                     $result->incrementUpdated();
                 } else {
+                    $resolvedId = $existingGroup->getId();
                     $groupLabel = !empty($rowData['group_name'])
-                        ? "\"{$rowData['group_name']}\" (ID: {$groupId})"
-                        : "ID: {$groupId}";
+                        ? "\"{$rowData['group_name']}\" (ID: {$resolvedId})"
+                        : "ID: {$resolvedId}";
                     $reason = "Failed to update group {$groupLabel}.";
                     if ($saveError !== '') {
                         $reason .= " Error: {$saveError}";
@@ -211,7 +235,6 @@ class GroupImporter
             'group_id'            => '',
             'group_name'          => '',
             'group_email'         => '',
-            'group_email_active'  => '',
             'contact_1_name'      => '',
             'contact_1_email'     => '',
             'contact_1_phone'     => '',
@@ -261,26 +284,14 @@ class GroupImporter
     }
 
     /**
-     * Get the list of string values recognised as boolean true.
-     *
-     * @return string[]
-     */
-    public static function getTruthyValues(): array
-    {
-        return self::TRUTHY_VALUES;
-    }
-
-    /**
      * Build a details array for a skipped row showing raw CSV values and resolved data.
      *
      * @param array<string, string> $rowData Raw extracted row data
-     * @param bool|null $groupEmailActive Parsed boolean (null if not yet parsed)
      * @param int|null $existingGroupId Existing group post ID if updating
      * @return array<string, string>
      */
     private function buildRowDetails(
         array $rowData,
-        ?bool $groupEmailActive = null,
         ?int $existingGroupId = null
     ): array {
         $labels = GroupColumnMapper::getPropertyLabels();
@@ -293,28 +304,11 @@ class GroupImporter
         }
 
         // Resolved values (only include when available)
-        if ($groupEmailActive !== null) {
-            $details['Group Email Active → Parsed'] = $groupEmailActive ? 'true' : 'false';
-        }
-
         if ($existingGroupId !== null) {
             $details['Existing Group ID'] = (string) $existingGroupId;
         }
 
         return $details;
-    }
-
-    /**
-     * Parse a string value as a boolean.
-     *
-     * Accepts common truthy values defined in TRUTHY_VALUES.
-     * Everything else (including empty string) is false.
-     */
-    private function parseBool(string $value): bool
-    {
-        $normalised = mb_strtolower(trim($value));
-
-        return in_array($normalised, self::TRUTHY_VALUES, true);
     }
 
     /**
@@ -339,7 +333,6 @@ class GroupImporter
      *
      * @param Group $existing The existing group
      * @param array<string, string> $rowData The imported row data
-     * @param bool $groupEmailActive Parsed email active status
      * @param array<int, array{name: string, email: string, phone: string}> $contacts
      * @param string $errorMessage Populated with error message on failure
      * @return bool Whether the update succeeded
@@ -347,7 +340,6 @@ class GroupImporter
     private function updateGroup(
         Group $existing,
         array $rowData,
-        bool $groupEmailActive,
         array $contacts,
         string &$errorMessage = ''
     ): bool {
@@ -377,7 +369,7 @@ class GroupImporter
                 }
             }
 
-            $this->saveMetaFields($postId, $rowData, $groupEmailActive, $contacts);
+            $this->saveMetaFields($postId, $rowData, $contacts);
 
             return true;
         } catch (\Throwable $e) {
@@ -393,17 +385,14 @@ class GroupImporter
      *
      * @param int $postId The WordPress post ID
      * @param array<string, string> $rowData The imported row data
-     * @param bool $groupEmailActive Parsed email active status
      * @param array<int, array{name: string, email: string, phone: string}> $contacts
      */
     private function saveMetaFields(
         int $postId,
         array $rowData,
-        bool $groupEmailActive,
         array $contacts
     ): void {
         update_post_meta($postId, 'group_email', $rowData['group_email']);
-        update_post_meta($postId, 'group_email_active', $groupEmailActive ? '1' : '0');
 
         // Save contacts (clear all 3 slots then fill)
         for ($i = 1; $i <= 3; $i++) {

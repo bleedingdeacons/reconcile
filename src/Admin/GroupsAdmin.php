@@ -5,7 +5,6 @@ declare(strict_types=1);
 namespace Reconcile\Admin;
 
 use Reconcile\Import\GroupColumnMapper;
-use Reconcile\Import\GroupImporter;
 
 /**
  * Group Import Admin Page
@@ -33,23 +32,23 @@ class GroupsAdmin
         }
 
         wp_enqueue_style(
-            'reconcile-admin',
-            RECONCILE_URL . 'assets/css/admin.css',
-            [],
-            RECONCILE_VERSION
+                'reconcile-admin',
+                RECONCILE_URL . 'assets/css/admin.css',
+                [],
+                RECONCILE_VERSION
         );
 
         wp_enqueue_script(
-            'reconcile-group-admin',
-            RECONCILE_URL . 'assets/js/group-admin.js',
-            ['jquery'],
-            RECONCILE_VERSION,
-            true
+                'reconcile-group-admin',
+                RECONCILE_URL . 'assets/js/group-admin.js',
+                ['jquery'],
+                RECONCILE_VERSION,
+                true
         );
 
         wp_localize_script('reconcile-group-admin', 'reconcileGroupAdmin', [
-            'ajaxUrl' => admin_url('admin-ajax.php'),
-            'nonce'   => wp_create_nonce('reconcile_group_import'),
+                'ajaxUrl' => admin_url('admin-ajax.php'),
+                'nonce'   => wp_create_nonce('reconcile_group_import'),
         ]);
     }
 
@@ -61,7 +60,6 @@ class GroupsAdmin
         $acceptedHeaders = GroupColumnMapper::getAcceptedHeaders();
         $labels = GroupColumnMapper::getPropertyLabels();
         $notes = self::getPropertyNotes();
-        $truthyValues = GroupImporter::getTruthyValues();
 
         ?>
         <div class="wrap reconcile-wrap">
@@ -71,12 +69,14 @@ class GroupsAdmin
                 <h2><?php esc_html_e('Import Groups from Spreadsheet', 'reconcile'); ?></h2>
                 <p class="description">
                     <?php esc_html_e(
-                        'Upload a .csv or .xlsx file with group data. The first row must contain column headers '
-                        . 'that match the expected property names. Each row must include a Group ID matching an '
-                        . 'existing group — the group will be updated with the imported data. '
-                        . 'Up to 3 contacts can be specified per group, each with a name, email address, and '
-                        . 'telephone number.',
-                        'reconcile'
+                            'Upload a .csv or .xlsx file with group data. The first row must contain column headers '
+                            . 'that match the expected property names. Each row must include either a Group ID or a '
+                            . 'Group Name (or both) to identify the group to update. If both are provided, the group '
+                            . 'is looked up by ID and its name is updated. If only a name is provided, it is used to '
+                            . 'find the matching group. '
+                            . 'Up to 3 contacts can be specified per group, each with a name, email address, and '
+                            . 'telephone number.',
+                            'reconcile'
                     ); ?>
                 </p>
 
@@ -95,8 +95,8 @@ class GroupsAdmin
                             <td>
                                 <?php
                                 $escapedAliases = array_map(
-                                    fn($alias) => '<code>' . esc_html($alias) . '</code>',
-                                    $aliases
+                                        fn($alias) => '<code>' . esc_html($alias) . '</code>',
+                                        $aliases
                                 );
                                 echo implode(', ', $escapedAliases);
                                 ?>
@@ -105,10 +105,10 @@ class GroupsAdmin
                                 <?php
                                 if (isset($notes[$property])) {
                                     echo wp_kses($notes[$property], [
-                                        'code' => [],
-                                        'strong' => [],
-                                        'em' => [],
-                                        'br' => [],
+                                            'code' => [],
+                                            'strong' => [],
+                                            'em' => [],
+                                            'br' => [],
                                     ]);
                                 } else {
                                     echo '<span class="reconcile-note-muted">—</span>';
@@ -158,17 +158,17 @@ class GroupsAdmin
                 <h2><?php esc_html_e('Export Groups to CSV', 'reconcile'); ?></h2>
                 <p class="description">
                     <?php esc_html_e(
-                        'Download all groups as a CSV file. The export uses the same column format as the import, '
-                        . 'so the exported file can be edited and re-imported.',
-                        'reconcile'
+                            'Download all groups as a CSV file. The export uses the same column format as the import, '
+                            . 'so the exported file can be edited and re-imported.',
+                            'reconcile'
                     ); ?>
                 </p>
 
                 <div class="reconcile-form-row">
                     <?php
                     $exportUrl = wp_nonce_url(
-                        admin_url('admin-post.php?action=reconcile_group_export'),
-                        'reconcile_group_export'
+                            admin_url('admin-post.php?action=reconcile_group_export'),
+                            'reconcile_group_export'
                     );
                     ?>
                     <a href="<?php echo esc_url($exportUrl); ?>" class="button button-secondary">
@@ -187,29 +187,24 @@ class GroupsAdmin
      */
     private static function getPropertyNotes(): array
     {
-        $truthyValues = GroupImporter::getTruthyValues();
-        $truthyCodes = array_map(
-            fn($v) => '<code>' . esc_html($v) . '</code>',
-            $truthyValues
-        );
-
         return [
-            'group_id' => '<strong>Required.</strong> Numeric WordPress post ID of the existing group to update. '
-                . 'Row is <strong>skipped</strong> if the ID does not match an existing group.',
-            'group_name' => 'Optional. If provided, the group title will be updated.',
-            'group_email' => 'The group\'s dedicated email address.',
-            'group_email_active' => 'Boolean — recognised as <strong>true</strong>: '
-                . implode(', ', $truthyCodes)
-                . '. Everything else is treated as <strong>false</strong>.',
-            'contact_1_name' => 'Optional. Name of the first contact person.',
-            'contact_1_email' => 'Optional. Email address of the first contact person.',
-            'contact_1_phone' => 'Optional. Telephone number of the first contact person.',
-            'contact_2_name' => 'Optional. Name of the second contact person.',
-            'contact_2_email' => 'Optional. Email address of the second contact person.',
-            'contact_2_phone' => 'Optional. Telephone number of the second contact person.',
-            'contact_3_name' => 'Optional. Name of the third contact person.',
-            'contact_3_email' => 'Optional. Email address of the third contact person.',
-            'contact_3_phone' => 'Optional. Telephone number of the third contact person.',
+                'group_id' => 'Numeric WordPress post ID of the existing group to update. '
+                        . 'If provided, the group is looked up by ID. If both ID and Name are provided, '
+                        . 'the group is found by ID and its name is updated. '
+                        . 'Either <strong>Group ID</strong> or <strong>Group Name</strong> must be supplied.',
+                'group_name' => 'The name of the group. Used to look up the group if no Group ID is provided. '
+                        . 'If both ID and Name are provided, the group name is updated. '
+                        . 'Either <strong>Group ID</strong> or <strong>Group Name</strong> must be supplied.',
+                'group_email' => 'The group\'s dedicated email address.',
+                'contact_1_name' => 'Optional. Name of the first contact person.',
+                'contact_1_email' => 'Optional. Email address of the first contact person.',
+                'contact_1_phone' => 'Optional. Telephone number of the first contact person.',
+                'contact_2_name' => 'Optional. Name of the second contact person.',
+                'contact_2_email' => 'Optional. Email address of the second contact person.',
+                'contact_2_phone' => 'Optional. Telephone number of the second contact person.',
+                'contact_3_name' => 'Optional. Name of the third contact person.',
+                'contact_3_email' => 'Optional. Email address of the third contact person.',
+                'contact_3_phone' => 'Optional. Telephone number of the third contact person.',
         ];
     }
 }
