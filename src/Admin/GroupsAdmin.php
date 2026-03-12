@@ -13,7 +13,7 @@ use Reconcile\Import\GroupImporter;
  * Renders the Group Import admin page and enqueues its assets.
  * Menu registration is handled by the Plugin class to ensure correct timing.
  */
-class GroupImportAdmin
+class GroupsAdmin
 {
     /**
      * Register asset enqueuing.
@@ -152,6 +152,29 @@ class GroupImportAdmin
                 </form>
 
                 <div id="reconcile-group-results" class="reconcile-results" style="display:none;"></div>
+            </div>
+
+            <div class="reconcile-card" style="margin-top: 20px;">
+                <h2><?php esc_html_e('Export Groups to CSV', 'reconcile'); ?></h2>
+                <p class="description">
+                    <?php esc_html_e(
+                        'Download all groups as a CSV file. The export uses the same column format as the import, '
+                        . 'so the exported file can be edited and re-imported.',
+                        'reconcile'
+                    ); ?>
+                </p>
+
+                <div class="reconcile-form-row">
+                    <?php
+                    $exportUrl = wp_nonce_url(
+                        admin_url('admin-post.php?action=reconcile_group_export'),
+                        'reconcile_group_export'
+                    );
+                    ?>
+                    <a href="<?php echo esc_url($exportUrl); ?>" class="button button-secondary">
+                        <?php esc_html_e('Export Groups', 'reconcile'); ?>
+                    </a>
+                </div>
             </div>
         </div>
         <?php

@@ -13,7 +13,7 @@ use Reconcile\Import\MemberImporter;
  * Renders the Member Import admin page and enqueues its assets.
  * Menu registration is handled by the Plugin class to ensure correct timing.
  */
-class MemberImportAdmin
+class MembersAdmin
 {
     /**
      * Register asset enqueuing.
@@ -151,6 +151,29 @@ class MemberImportAdmin
                 </form>
 
                 <div id="reconcile-results" class="reconcile-results" style="display:none;"></div>
+            </div>
+
+            <div class="reconcile-card" style="margin-top: 20px;">
+                <h2><?php esc_html_e('Export Members to CSV', 'reconcile'); ?></h2>
+                <p class="description">
+                    <?php esc_html_e(
+                        'Download all members as a CSV file. Home Group and Intergroup Position IDs are resolved '
+                        . 'back to their names. The exported file uses the same column format as the import.',
+                        'reconcile'
+                    ); ?>
+                </p>
+
+                <div class="reconcile-form-row">
+                    <?php
+                    $exportUrl = wp_nonce_url(
+                        admin_url('admin-post.php?action=reconcile_member_export'),
+                        'reconcile_member_export'
+                    );
+                    ?>
+                    <a href="<?php echo esc_url($exportUrl); ?>" class="button button-secondary">
+                        <?php esc_html_e('Export Members', 'reconcile'); ?>
+                    </a>
+                </div>
             </div>
         </div>
         <?php

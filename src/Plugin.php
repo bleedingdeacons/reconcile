@@ -4,14 +4,18 @@ declare(strict_types=1);
 
 namespace Reconcile;
 
-use Reconcile\Admin\MemberImportAdmin;
-use Reconcile\Admin\GroupImportAdmin;
+use Reconcile\Admin\MembersAdmin;
+use Reconcile\Admin\GroupsAdmin;
 use Reconcile\Admin\ImportHandler;
 use Reconcile\Admin\GroupImportHandler;
+use Reconcile\Admin\GroupExportHandler;
+use Reconcile\Admin\MemberExportHandler;
 use Reconcile\Import\GroupLookup;
 use Reconcile\Import\MemberImporter;
 use Reconcile\Import\GroupImporter;
 use Reconcile\Import\PositionLookup;
+use Reconcile\Export\GroupExporter;
+use Reconcile\Export\MemberExporter;
 use Psr\Container\ContainerInterface;
 use Unity\Contacts\Interfaces\ContactFactory;
 use Unity\Members\Interfaces\MemberFactory;
@@ -32,10 +36,12 @@ use Unity\Positions\Interfaces\PositionRepository;
 class Plugin
 {
     private static ?ContainerInterface $container = null;
-    private static ?MemberImportAdmin $memberAdminPage = null;
-    private static ?GroupImportAdmin $groupAdminPage = null;
+    private static ?MembersAdmin $memberAdminPage = null;
+    private static ?GroupsAdmin $groupAdminPage = null;
     private static ?ImportHandler $importHandler = null;
     private static ?GroupImportHandler $groupImportHandler = null;
+    private static ?GroupExportHandler $groupExportHandler = null;
+    private static ?MemberExportHandler $memberExportHandler = null;
 
     /**
      * Register the top-level Reconcile menu and submenu pages.
@@ -49,10 +55,10 @@ class Plugin
             return;
         }
 
-        self::$memberAdminPage = new MemberImportAdmin();
+        self::$memberAdminPage = new MembersAdmin();
         self::$memberAdminPage->register();
 
-        self::$groupAdminPage = new GroupImportAdmin();
+        self::$groupAdminPage = new GroupsAdmin();
         self::$groupAdminPage->register();
 
         add_action('admin_menu', [self::class, 'addMenuPages']);
@@ -77,18 +83,18 @@ class Plugin
         // First submenu replaces the auto-generated top-level duplicate
         add_submenu_page(
             'reconcile',
-            __('Reconcile — Member Import', 'reconcile'),
-            __('Member Import', 'reconcile'),
+            __('Reconcile — Members', 'reconcile'),
+            __('Members', 'reconcile'),
             'manage_options',
             'reconcile',
             [self::$memberAdminPage, 'renderPage']
         );
 
-        // Group Import submenu
+        // Group submenu
         add_submenu_page(
             'reconcile',
-            __('Reconcile — Group Import', 'reconcile'),
-            __('Group Import', 'reconcile'),
+            __('Reconcile — Groups', 'reconcile'),
+            __('Groups', 'reconcile'),
             'manage_options',
             'reconcile-groups',
             [self::$groupAdminPage, 'renderPage']
@@ -181,6 +187,26 @@ class Plugin
         self::$groupImportHandler->register();
 
         error_log('Reconcile: Group import AJAX handler registered.');
+
+        // --- Group Export handler ---
+        $groupExporter = new GroupExporter($groupRepository);
+
+        self::$groupExportHandler = new GroupExportHandler($groupExporter);
+        self::$groupExportHandler->register();
+
+        error_log('Reconcile: Group export handler registered.');
+
+        // --- Member Export handler ---
+        $memberExporter = new MemberExporter(
+            $memberRepository,
+            self::getGroupRepository(),
+            self::getPositionRepository()
+        );
+
+        self::$memberExportHandler = new MemberExportHandler($memberExporter);
+        self::$memberExportHandler->register();
+
+        error_log('Reconcile: Member export handler registered.');
     }
 
     /**
