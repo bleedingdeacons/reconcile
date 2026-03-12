@@ -1,0 +1,417 @@
+<?php
+
+declare(strict_types=1);
+
+namespace Reconcile\Tests\Unit\Import;
+
+use Mockery;
+use Mockery\Adapter\Phpunit\MockeryPHPUnitIntegration;
+use PHPUnit\Framework\TestCase;
+use Reconcile\Import\ColumnMapper;
+use Reconcile\Import\GroupLookup;
+use Reconcile\Import\MemberImporter;
+use Reconcile\Import\PositionLookup;
+use Reconcile\Import\SpreadsheetReader;
+use Unity\Members\Interfaces\Member;
+use Unity\Members\Interfaces\MemberFactory;
+use Unity\Members\Interfaces\MemberRepository;
+
+/**
+ * Unit tests for MemberImporter
+ */
+class MemberImporterTest extends TestCase
+{
+    use MockeryPHPUnitIntegration;
+
+    private MemberRepository|Mockery\MockInterface $memberRepo;
+    private MemberFactory|Mockery\MockInterface $memberFactory;
+    private GroupLookup|Mockery\MockInterface $groupLookup;
+    private PositionLookup|Mockery\MockInterface $positionLookup;
+    private MemberImporter $importer;
+
+    protected function setUp(): void
+    {
+        parent::setUp();
+
+        $this->memberRepo = Mockery::mock(MemberRepository::class);
+        $this->memberFactory = Mockery::mock(MemberFactory::class);
+        $this->groupLookup = Mockery::mock(GroupLookup::class);
+        $this->positionLookup = Mockery::mock(PositionLookup::class);
+
+        $this->groupLookup->shouldReceive('resetUnresolved')->byDefault();
+        $this->positionLookup->shouldReceive('resetUnresolved')->byDefault();
+        $this->groupLookup->shouldReceive('getUnresolvedNames')->andReturn([])->byDefault();
+        $this->positionLookup->shouldReceive('getUnresolvedNames')->andReturn([])->byDefault();
+
+        $this->importer = new MemberImporter(
+            $this->memberRepo,
+            $this->memberFactory,
+            $this->groupLookup,
+            $this->positionLookup
+        );
+    }
+
+    /**
+     * Helper: write a temporary CSV and return its path.
+     */
+    private function writeCsv(array $headers, array $rows): string
+    {
+        $path = tempnam(sys_get_temp_dir(), 'import_test_') . '.csv';
+        $handle = fopen($path, 'w');
+        fputcsv($handle, $headers);
+        foreach ($rows as $row) {
+            fputcsv($handle, $row);
+        }
+        fclose($handle);
+
+        return $path;
+    }
+
+    // ── Null dependency handling ────────────────────────────────────────
+
+    /**
+     * @test
+     */
+    public function import_returns_error_when_member_repository_is_null(): void
+    {
+        $importer = new MemberImporter(
+            null,
+            $this->memberFactory,
+            $this->groupLookup,
+            $this->positionLookup
+        );
+
+        $result = $importer->import('/tmp/dummy.csv');
+
+        $this->assertTrue($result->hasErrors());
+        $this->assertStringContainsString('MemberRepository', $result->getErrors()[0]);
+    }
+
+    /**
+     * @test
+     */
+    public function import_returns_error_when_member_factory_is_null(): void
+    {
+        $importer = new MemberImporter(
+            $this->memberRepo,
+            null,
+            $this->groupLookup,
+            $this->positionLookup
+        );
+
+        $result = $importer->import('/tmp/dummy.csv');
+
+        $this->assertTrue($result->hasErrors());
+        $this->assertStringContainsString('MemberFactory', $result->getErrors()[0]);
+    }
+
+    // ── Missing / invalid columns ──────────────────────────────────────
+
+    /**
+     * @test
+     */
+    public function import_returns_error_when_required_columns_missing(): void
+    {
+        $path = $this->writeCsv(['Anonymous Name', 'Random Column'], [
+            ['John D.', 'foo'],
+        ]);
+
+        $result = $this->importer->import($path);
+
+        $this->assertTrue($result->hasErrors());
+        $this->assertStringContainsString('Missing required columns', $result->getErrors()[0]);
+
+        unlink($path);
+    }
+
+    // ── Dry run ────────────────────────────────────────────────────────
+
+    /**
+     * @test
+     */
+    public function dry_run_counts_without_persisting(): void
+    {
+        $path = $this->writeCsv(
+            ['Anonymous Name', 'Home Group', 'Personal Email', 'Mobile', 'GSR', 'Intergroup Position', 'Intergroup Position Rotation'],
+            [
+                ['Alice A.', 'Group One', 'alice@example.com', '555-0001', 'yes', '', ''],
+                ['Bob B.', 'Group Two', 'bob@example.com', '555-0002', 'no', '', ''],
+            ]
+        );
+
+        $this->groupLookup->shouldReceive('resolve')->with('Group One')->andReturn(10);
+        $this->groupLookup->shouldReceive('resolve')->with('Group Two')->andReturn(20);
+        $this->positionLookup->shouldReceive('resolve')->with('')->andReturn(0);
+
+        // No existing members
+        $this->memberRepo->shouldReceive('findAll')->andReturn([]);
+
+        // Repository and factory should NOT be called for persistence
+        $this->memberRepo->shouldNotReceive('save');
+        $this->memberFactory->shouldNotReceive('createNew');
+
+        $result = $this->importer->import($path, dryRun: true);
+
+        $this->assertTrue($result->isSuccess());
+        $this->assertEquals(2, $result->getTotalRows());
+        $this->assertEquals(2, $result->getCreated());
+        $this->assertEquals(0, $result->getUpdated());
+        $this->assertEquals(0, $result->getSkipped());
+
+        unlink($path);
+    }
+
+    // ── Row skipping ───────────────────────────────────────────────────
+
+    /**
+     * @test
+     */
+    public function import_skips_row_with_empty_anonymous_name(): void
+    {
+        $path = $this->writeCsv(
+            ['Anonymous Name', 'Home Group', 'Personal Email', 'Mobile', 'GSR', 'Intergroup Position', 'Intergroup Position Rotation'],
+            [
+                ['', 'Group One', 'test@example.com', '555-0001', 'no', '', ''],
+            ]
+        );
+
+        $this->groupLookup->shouldReceive('resolve')->andReturn(0);
+        $this->positionLookup->shouldReceive('resolve')->andReturn(0);
+
+        $result = $this->importer->import($path, dryRun: true);
+
+        $this->assertEquals(1, $result->getSkipped());
+        $skippedRows = $result->getSkippedRows();
+        $this->assertCount(1, $skippedRows);
+        $this->assertStringContainsString('Anonymous Name is empty', $skippedRows[0]['reason']);
+
+        unlink($path);
+    }
+
+    /**
+     * @test
+     */
+    public function import_skips_row_with_position_but_no_rotation(): void
+    {
+        $path = $this->writeCsv(
+            ['Anonymous Name', 'Home Group', 'Personal Email', 'Mobile', 'GSR', 'Intergroup Position', 'Intergroup Position Rotation'],
+            [
+                ['Alice A.', 'Group One', 'alice@example.com', '555-0001', 'no', 'Secretary', ''],
+            ]
+        );
+
+        $this->groupLookup->shouldReceive('resolve')->andReturn(10);
+        $this->positionLookup->shouldReceive('resolve')->with('Secretary')->andReturn(100);
+        $this->memberRepo->shouldReceive('findAll')->andReturn([]);
+
+        $result = $this->importer->import($path, dryRun: true);
+
+        $this->assertEquals(1, $result->getSkipped());
+        $this->assertStringContainsString('Rotation is empty', $result->getSkippedRows()[0]['reason']);
+
+        unlink($path);
+    }
+
+    /**
+     * @test
+     */
+    public function import_skips_row_with_invalid_date_format(): void
+    {
+        $path = $this->writeCsv(
+            ['Anonymous Name', 'Home Group', 'Personal Email', 'Mobile', 'GSR', 'Intergroup Position', 'Intergroup Position Rotation'],
+            [
+                ['Alice A.', 'Group One', 'alice@example.com', '555-0001', 'no', 'Secretary', 'not-a-date'],
+            ]
+        );
+
+        $this->groupLookup->shouldReceive('resolve')->andReturn(10);
+        $this->positionLookup->shouldReceive('resolve')->with('Secretary')->andReturn(100);
+        $this->memberRepo->shouldReceive('findAll')->andReturn([]);
+
+        $result = $this->importer->import($path, dryRun: true);
+
+        $this->assertEquals(1, $result->getSkipped());
+        $this->assertStringContainsString('not a recognised date format', $result->getSkippedRows()[0]['reason']);
+
+        unlink($path);
+    }
+
+    // ── Date parsing ───────────────────────────────────────────────────
+
+    /**
+     * @test
+     * @dataProvider validDateProvider
+     */
+    public function import_accepts_valid_date_formats(string $input): void
+    {
+        $path = $this->writeCsv(
+            ['Anonymous Name', 'Home Group', 'Personal Email', 'Mobile', 'GSR', 'Intergroup Position', 'Intergroup Position Rotation'],
+            [
+                ['Alice A.', 'Group One', 'alice@example.com', '555-0001', 'no', 'Secretary', $input],
+            ]
+        );
+
+        $this->groupLookup->shouldReceive('resolve')->andReturn(10);
+        $this->positionLookup->shouldReceive('resolve')->andReturn(100);
+        $this->memberRepo->shouldReceive('findAll')->andReturn([]);
+
+        $result = $this->importer->import($path, dryRun: true);
+
+        $this->assertEquals(0, $result->getSkipped(), "Date '{$input}' should be accepted but was skipped");
+        $this->assertEquals(1, $result->getCreated());
+
+        unlink($path);
+    }
+
+    public static function validDateProvider(): array
+    {
+        return [
+            'yyyy/MM/dd' => ['2025/06/15'],
+            'yyyy-MM-dd' => ['2025-06-15'],
+            'yyyy.MM.dd' => ['2025.06.15'],
+            'dd/MM/yyyy' => ['15/06/2025'],
+            'dd-MM-yyyy' => ['15-06-2025'],
+            'dd/MM/yy'   => ['15/06/25'],
+        ];
+    }
+
+    // ── GSR parsing ────────────────────────────────────────────────────
+
+    /**
+     * @test
+     * @dataProvider gsrTruthyProvider
+     */
+    public function import_parses_gsr_truthy_values(string $input): void
+    {
+        // Verify the static method recognises these values
+        $truthyValues = MemberImporter::getTruthyValues();
+        $this->assertContains(strtolower(trim($input)), $truthyValues);
+    }
+
+    public static function gsrTruthyProvider(): array
+    {
+        return [
+            'yes'   => ['yes'],
+            'Yes'   => ['Yes'],
+            'y'     => ['y'],
+            'true'  => ['true'],
+            '1'     => ['1'],
+        ];
+    }
+
+    // ── Unresolved group/position warnings ─────────────────────────────
+
+    /**
+     * @test
+     */
+    public function import_warns_on_unresolved_group_names(): void
+    {
+        $path = $this->writeCsv(
+            ['Anonymous Name', 'Home Group', 'Personal Email', 'Mobile', 'GSR', 'Intergroup Position', 'Intergroup Position Rotation'],
+            [
+                ['Alice A.', 'Unknown Group', 'alice@example.com', '555-0001', 'no', '', ''],
+            ]
+        );
+
+        $this->groupLookup->shouldReceive('resolve')->with('Unknown Group')->andReturn(0);
+        $this->positionLookup->shouldReceive('resolve')->with('')->andReturn(0);
+        $this->groupLookup->shouldReceive('getUnresolvedNames')->andReturn(['Unknown Group']);
+        $this->memberRepo->shouldReceive('findAll')->andReturn([]);
+
+        $result = $this->importer->import($path, dryRun: true);
+
+        $this->assertTrue($result->hasWarnings());
+        $warnings = implode(' ', $result->getWarnings());
+        $this->assertStringContainsString('Unknown Group', $warnings);
+
+        unlink($path);
+    }
+
+    /**
+     * @test
+     */
+    public function import_warns_on_unresolved_position_names(): void
+    {
+        $path = $this->writeCsv(
+            ['Anonymous Name', 'Home Group', 'Personal Email', 'Mobile', 'GSR', 'Intergroup Position', 'Intergroup Position Rotation'],
+            [
+                ['Alice A.', 'Group One', 'alice@example.com', '555-0001', 'no', 'Fake Position', '2025/01/01'],
+            ]
+        );
+
+        $this->groupLookup->shouldReceive('resolve')->andReturn(10);
+        $this->positionLookup->shouldReceive('resolve')->with('Fake Position')->andReturn(0);
+        $this->positionLookup->shouldReceive('getUnresolvedNames')->andReturn(['Fake Position']);
+        $this->memberRepo->shouldReceive('findAll')->andReturn([]);
+
+        $result = $this->importer->import($path, dryRun: true);
+
+        $this->assertTrue($result->hasWarnings());
+        $warnings = implode(' ', $result->getWarnings());
+        $this->assertStringContainsString('Fake Position', $warnings);
+
+        unlink($path);
+    }
+
+    // ── Create vs update ───────────────────────────────────────────────
+
+    /**
+     * @test
+     */
+    public function dry_run_detects_existing_members_as_updates(): void
+    {
+        $path = $this->writeCsv(
+            ['Anonymous Name', 'Home Group', 'Personal Email', 'Mobile', 'GSR', 'Intergroup Position', 'Intergroup Position Rotation'],
+            [
+                ['Alice A.', 'Group One', 'alice@example.com', '555-0001', 'yes', '', ''],
+            ]
+        );
+
+        $this->groupLookup->shouldReceive('resolve')->andReturn(10);
+        $this->positionLookup->shouldReceive('resolve')->andReturn(0);
+
+        // Simulate an existing member found by anonymous name
+        $existingMember = Mockery::mock(Member::class);
+        $existingMember->shouldReceive('getId')->andReturn(42);
+        $existingMember->shouldReceive('showAnonymousName')->andReturn(false);
+        $existingMember->shouldReceive('showMemberProfile')->andReturn(false);
+        $existingMember->shouldReceive('getAnonymousProfile')->andReturn('');
+        $existingMember->shouldReceive('getIntergroupPositionRotation')->andReturn('');
+        $existingMember->shouldReceive('getMeetingPO')->andReturn(null);
+
+        $this->memberRepo->shouldReceive('findAll')->andReturn([$existingMember]);
+
+        $result = $this->importer->import($path, dryRun: true);
+
+        $this->assertEquals(0, $result->getCreated());
+        $this->assertEquals(1, $result->getUpdated());
+
+        unlink($path);
+    }
+
+    // ── Accepted date format labels ────────────────────────────────────
+
+    /**
+     * @test
+     */
+    public function getAcceptedDateFormats_returns_non_empty_array(): void
+    {
+        $formats = MemberImporter::getAcceptedDateFormats();
+
+        $this->assertNotEmpty($formats);
+        $this->assertContains('yyyy/MM/dd', $formats);
+        $this->assertContains('dd/MM/yyyy', $formats);
+    }
+
+    // ── File read errors ───────────────────────────────────────────────
+
+    /**
+     * @test
+     */
+    public function import_returns_error_for_nonexistent_file(): void
+    {
+        $result = $this->importer->import('/tmp/nonexistent_file_abc123.csv');
+
+        $this->assertTrue($result->hasErrors());
+    }
+}
