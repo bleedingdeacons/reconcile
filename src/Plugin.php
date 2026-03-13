@@ -180,10 +180,7 @@ class Plugin
     {
         self::$container = $container;
 
-        error_log('Reconcile: Plugin::init() called.');
-
         if (!is_admin()) {
-            error_log('Reconcile: Not in admin context — skipping AJAX handler registration.');
             return;
         }
 
@@ -197,8 +194,6 @@ class Plugin
         self::$importHandler = new MemberImportHandler($memberImporter);
         self::$importHandler->register();
 
-        error_log('Reconcile: Member import AJAX handler registered.');
-
         // --- Group Import AJAX handler ---
         $groupRepository = self::getGroupRepository();
         $groupFactory = self::getGroupFactory();
@@ -208,15 +203,11 @@ class Plugin
         self::$groupImportHandler = new GroupImportHandler($groupImporter);
         self::$groupImportHandler->register();
 
-        error_log('Reconcile: Group import AJAX handler registered.');
-
         // --- Group Export handler ---
         $groupExporter = new GroupExporter($groupRepository);
 
         self::$groupExportHandler = new GroupExportHandler($groupExporter);
         self::$groupExportHandler->register();
-
-        error_log('Reconcile: Group export handler registered.');
 
         // --- Member Export handler ---
         $memberExporter = new MemberExporter(
@@ -228,8 +219,6 @@ class Plugin
         self::$memberExportHandler = new MemberExportHandler($memberExporter);
         self::$memberExportHandler->register();
 
-        error_log('Reconcile: Member export handler registered.');
-
         // --- Position Import AJAX handler ---
         $positionRepository = self::getPositionRepository();
         $positionFactory = self::getPositionFactory();
@@ -238,15 +227,12 @@ class Plugin
         self::$positionImportHandler = new PositionImportHandler($positionImporter);
         self::$positionImportHandler->register();
 
-        error_log('Reconcile: Position import AJAX handler registered.');
-
         // --- Position Export handler ---
         $positionExporter = new PositionExporter($positionRepository);
 
         self::$positionExportHandler = new PositionExportHandler($positionExporter);
         self::$positionExportHandler->register();
 
-        error_log('Reconcile: Position export handler registered.');
     }
 
     /**

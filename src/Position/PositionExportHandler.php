@@ -32,8 +32,6 @@ class PositionExportHandler
      */
     public function handleExport(): void
     {
-        error_log('Reconcile Position Export: Handler invoked.');
-
         // Security checks
         if (!current_user_can('manage_options')) {
             error_log('Reconcile Position Export: Permission denied.');
