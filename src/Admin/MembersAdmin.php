@@ -4,8 +4,8 @@ declare(strict_types=1);
 
 namespace Reconcile\Admin;
 
-use Reconcile\Import\ColumnMapper;
-use Reconcile\Import\MemberImporter;
+use Member\MemberColumnMapper;
+use Member\MemberImporter;
 
 /**
  * Member Import Admin Page
@@ -58,8 +58,8 @@ class MembersAdmin
      */
     public function renderPage(): void
     {
-        $acceptedHeaders = ColumnMapper::getAcceptedHeaders();
-        $labels = ColumnMapper::getPropertyLabels();
+        $acceptedHeaders = MemberColumnMapper::getAcceptedHeaders();
+        $labels = MemberColumnMapper::getPropertyLabels();
         $notes = self::getPropertyNotes();
         $truthyValues = MemberImporter::getTruthyValues();
 

@@ -2,21 +2,19 @@
 
 declare(strict_types=1);
 
-namespace Reconcile\Admin;
-
-use Reconcile\Export\MemberExporter;
+namespace Group;
 
 /**
- * Member Export Handler
+ * Group Export Handler
  *
- * Handles the admin-post endpoint for the member export.
+ * Handles the admin-post endpoint for the group export.
  * Generates a CSV file and sends it as a download.
  */
-class MemberExportHandler
+class GroupExportHandler
 {
-    private MemberExporter $exporter;
+    private GroupExporter $exporter;
 
-    public function __construct(MemberExporter $exporter)
+    public function __construct(GroupExporter $exporter)
     {
         $this->exporter = $exporter;
     }
@@ -26,7 +24,7 @@ class MemberExportHandler
      */
     public function register(): void
     {
-        add_action('admin_post_reconcile_member_export', [$this, 'handleExport']);
+        add_action('admin_post_reconcile_group_export', [$this, 'handleExport']);
     }
 
     /**
@@ -34,27 +32,27 @@ class MemberExportHandler
      */
     public function handleExport(): void
     {
-        error_log('Reconcile Member Export: Handler invoked.');
+        error_log('Reconcile Group Export: Handler invoked.');
 
         // Security checks
         if (!current_user_can('manage_options')) {
-            error_log('Reconcile Member Export: Permission denied.');
+            error_log('Reconcile Group Export: Permission denied.');
             wp_die(__('You do not have permission to perform this action.', 'reconcile'), 403);
         }
 
         if (
             !isset($_GET['_wpnonce'])
-            || !wp_verify_nonce(sanitize_text_field(wp_unslash($_GET['_wpnonce'])), 'reconcile_member_export')
+            || !wp_verify_nonce(sanitize_text_field(wp_unslash($_GET['_wpnonce'])), 'reconcile_group_export')
         ) {
-            error_log('Reconcile Member Export: Nonce verification failed.');
+            error_log('Reconcile Group Export: Nonce verification failed.');
             wp_die(__('Security check failed. Please go back and try again.', 'reconcile'), 403);
         }
 
         try {
             $csv = $this->exporter->export();
         } catch (\Throwable $e) {
-            error_log('Reconcile Member Export: Error — ' . get_class($e) . ': ' . $e->getMessage());
-            error_log('Reconcile Member Export: Stack trace — ' . $e->getTraceAsString());
+            error_log('Reconcile Group Export: Error — ' . get_class($e) . ': ' . $e->getMessage());
+            error_log('Reconcile Group Export: Stack trace — ' . $e->getTraceAsString());
             wp_die(
                 __('Export failed: ', 'reconcile') . esc_html($e->getMessage()),
                 __('Export Error', 'reconcile'),
@@ -62,9 +60,9 @@ class MemberExportHandler
             );
         }
 
-        $filename = 'members-export-' . gmdate('Y-m-d-His') . '.csv';
+        $filename = 'groups-export-' . gmdate('Y-m-d-His') . '.csv';
 
-        error_log('Reconcile Member Export: Sending CSV download — ' . $filename . '.');
+        error_log('Reconcile Group Export: Sending CSV download — ' . $filename . '.');
 
         // Send as file download
         header('Content-Type: text/csv; charset=utf-8');

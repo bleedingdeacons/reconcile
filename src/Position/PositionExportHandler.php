@@ -2,9 +2,7 @@
 
 declare(strict_types=1);
 
-namespace Reconcile\Admin;
-
-use Reconcile\Export\PositionExporter;
+namespace Position;
 
 /**
  * Position Export Handler

@@ -4,14 +4,12 @@ declare(strict_types=1);
 
 namespace Reconcile\Tests\Unit\Import;
 
+use Group\GroupLookup;
+use Member\MemberImporter;
 use Mockery;
 use Mockery\Adapter\Phpunit\MockeryPHPUnitIntegration;
 use PHPUnit\Framework\TestCase;
-use Reconcile\Import\ColumnMapper;
-use Reconcile\Import\GroupLookup;
-use Reconcile\Import\MemberImporter;
-use Reconcile\Import\PositionLookup;
-use Reconcile\Import\SpreadsheetReader;
+use Position\PositionLookup;
 use Unity\Members\Interfaces\Member;
 use Unity\Members\Interfaces\MemberFactory;
 use Unity\Members\Interfaces\MemberRepository;

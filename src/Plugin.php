@@ -4,29 +4,29 @@ declare(strict_types=1);
 
 namespace Reconcile;
 
-use Reconcile\Admin\MembersAdmin;
-use Reconcile\Admin\GroupsAdmin;
-use Reconcile\Admin\PositionsAdmin;
-use Reconcile\Admin\ImportHandler;
-use Reconcile\Admin\GroupImportHandler;
-use Reconcile\Admin\GroupExportHandler;
-use Reconcile\Admin\MemberExportHandler;
-use Reconcile\Admin\PositionImportHandler;
-use Reconcile\Admin\PositionExportHandler;
-use Reconcile\Import\GroupLookup;
-use Reconcile\Import\MemberImporter;
-use Reconcile\Import\GroupImporter;
-use Reconcile\Import\PositionImporter;
-use Reconcile\Import\PositionLookup;
-use Reconcile\Export\GroupExporter;
-use Reconcile\Export\MemberExporter;
-use Reconcile\Export\PositionExporter;
+use Group\GroupExporter;
+use Group\GroupExportHandler;
+use Group\GroupImporter;
+use Group\GroupImportHandler;
+use Group\GroupLookup;
+use Member\MemberExporter;
+use Member\MemberExportHandler;
+use Member\MemberImporter;
+use Member\MemberImportHandler;
+use Position\PositionExporter;
+use Position\PositionExportHandler;
+use Position\PositionImporter;
+use Position\PositionImportHandler;
+use Position\PositionLookup;
 use Psr\Container\ContainerInterface;
+use Reconcile\Admin\GroupsAdmin;
+use Reconcile\Admin\MembersAdmin;
+use Reconcile\Admin\PositionsAdmin;
 use Unity\Contacts\Interfaces\ContactFactory;
-use Unity\Members\Interfaces\MemberFactory;
-use Unity\Members\Interfaces\MemberRepository;
 use Unity\Groups\Interfaces\GroupFactory;
 use Unity\Groups\Interfaces\GroupRepository;
+use Unity\Members\Interfaces\MemberFactory;
+use Unity\Members\Interfaces\MemberRepository;
 use Unity\Positions\Interfaces\PositionFactory;
 use Unity\Positions\Interfaces\PositionRepository;
 
@@ -45,7 +45,7 @@ class Plugin
     private static ?MembersAdmin $memberAdminPage = null;
     private static ?GroupsAdmin $groupAdminPage = null;
     private static ?PositionsAdmin $positionAdminPage = null;
-    private static ?ImportHandler $importHandler = null;
+    private static ?MemberImportHandler $importHandler = null;
     private static ?GroupImportHandler $groupImportHandler = null;
     private static ?GroupExportHandler $groupExportHandler = null;
     private static ?MemberExportHandler $memberExportHandler = null;
@@ -194,7 +194,7 @@ class Plugin
         $positionLookup = new PositionLookup(self::getPositionRepository());
         $memberImporter = new MemberImporter($memberRepository, $memberFactory, $groupLookup, $positionLookup);
 
-        self::$importHandler = new ImportHandler($memberImporter);
+        self::$importHandler = new MemberImportHandler($memberImporter);
         self::$importHandler->register();
 
         error_log('Reconcile: Member import AJAX handler registered.');

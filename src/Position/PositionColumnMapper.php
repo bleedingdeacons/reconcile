@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace Reconcile\Import;
+namespace Position;
 
 /**
  * Position Column Mapper

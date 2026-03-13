@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace Reconcile\Export;
+namespace Position;
 
 use Unity\Positions\Interfaces\Position;
 use Unity\Positions\Interfaces\PositionRepository;

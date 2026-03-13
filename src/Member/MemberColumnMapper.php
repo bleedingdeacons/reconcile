@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace Reconcile\Import;
+namespace Member;
 
 /**
  * Column Mapper
@@ -21,7 +21,7 @@ namespace Reconcile\Import;
  *  - intergroup_position  (string – resolved to post ID via PositionLookup)
  *  - intergroup_position_rotation  (conditionally required when intergroup_position has a value)
  */
-class ColumnMapper
+class MemberColumnMapper
 {
     /**
      * Canonical property name => list of accepted header aliases (all lowercase)

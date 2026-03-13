@@ -2,13 +2,16 @@
 
 declare(strict_types=1);
 
-namespace Reconcile\Import;
+namespace Member;
 
+use Core\OperationResult;
+use Core\SpreadsheetReader;
+use Group\GroupLookup;
+use Position\PositionLookup;
+use RuntimeException;
 use Unity\Members\Interfaces\Member;
 use Unity\Members\Interfaces\MemberFactory;
 use Unity\Members\Interfaces\MemberRepository;
-
-use RuntimeException;
 
 /**
  * Member Importer
@@ -24,7 +27,7 @@ use RuntimeException;
  *
  * Rows that cannot be imported are skipped with a "Skipped – [reason]" warning.
  *
- * Returns an ImportResult with counts and any warnings/errors.
+ * Returns an OperationResult with counts and any warnings/errors.
  */
 class MemberImporter
 {
@@ -48,7 +51,7 @@ class MemberImporter
     private ?MemberFactory $memberFactory;
     private GroupLookup $groupLookup;
     private PositionLookup $positionLookup;
-    private ColumnMapper $columnMapper;
+    private MemberColumnMapper $columnMapper;
     private SpreadsheetReader $reader;
 
     public function __construct(
@@ -61,7 +64,7 @@ class MemberImporter
         $this->memberFactory = $memberFactory;
         $this->groupLookup = $groupLookup;
         $this->positionLookup = $positionLookup;
-        $this->columnMapper = new ColumnMapper();
+        $this->columnMapper = new MemberColumnMapper();
         $this->reader = new SpreadsheetReader();
     }
 
@@ -70,11 +73,11 @@ class MemberImporter
      *
      * @param string $filePath Absolute path to the uploaded spreadsheet
      * @param bool $dryRun If true, validate only – do not persist anything
-     * @return ImportResult
+     * @return OperationResult
      */
-    public function import(string $filePath, bool $dryRun = false): ImportResult
+    public function import(string $filePath, bool $dryRun = false): OperationResult
     {
-        $result = new ImportResult();
+        $result = new OperationResult();
 
         if ($this->memberRepository === null) {
             $result->addError('Unity MemberRepository is not available. Is Unity fully configured?');
@@ -102,7 +105,7 @@ class MemberImporter
         $missing = $this->columnMapper->validateMapping($mapping);
 
         if (!empty($missing)) {
-            $labels = ColumnMapper::getPropertyLabels();
+            $labels = MemberColumnMapper::getPropertyLabels();
             $missingLabels = array_map(fn($p) => $labels[$p] ?? $p, $missing);
             $result->addError(
                 'Missing required columns: ' . implode(', ', $missingLabels) . '. '
@@ -354,7 +357,7 @@ class MemberImporter
         ?bool $isGSR = null,
         ?int $existingMemberId = null
     ): array {
-        $labels = ColumnMapper::getPropertyLabels();
+        $labels = MemberColumnMapper::getPropertyLabels();
         $details = [];
 
         // Raw CSV values

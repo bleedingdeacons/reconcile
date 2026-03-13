@@ -2,13 +2,14 @@
 
 declare(strict_types=1);
 
-namespace Reconcile\Import;
+namespace Position;
 
+use Core\OperationResult;
+use Core\SpreadsheetReader;
+use RuntimeException;
 use Unity\Positions\Interfaces\Position;
 use Unity\Positions\Interfaces\PositionFactory;
 use Unity\Positions\Interfaces\PositionRepository;
-
-use RuntimeException;
 
 /**
  * Position Importer
@@ -25,7 +26,7 @@ use RuntimeException;
  *
  * Rows that cannot be imported are skipped with a "Skipped – [reason]" warning.
  *
- * Returns an ImportResult with counts and any warnings/errors.
+ * Returns an OperationResult with counts and any warnings/errors.
  */
 class PositionImporter
 {
@@ -51,11 +52,11 @@ class PositionImporter
      *
      * @param string $filePath Absolute path to the uploaded spreadsheet
      * @param bool $dryRun If true, validate only – do not persist anything
-     * @return ImportResult
+     * @return OperationResult
      */
-    public function import(string $filePath, bool $dryRun = false): ImportResult
+    public function import(string $filePath, bool $dryRun = false): OperationResult
     {
-        $result = new ImportResult();
+        $result = new OperationResult();
 
         error_log('Reconcile PositionImporter: Starting import from ' . $filePath . ' (dry_run=' . ($dryRun ? 'true' : 'false') . ').');
 

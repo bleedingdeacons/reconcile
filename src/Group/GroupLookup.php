@@ -2,10 +2,10 @@
 
 declare(strict_types=1);
 
-namespace Reconcile\Import;
+namespace Group;
 
-use Unity\Groups\Interfaces\GroupRepository;
 use Unity\Groups\Interfaces\Group;
+use Unity\Groups\Interfaces\GroupRepository;
 
 /**
  * Group Lookup

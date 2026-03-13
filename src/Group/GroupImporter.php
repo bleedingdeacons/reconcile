@@ -2,14 +2,15 @@
 
 declare(strict_types=1);
 
-namespace Reconcile\Import;
+namespace Group;
 
+use Core\OperationResult;
+use Core\SpreadsheetReader;
+use RuntimeException;
 use Unity\Contacts\Interfaces\ContactFactory;
 use Unity\Groups\Interfaces\Group;
 use Unity\Groups\Interfaces\GroupFactory;
 use Unity\Groups\Interfaces\GroupRepository;
-
-use RuntimeException;
 
 /**
  * Group Importer
@@ -27,7 +28,7 @@ use RuntimeException;
  *
  * Rows that cannot be imported are skipped with a "Skipped – [reason]" warning.
  *
- * Returns an ImportResult with counts and any warnings/errors.
+ * Returns an OperationResult with counts and any warnings/errors.
  */
 class GroupImporter
 {
@@ -56,11 +57,11 @@ class GroupImporter
      *
      * @param string $filePath Absolute path to the uploaded spreadsheet
      * @param bool $dryRun If true, validate only – do not persist anything
-     * @return ImportResult
+     * @return OperationResult
      */
-    public function import(string $filePath, bool $dryRun = false): ImportResult
+    public function import(string $filePath, bool $dryRun = false): OperationResult
     {
-        $result = new ImportResult();
+        $result = new OperationResult();
 
         error_log('Reconcile GroupImporter: Starting import from ' . $filePath . ' (dry_run=' . ($dryRun ? 'true' : 'false') . ').');
 

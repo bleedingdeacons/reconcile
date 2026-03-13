@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace Reconcile\Admin;
 
-use Reconcile\Import\GroupColumnMapper;
+use Group\GroupColumnMapper;
 
 /**
  * Group Import Admin Page

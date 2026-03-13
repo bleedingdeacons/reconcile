@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace Reconcile\Admin;
 
-use Reconcile\Import\PositionColumnMapper;
+use Position\PositionColumnMapper;
 
 /**
  * Position Import Admin Page

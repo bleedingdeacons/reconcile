@@ -2,14 +2,14 @@
 
 declare(strict_types=1);
 
-namespace Reconcile\Import;
+namespace Core;
 
 /**
- * Import Result
+ * Export or Import Result
  *
- * Holds the outcome of a member import run: counts and messages.
+ * Holds the outcome of a member/group/position import or export run: counts and messages.
  */
-class ImportResult
+class OperationResult
 {
     private int $totalRows = 0;
     private int $created = 0;

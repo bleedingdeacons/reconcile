@@ -2,10 +2,10 @@
 
 declare(strict_types=1);
 
-namespace Reconcile\Import;
+namespace Position;
 
-use Unity\Positions\Interfaces\PositionRepository;
 use Unity\Positions\Interfaces\Position;
+use Unity\Positions\Interfaces\PositionRepository;
 
 /**
  * Position Lookup
