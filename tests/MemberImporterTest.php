@@ -412,4 +412,147 @@ class MemberImporterTest extends TestCase
 
         $this->assertTrue($result->hasErrors());
     }
+
+    // ── Member ID lookup ──────────────────────────────────────────────
+
+    /**
+     * @test
+     */
+    public function import_uses_member_id_to_find_existing_member(): void
+    {
+        $path = $this->writeCsv(
+            ['Member ID', 'Anonymous Name', 'Home Group', 'Personal Email', 'Mobile', 'GSR', 'Intergroup Position', 'Intergroup Position Rotation'],
+            [
+                ['42', 'Alice A.', 'Group One', 'alice@example.com', '555-0001', 'yes', '', ''],
+            ]
+        );
+
+        $this->groupLookup->shouldReceive('resolve')->andReturn(10);
+        $this->positionLookup->shouldReceive('resolve')->andReturn(0);
+
+        // Simulate an existing member found by ID
+        $existingMember = Mockery::mock(Member::class);
+        $existingMember->shouldReceive('getId')->andReturn(42);
+        $existingMember->shouldReceive('showAnonymousName')->andReturn(false);
+        $existingMember->shouldReceive('showMemberProfile')->andReturn(false);
+        $existingMember->shouldReceive('getAnonymousProfile')->andReturn('');
+        $existingMember->shouldReceive('getIntergroupPositionRotation')->andReturn('');
+        $existingMember->shouldReceive('getMeetingPO')->andReturn(null);
+
+        $this->memberRepo->shouldReceive('findById')->with(42)->andReturn($existingMember);
+
+        // findAll should NOT be called for member lookup when ID is provided
+        $this->memberRepo->shouldNotReceive('findAll');
+
+        $result = $this->importer->import($path, dryRun: true);
+
+        $this->assertEquals(0, $result->getCreated());
+        $this->assertEquals(1, $result->getUpdated());
+        $this->assertEquals(0, $result->getSkipped());
+
+        unlink($path);
+    }
+
+    /**
+     * @test
+     */
+    public function import_skips_row_with_non_numeric_member_id(): void
+    {
+        $path = $this->writeCsv(
+            ['Member ID', 'Anonymous Name', 'Home Group', 'Personal Email', 'Mobile', 'GSR', 'Intergroup Position', 'Intergroup Position Rotation'],
+            [
+                ['abc', 'Alice A.', 'Group One', 'alice@example.com', '555-0001', 'yes', '', ''],
+            ]
+        );
+
+        $this->groupLookup->shouldReceive('resolve')->andReturn(10);
+        $this->positionLookup->shouldReceive('resolve')->andReturn(0);
+
+        $result = $this->importer->import($path, dryRun: true);
+
+        $this->assertEquals(1, $result->getSkipped());
+        $this->assertStringContainsString('not a valid numeric ID', $result->getSkippedRows()[0]['reason']);
+
+        unlink($path);
+    }
+
+    /**
+     * @test
+     */
+    public function import_skips_row_when_member_id_does_not_match(): void
+    {
+        $path = $this->writeCsv(
+            ['Member ID', 'Anonymous Name', 'Home Group', 'Personal Email', 'Mobile', 'GSR', 'Intergroup Position', 'Intergroup Position Rotation'],
+            [
+                ['999', 'Alice A.', 'Group One', 'alice@example.com', '555-0001', 'yes', '', ''],
+            ]
+        );
+
+        $this->groupLookup->shouldReceive('resolve')->andReturn(10);
+        $this->positionLookup->shouldReceive('resolve')->andReturn(0);
+
+        $this->memberRepo->shouldReceive('findById')->with(999)->andReturn(null);
+
+        $result = $this->importer->import($path, dryRun: true);
+
+        $this->assertEquals(1, $result->getSkipped());
+        $this->assertStringContainsString('does not match an existing member', $result->getSkippedRows()[0]['reason']);
+
+        unlink($path);
+    }
+
+    /**
+     * @test
+     */
+    public function import_falls_back_to_anonymous_name_when_member_id_empty(): void
+    {
+        $path = $this->writeCsv(
+            ['Member ID', 'Anonymous Name', 'Home Group', 'Personal Email', 'Mobile', 'GSR', 'Intergroup Position', 'Intergroup Position Rotation'],
+            [
+                ['', 'Alice A.', 'Group One', 'alice@example.com', '555-0001', 'yes', '', ''],
+            ]
+        );
+
+        $this->groupLookup->shouldReceive('resolve')->andReturn(10);
+        $this->positionLookup->shouldReceive('resolve')->andReturn(0);
+
+        // No existing member — should count as a create
+        $this->memberRepo->shouldReceive('findAll')->andReturn([]);
+
+        // findById should NOT be called when member_id is empty
+        $this->memberRepo->shouldNotReceive('findById');
+
+        $result = $this->importer->import($path, dryRun: true);
+
+        $this->assertEquals(1, $result->getCreated());
+        $this->assertEquals(0, $result->getUpdated());
+
+        unlink($path);
+    }
+
+    /**
+     * @test
+     */
+    public function import_works_without_member_id_column(): void
+    {
+        $path = $this->writeCsv(
+            ['Anonymous Name', 'Home Group', 'Personal Email', 'Mobile', 'GSR', 'Intergroup Position', 'Intergroup Position Rotation'],
+            [
+                ['Alice A.', 'Group One', 'alice@example.com', '555-0001', 'yes', '', ''],
+            ]
+        );
+
+        $this->groupLookup->shouldReceive('resolve')->andReturn(10);
+        $this->positionLookup->shouldReceive('resolve')->andReturn(0);
+
+        // Falls back to anonymous name lookup — no existing member
+        $this->memberRepo->shouldReceive('findAll')->andReturn([]);
+
+        $result = $this->importer->import($path, dryRun: true);
+
+        $this->assertEquals(1, $result->getCreated());
+        $this->assertEquals(0, $result->getSkipped());
+
+        unlink($path);
+    }
 }

@@ -199,6 +199,8 @@ class MembersAdmin
         );
 
         return [
+            'member_id' => 'Optional — if supplied, the member is looked up by this post ID. '
+                . 'If not supplied or empty, the member is looked up by Anonymous Name instead.',
             'home_group' => 'Text value — looked up against existing group titles to resolve the post ID.',
             'intergroup_position' => 'Text value — looked up against existing position names to resolve the post ID.',
             'intergroup_position_rotation' => 'Required when an Intergroup Position is specified. '

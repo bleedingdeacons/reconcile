@@ -23,8 +23,9 @@ use Unity\Groups\Interfaces\GroupRepository;
  *     - If Group ID is provided, looks up by ID. If Group Name is also provided,
  *       updates the group title.
  *     - If only Group Name is provided (no ID column or ID is empty), looks up by name.
+ *       If the name does not match an existing group, a new group is created.
  *  5. Builds contact arrays from up to 3 contact column sets
- *  6. Updates groups through the Unity GroupRepository
+ *  6. Creates or updates groups through the Unity GroupRepository
  *
  * Rows that cannot be imported are skipped with a "Skipped – [reason]" warning.
  *
@@ -155,25 +156,19 @@ class GroupImporter
                     // No ID supplied — use group name to find the group
                     $resolvedId = $this->groupLookup->resolve($rawGroupName);
 
-                    if ($resolvedId === 0) {
-                        $result->skipRow(
-                            $lineNumber,
-                            "Group Name \"{$rawGroupName}\" does not match an existing group.",
-                            $this->buildRowDetails($rowData)
-                        );
-                        continue;
-                    }
+                    if ($resolvedId !== 0) {
+                        $existingGroup = $this->findExistingGroup($resolvedId);
 
-                    $existingGroup = $this->findExistingGroup($resolvedId);
-
-                    if ($existingGroup === null) {
-                        $result->skipRow(
-                            $lineNumber,
-                            "Group Name \"{$rawGroupName}\" resolved to ID {$resolvedId} but the group could not be loaded.",
-                            $this->buildRowDetails($rowData)
-                        );
-                        continue;
+                        if ($existingGroup === null) {
+                            $result->skipRow(
+                                $lineNumber,
+                                "Group Name \"{$rawGroupName}\" resolved to ID {$resolvedId} but the group could not be loaded.",
+                                $this->buildRowDetails($rowData)
+                            );
+                            continue;
+                        }
                     }
+                    // If resolvedId === 0, existingGroup stays null — a new group will be created
                 }
 
                 // Build contacts array
@@ -182,34 +177,69 @@ class GroupImporter
                 // Full context for reporting
                 $fullDetails = $this->buildRowDetails(
                     $rowData,
-                    $existingGroup->getId()
+                    $existingGroup ? $existingGroup->getId() : null
                 );
 
                 if ($dryRun) {
-                    $result->incrementUpdated();
+                    if ($existingGroup) {
+                        $result->incrementUpdated();
+                    } else {
+                        $result->incrementCreated();
+                    }
                     continue;
                 }
 
-                // Persist update
-                $saveError = '';
-                $saved = $this->updateGroup(
-                    $existingGroup,
-                    $rowData,
-                    $contacts,
-                    $saveError
-                );
-                if ($saved) {
-                    $result->incrementUpdated();
-                } else {
-                    $resolvedId = $existingGroup->getId();
-                    $groupLabel = !empty($rowData['group_name'])
-                        ? "\"{$rowData['group_name']}\" (ID: {$resolvedId})"
-                        : "ID: {$resolvedId}";
-                    $reason = "Failed to update group {$groupLabel}.";
-                    if ($saveError !== '') {
-                        $reason .= " Error: {$saveError}";
+                // Persist
+                if ($existingGroup) {
+                    // Update existing group
+                    $saveError = '';
+                    $saved = $this->updateGroup(
+                        $existingGroup,
+                        $rowData,
+                        $contacts,
+                        $saveError
+                    );
+                    if ($saved) {
+                        $result->incrementUpdated();
+                    } else {
+                        $resolvedId = $existingGroup->getId();
+                        $groupLabel = !empty($rowData['group_name'])
+                            ? "\"{$rowData['group_name']}\" (ID: {$resolvedId})"
+                            : "ID: {$resolvedId}";
+                        $reason = "Failed to update group {$groupLabel}.";
+                        if ($saveError !== '') {
+                            $reason .= " Error: {$saveError}";
+                        }
+                        $result->skipRow($lineNumber, $reason, $fullDetails);
                     }
-                    $result->skipRow($lineNumber, $reason, $fullDetails);
+                } else {
+                    // Create new group
+                    $wpError = '';
+                    $postId = $this->createGroupPost($rawGroupName, $wpError);
+
+                    if ($postId === 0) {
+                        $reason = "Failed to create WordPress post for \"{$rawGroupName}\".";
+                        if ($wpError !== '') {
+                            $reason .= " wp_insert_post error: {$wpError}";
+                        }
+                        $result->skipRow($lineNumber, $reason, $fullDetails);
+                        continue;
+                    }
+
+                    $saveError = '';
+                    $saved = $this->saveNewGroup($postId, $rowData, $contacts, $saveError);
+
+                    if ($saved) {
+                        $result->incrementCreated();
+                    } else {
+                        $fullDetails['Post ID'] = (string) $postId;
+                        $reason = "Post created (#{$postId}) but fields failed to save"
+                            . " for \"{$rawGroupName}\".";
+                        if ($saveError !== '') {
+                            $reason .= " Error: {$saveError}";
+                        }
+                        $result->skipRow($lineNumber, $reason, $fullDetails);
+                    }
                 }
             } catch (\Exception $e) {
                 $result->skipRow(
@@ -326,6 +356,63 @@ class GroupImporter
         } catch (\Exception $e) {
             error_log('Reconcile: Error finding group by ID – ' . $e->getMessage());
             return null;
+        }
+    }
+
+    /**
+     * Create a WordPress post for a new group.
+     *
+     * @param string $title The post title (group name)
+     * @param string $errorMessage Populated with the error message if creation fails
+     * @return int The new post ID, or 0 on failure
+     */
+    private function createGroupPost(string $title, string &$errorMessage = ''): int
+    {
+        $postId = wp_insert_post([
+            'post_type'   => 'intergroup-group',
+            'post_status' => 'publish',
+            'post_title'  => $title,
+        ], true);
+
+        if (is_wp_error($postId)) {
+            $errorMessage = $postId->get_error_message();
+            error_log('Reconcile: wp_insert_post failed – ' . $errorMessage);
+            return 0;
+        }
+
+        return (int) $postId;
+    }
+
+    /**
+     * Save meta fields for a newly created group post.
+     *
+     * @param int $postId The WordPress post ID
+     * @param array<string, string> $rowData The imported row data
+     * @param array<int, array{name: string, email: string, phone: string}> $contacts
+     * @param string $errorMessage Populated with error message on failure
+     * @return bool Whether the save succeeded
+     */
+    private function saveNewGroup(
+        int $postId,
+        array $rowData,
+        array $contacts,
+        string &$errorMessage = ''
+    ): bool {
+        $capturedError = '';
+
+        set_error_handler(function (int $errno, string $errstr) use (&$capturedError): bool {
+            $capturedError = $errstr;
+            return true;
+        });
+
+        try {
+            $this->saveMetaFields($postId, $rowData, $contacts);
+            return true;
+        } catch (\Throwable $e) {
+            $errorMessage = $e->getMessage();
+            return false;
+        } finally {
+            restore_error_handler();
         }
     }
 

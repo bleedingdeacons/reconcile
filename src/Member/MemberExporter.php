@@ -19,7 +19,7 @@ use Unity\Positions\Interfaces\PositionRepository;
  * so the exported file matches the import format.
  *
  * Output columns:
- *  Anonymous Name, Home Group, Personal Email, Mobile,
+ *  Member ID, Anonymous Name, Home Group, Personal Email, Mobile,
  *  GSR Status, Intergroup Position, Intergroup Position Rotation
  */
 class MemberExporter
@@ -71,6 +71,7 @@ class MemberExporter
 
         // Header row — matches the import column names
         fputcsv($output, [
+            'Member ID',
             'Anonymous Name',
             'Home Group',
             'Personal Email',
@@ -90,6 +91,7 @@ class MemberExporter
             $positionId = $member->getIntergroupPosition();
 
             fputcsv($output, [
+                $member->getId(),
                 $member->getAnonymousName(),
                 $this->resolveGroupName($homeGroupId),
                 $member->getPersonalEmail(),

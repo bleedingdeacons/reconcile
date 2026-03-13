@@ -13,6 +13,7 @@ namespace Reconcile\Member;
  * and then matched against a known set of aliases for each property.
  *
  * Currently supported properties:
+ *  - member_id  (optional – identifies member by post ID; if supplied, used to find the member)
  *  - anonymous_name
  *  - home_group  (string – resolved to post ID via GroupLookup)
  *  - personal_email
@@ -29,6 +30,11 @@ class MemberColumnMapper
      * @var array<string, string[]>
      */
     private const ALIASES = [
+        'member_id' => [
+            'member id',
+            'member_id',
+            'memberid',
+        ],
         'anonymous_name' => [
             'anonymous name',
             'anonymous_name',
@@ -134,6 +140,7 @@ class MemberColumnMapper
     public static function getPropertyLabels(): array
     {
         return [
+            'member_id'                     => 'Member ID',
             'anonymous_name'                => 'Anonymous Name',
             'home_group'                    => 'Home Group',
             'personal_email'                => 'Personal Email',

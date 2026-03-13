@@ -23,7 +23,10 @@ use Unity\Members\Interfaces\MemberRepository;
  *  4. Resolves Intergroup Position name strings to post IDs via PositionLookup
  *  5. Parses and validates Position Rotation dates (accepted: yyyy/MM/dd, dd/MM/yyyy, dd/MM/yy)
  *  6. Parses GSR status from common truthy/falsy strings
- *  7. Creates or updates members through the Unity MemberRepository
+ *  7. Resolves the target member:
+ *     - If Member ID is provided, looks up by ID directly
+ *     - If Member ID is not provided (no column or empty), falls back to anonymous name lookup
+ *  8. Creates or updates members through the Unity MemberRepository
  *
  * Rows that cannot be imported are skipped with a "Skipped – [reason]" warning.
  *
@@ -183,8 +186,38 @@ class MemberImporter
                 // Parse GSR boolean
                 $isGSR = $this->parseBool($rowData['is_gsr']);
 
-                // Check for existing member by anonymous name
-                $existingMember = $this->findExistingMember($rowData['anonymous_name']);
+                // Resolve the target member:
+                // If Member ID is provided, use it to find the member directly.
+                // If not provided, fall back to anonymous name lookup.
+                $rawMemberId = trim($rowData['member_id']);
+                $existingMember = null;
+
+                if ($rawMemberId !== '') {
+                    // Member ID was supplied — use it to find the member
+                    if (!ctype_digit($rawMemberId)) {
+                        $result->skipRow(
+                            $lineNumber,
+                            "Member ID \"{$rawMemberId}\" is not a valid numeric ID.",
+                            $this->buildRowDetails($rowData, $homeGroupId, $intergroupPositionId)
+                        );
+                        continue;
+                    }
+
+                    $memberIdValue = (int) $rawMemberId;
+                    $existingMember = $this->findExistingMemberById($memberIdValue);
+
+                    if ($existingMember === null) {
+                        $result->skipRow(
+                            $lineNumber,
+                            "Member ID {$memberIdValue} does not match an existing member.",
+                            $this->buildRowDetails($rowData, $homeGroupId, $intergroupPositionId)
+                        );
+                        continue;
+                    }
+                } else {
+                    // No Member ID supplied — fall back to anonymous name lookup
+                    $existingMember = $this->findExistingMember($rowData['anonymous_name']);
+                }
 
                 // Build Member object
                 $memberId = $existingMember ? $existingMember->getId() : 0;
@@ -312,6 +345,7 @@ class MemberImporter
     private function extractRowData(array $row, array $mapping): array
     {
         $data = [
+            'member_id'                     => '',
             'anonymous_name'                => '',
             'home_group'                    => '',
             'personal_email'                => '',
@@ -505,6 +539,23 @@ class MemberImporter
             return !empty($members) ? $members[0] : null;
         } catch (\Exception $e) {
             error_log('Reconcile: Error finding member by name – ' . $e->getMessage());
+            return null;
+        }
+    }
+
+    /**
+     * Try to find an existing member by its post ID.
+     */
+    private function findExistingMemberById(int $memberId): ?Member
+    {
+        if ($this->memberRepository === null) {
+            return null;
+        }
+
+        try {
+            return $this->memberRepository->findById($memberId);
+        } catch (\Exception $e) {
+            error_log('Reconcile: Error finding member by ID – ' . $e->getMessage());
             return null;
         }
     }
