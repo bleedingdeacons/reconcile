@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace Group;
+namespace Reconcile\Group;
 
 /**
  * Group Column Mapper

@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace Member;
+namespace Reconcile\Member;
 
 use Unity\Groups\Interfaces\Group;
 use Unity\Groups\Interfaces\GroupRepository;

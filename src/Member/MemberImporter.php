@@ -2,12 +2,12 @@
 
 declare(strict_types=1);
 
-namespace Member;
+namespace Reconcile\Member;
 
-use Core\OperationResult;
-use Core\SpreadsheetReader;
-use Group\GroupLookup;
-use Position\PositionLookup;
+use Reconcile\Core\OperationResult;
+use Reconcile\Core\SpreadsheetReader;
+use Reconcile\Group\GroupLookup;
+use Reconcile\Position\PositionLookup;
 use RuntimeException;
 use Unity\Members\Interfaces\Member;
 use Unity\Members\Interfaces\MemberFactory;

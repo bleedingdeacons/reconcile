@@ -2,10 +2,10 @@
 
 declare(strict_types=1);
 
-namespace Group;
+namespace Reconcile\Group;
 
-use Core\OperationResult;
-use Core\SpreadsheetReader;
+use Reconcile\Core\OperationResult;
+use Reconcile\Core\SpreadsheetReader;
 use RuntimeException;
 use Unity\Contacts\Interfaces\ContactFactory;
 use Unity\Groups\Interfaces\Group;

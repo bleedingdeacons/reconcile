@@ -4,8 +4,8 @@ declare(strict_types=1);
 
 namespace Reconcile\Admin;
 
-use Member\MemberColumnMapper;
-use Member\MemberImporter;
+use Reconcile\Member\MemberColumnMapper;
+use Reconcile\Member\MemberImporter;
 
 /**
  * Member Import Admin Page

@@ -16,6 +16,11 @@
             "Reconcile\\": "src/"
         }
     },
+    "autoload-dev": {
+        "psr-4": {
+            "Reconcile\\Tests\\": "tests/"
+        }
+    },
     "scripts": {
         "build": "php build.php build:production",
         "build:production": "php build.php build:production",

@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace Member;
+namespace Reconcile\Member;
 
 /**
  * Column Mapper

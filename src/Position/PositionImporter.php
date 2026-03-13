@@ -2,10 +2,10 @@
 
 declare(strict_types=1);
 
-namespace Position;
+namespace Reconcile\Position;
 
-use Core\OperationResult;
-use Core\SpreadsheetReader;
+use Reconcile\Core\OperationResult;
+use Reconcile\Core\SpreadsheetReader;
 use RuntimeException;
 use Unity\Positions\Interfaces\Position;
 use Unity\Positions\Interfaces\PositionFactory;

@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace Position;
+namespace Reconcile\Position;
 
 /**
  * Position Column Mapper
