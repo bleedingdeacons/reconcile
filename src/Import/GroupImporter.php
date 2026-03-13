@@ -234,7 +234,7 @@ class GroupImporter
         $data = [
             'group_id'            => '',
             'group_name'          => '',
-            'group_email'         => '',
+            'email'         => '',
             'contact_1_name'      => '',
             'contact_1_email'     => '',
             'contact_1_phone'     => '',
@@ -392,7 +392,7 @@ class GroupImporter
         array $rowData,
         array $contacts
     ): void {
-        update_post_meta($postId, 'group_email', $rowData['group_email']);
+        update_post_meta($postId, 'email', $rowData['email']);
 
         // Save contacts (clear all 3 slots then fill)
         for ($i = 1; $i <= 3; $i++) {

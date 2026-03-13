@@ -15,7 +15,7 @@ namespace Reconcile\Import;
  * Currently supported properties:
  *  - group_id       (identifies group by post ID — required if group_name not provided)
  *  - group_name     (identifies group by title, or updates title if group_id also provided)
- *  - group_email    (the group's dedicated email address)
+ *  - email    (the group's dedicated email address)
  *  - contact_1_name, contact_1_email, contact_1_phone
  *  - contact_2_name, contact_2_email, contact_2_phone
  *  - contact_3_name, contact_3_email, contact_3_phone
@@ -40,9 +40,9 @@ class GroupColumnMapper
             'group_name',
             'groupname',
         ],
-        'group_email' => [
+        'email' => [
             'group email',
-            'group_email',
+            'email',
             'groupemail',
         ],
         'contact_1_name' => [
@@ -89,7 +89,7 @@ class GroupColumnMapper
      * @var string[]
      */
     private const REQUIRED = [
-        'group_email',
+        'email',
     ];
 
     /**
@@ -172,7 +172,7 @@ class GroupColumnMapper
         return [
             'group_id'            => 'Group ID',
             'group_name'          => 'Group Name',
-            'group_email'         => 'Group Email',
+            'email'         => 'Group Email',
             'contact_1_name'      => 'Contact 1 Name',
             'contact_1_email'     => 'Contact 1 Email',
             'contact_1_phone'     => 'Contact 1 Telephone',

@@ -195,7 +195,7 @@ class GroupsAdmin
                 'group_name' => 'The name of the group. Used to look up the group if no Group ID is provided. '
                         . 'If both ID and Name are provided, the group name is updated. '
                         . 'Either <strong>Group ID</strong> or <strong>Group Name</strong> must be supplied.',
-                'group_email' => 'The group\'s dedicated email address.',
+                'email' => 'The group\'s dedicated email address.',
                 'contact_1_name' => 'Optional. Name of the first contact person.',
                 'contact_1_email' => 'Optional. Email address of the first contact person.',
                 'contact_1_phone' => 'Optional. Telephone number of the first contact person.',

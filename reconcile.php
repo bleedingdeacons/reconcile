@@ -5,7 +5,7 @@ declare(strict_types=1);
 /**
  * Plugin Name: Reconcile
  * Description: Import and reconciliation of member and group data from spreadsheets using Unity framework.
- * Version: 1.8.1
+ * Version: 1.8.2
  * Requires at least: 6.0
  * Requires Plugins: scrutiny
  * Requires PHP: 8.0
