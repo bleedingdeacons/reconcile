@@ -6,22 +6,28 @@ namespace Reconcile;
 
 use Reconcile\Admin\MembersAdmin;
 use Reconcile\Admin\GroupsAdmin;
+use Reconcile\Admin\PositionsAdmin;
 use Reconcile\Admin\ImportHandler;
 use Reconcile\Admin\GroupImportHandler;
 use Reconcile\Admin\GroupExportHandler;
 use Reconcile\Admin\MemberExportHandler;
+use Reconcile\Admin\PositionImportHandler;
+use Reconcile\Admin\PositionExportHandler;
 use Reconcile\Import\GroupLookup;
 use Reconcile\Import\MemberImporter;
 use Reconcile\Import\GroupImporter;
+use Reconcile\Import\PositionImporter;
 use Reconcile\Import\PositionLookup;
 use Reconcile\Export\GroupExporter;
 use Reconcile\Export\MemberExporter;
+use Reconcile\Export\PositionExporter;
 use Psr\Container\ContainerInterface;
 use Unity\Contacts\Interfaces\ContactFactory;
 use Unity\Members\Interfaces\MemberFactory;
 use Unity\Members\Interfaces\MemberRepository;
 use Unity\Groups\Interfaces\GroupFactory;
 use Unity\Groups\Interfaces\GroupRepository;
+use Unity\Positions\Interfaces\PositionFactory;
 use Unity\Positions\Interfaces\PositionRepository;
 
 /**
@@ -38,10 +44,13 @@ class Plugin
     private static ?ContainerInterface $container = null;
     private static ?MembersAdmin $memberAdminPage = null;
     private static ?GroupsAdmin $groupAdminPage = null;
+    private static ?PositionsAdmin $positionAdminPage = null;
     private static ?ImportHandler $importHandler = null;
     private static ?GroupImportHandler $groupImportHandler = null;
     private static ?GroupExportHandler $groupExportHandler = null;
     private static ?MemberExportHandler $memberExportHandler = null;
+    private static ?PositionImportHandler $positionImportHandler = null;
+    private static ?PositionExportHandler $positionExportHandler = null;
 
     /**
      * Register the top-level Reconcile menu and submenu pages.
@@ -60,6 +69,9 @@ class Plugin
 
         self::$groupAdminPage = new GroupsAdmin();
         self::$groupAdminPage->register();
+
+        self::$positionAdminPage = new PositionsAdmin();
+        self::$positionAdminPage->register();
 
         add_action('admin_menu', [self::class, 'addMenuPages']);
     }
@@ -98,6 +110,16 @@ class Plugin
             'manage_options',
             'reconcile-groups',
             [self::$groupAdminPage, 'renderPage']
+        );
+
+        // Position submenu
+        add_submenu_page(
+            'reconcile',
+            __('Reconcile — Positions', 'reconcile'),
+            __('Positions', 'reconcile'),
+            'manage_options',
+            'reconcile-positions',
+            [self::$positionAdminPage, 'renderPage']
         );
     }
 
@@ -207,6 +229,24 @@ class Plugin
         self::$memberExportHandler->register();
 
         error_log('Reconcile: Member export handler registered.');
+
+        // --- Position Import AJAX handler ---
+        $positionRepository = self::getPositionRepository();
+        $positionFactory = self::getPositionFactory();
+        $positionImporter = new PositionImporter($positionRepository, $positionFactory);
+
+        self::$positionImportHandler = new PositionImportHandler($positionImporter);
+        self::$positionImportHandler->register();
+
+        error_log('Reconcile: Position import AJAX handler registered.');
+
+        // --- Position Export handler ---
+        $positionExporter = new PositionExporter($positionRepository);
+
+        self::$positionExportHandler = new PositionExportHandler($positionExporter);
+        self::$positionExportHandler->register();
+
+        error_log('Reconcile: Position export handler registered.');
     }
 
     /**
@@ -315,6 +355,23 @@ class Plugin
             return self::$container->get(PositionRepository::class);
         } catch (\Exception $e) {
             error_log('Reconcile: Could not resolve PositionRepository - ' . $e->getMessage());
+            return null;
+        }
+    }
+
+    /**
+     * Get the PositionFactory from Unity's container
+     */
+    public static function getPositionFactory(): ?PositionFactory
+    {
+        if (self::$container === null || !self::unityPositionsAvailable()) {
+            return null;
+        }
+
+        try {
+            return self::$container->get(PositionFactory::class);
+        } catch (\Exception $e) {
+            error_log('Reconcile: Could not resolve PositionFactory - ' . $e->getMessage());
             return null;
         }
     }
