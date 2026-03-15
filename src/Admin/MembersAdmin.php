@@ -34,14 +34,14 @@ class MembersAdmin
 
         wp_enqueue_style(
             'reconcile-admin',
-            RECONCILE_URL . 'assets/css/admin.css',
+            RECONCILE_PLUGIN_URL . 'assets/css/admin.css',
             [],
             RECONCILE_VERSION
         );
 
         wp_enqueue_script(
             'reconcile-admin',
-            RECONCILE_URL . 'assets/js/admin.js',
+            RECONCILE_PLUGIN_URL . 'assets/js/admin.js',
             ['jquery'],
             RECONCILE_VERSION,
             true

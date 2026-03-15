@@ -24,14 +24,14 @@ if (!function_exists('get_plugin_data')) {
 }
 $reconcile_plugin_data = get_plugin_data(__FILE__, false, false);
 define('RECONCILE_VERSION', $reconcile_plugin_data['Version']);
-define('RECONCILE_PATH', plugin_dir_path(__FILE__));
-define('RECONCILE_URL', plugin_dir_url(__FILE__));
+define('RECONCILE_PLUGIN_DIR', plugin_dir_path(__FILE__));
+define('RECONCILE_PLUGIN_URL', plugin_dir_url(__FILE__));
 
 // Autoloader for Reconcile namespace
 spl_autoload_register(function ($class) {
     try {
         $prefix = 'Reconcile\\';
-        $base_dir = RECONCILE_PATH . 'src/';
+        $base_dir = RECONCILE_PLUGIN_DIR . 'src/';
 
         $len = strlen($prefix);
         if (strncmp($prefix, $class, $len) !== 0) {

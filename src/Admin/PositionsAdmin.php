@@ -33,14 +33,14 @@ class PositionsAdmin
 
         wp_enqueue_style(
             'reconcile-admin',
-            RECONCILE_URL . 'assets/css/admin.css',
+            RECONCILE_PLUGIN_URL . 'assets/css/admin.css',
             [],
             RECONCILE_VERSION
         );
 
         wp_enqueue_script(
             'reconcile-position-admin',
-            RECONCILE_URL . 'assets/js/position-admin.js',
+            RECONCILE_PLUGIN_URL . 'assets/js/position-admin.js',
             ['jquery'],
             RECONCILE_VERSION,
             true
