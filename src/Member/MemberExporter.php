@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Reconcile\Member;
 
+use Scrutiny\Audit\Interfaces\AuditLoggerInterface;
 use Unity\Groups\Interfaces\Group;
 use Unity\Groups\Interfaces\GroupRepository;
 use Unity\Members\Interfaces\Member;
@@ -24,6 +25,7 @@ use Unity\Positions\Interfaces\PositionRepository;
  */
 class MemberExporter
 {
+    private ?AuditLoggerInterface $auditLogger = null;
     private ?MemberRepository $memberRepository;
     private ?GroupRepository $groupRepository;
     private ?PositionRepository $positionRepository;
@@ -37,7 +39,8 @@ class MemberExporter
     public function __construct(
         ?MemberRepository $memberRepository,
         ?GroupRepository $groupRepository,
-        ?PositionRepository $positionRepository
+        ?PositionRepository $positionRepository,
+        ?AuditLoggerInterface $auditLogger
     ) {
         $this->memberRepository = $memberRepository;
         $this->groupRepository = $groupRepository;
@@ -52,6 +55,11 @@ class MemberExporter
      */
     public function export(): string
     {
+
+        if ($this->auditLogger === null) {
+            throw new \RuntimeException('Scrutiny AuditLogger is not available. Is Scrutiny started??');
+        }
+
         if ($this->memberRepository === null) {
             throw new \RuntimeException('Unity MemberRepository is not available. Is Unity fully configured?');
         }
@@ -105,6 +113,8 @@ class MemberExporter
         rewind($output);
         $csv = stream_get_contents($output);
         fclose($output);
+
+        $this->auditLogger->log("Export", "Member", -1, "Anonymous Name, Mobile");
 
         return $csv !== false ? $csv : '';
     }

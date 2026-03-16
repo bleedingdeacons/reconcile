@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Reconcile\Group;
 
+use Scrutiny\Audit\AuditLogger;
 use Unity\Groups\Interfaces\Group;
 use Unity\Groups\Interfaces\GroupRepository;
 
@@ -22,9 +23,12 @@ class GroupExporter
 {
     private ?GroupRepository $groupRepository;
 
-    public function __construct(?GroupRepository $groupRepository)
+    private ?AuditLogger $auditLogger;
+
+    public function __construct(?GroupRepository $groupRepository, ?AuditLogger $auditLogger)
     {
         $this->groupRepository = $groupRepository;
+        $this->auditLogger = $auditLogger;
     }
 
     /**
@@ -35,6 +39,10 @@ class GroupExporter
      */
     public function export(): string
     {
+        if ($this->auditLogger === null) {
+            throw new \RuntimeException('Scrutiny AuditLogger is not available. Is Scrutiny started??');
+        }
+
         if ($this->groupRepository === null) {
             throw new \RuntimeException('Unity GroupRepository is not available. Is Unity fully configured?');
         }
@@ -97,6 +105,8 @@ class GroupExporter
         rewind($output);
         $csv = stream_get_contents($output);
         fclose($output);
+
+        $this->auditLogger->log("Export", "Group", -1, "Contacts Name, Email, Telephone");
 
         return $csv !== false ? $csv : '';
     }

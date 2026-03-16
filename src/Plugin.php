@@ -22,6 +22,9 @@ use Psr\Container\ContainerInterface;
 use Reconcile\Admin\GroupsAdmin;
 use Reconcile\Admin\MembersAdmin;
 use Reconcile\Admin\PositionsAdmin;
+use Scrutiny\Audit\AuditLogger;
+use Scrutiny\Audit\Interfaces\AuditLoggerInterface;
+use Scrutiny\Audit\Interfaces\AuditRepositoryInterface;
 use Unity\Contacts\Interfaces\ContactFactory;
 use Unity\Groups\Interfaces\GroupFactory;
 use Unity\Groups\Interfaces\GroupRepository;
@@ -42,6 +45,7 @@ use Unity\Positions\Interfaces\PositionRepository;
 class Plugin
 {
     private static ?ContainerInterface $container = null;
+    private static ?MembersAdmin $auditLogger = null;
     private static ?MembersAdmin $memberAdminPage = null;
     private static ?GroupsAdmin $groupAdminPage = null;
     private static ?PositionsAdmin $positionAdminPage = null;
@@ -172,6 +176,15 @@ class Plugin
     }
 
     /**
+     * Check if Unity's contact interfaces are available
+     */
+    public static function auditLoggerAvailable(): bool
+    {
+        return interface_exists('Scrutiny\\Audit\\Interfaces\\AuditLoggerInterface');
+    }
+
+
+    /**
      * Initialise import services with Unity's container.
      *
      * Called from the unity/loaded hook once the container is ready.
@@ -184,7 +197,7 @@ class Plugin
             return;
         }
 
-        // --- Member Import AJAX handler ---
+        $auditLogger = self::getAuditLogger();
         $memberRepository = self::getMemberRepository();
         $memberFactory = self::getMemberFactory();
         $groupLookup = new GroupLookup(self::getGroupRepository());
@@ -194,7 +207,6 @@ class Plugin
         self::$importHandler = new MemberImportHandler($memberImporter);
         self::$importHandler->register();
 
-        // --- Group Import AJAX handler ---
         $groupRepository = self::getGroupRepository();
         $groupFactory = self::getGroupFactory();
         $contactFactory = self::getContactFactory();
@@ -204,7 +216,7 @@ class Plugin
         self::$groupImportHandler->register();
 
         // --- Group Export handler ---
-        $groupExporter = new GroupExporter($groupRepository);
+        $groupExporter = new GroupExporter($groupRepository, $auditLogger);
 
         self::$groupExportHandler = new GroupExportHandler($groupExporter);
         self::$groupExportHandler->register();
@@ -213,7 +225,8 @@ class Plugin
         $memberExporter = new MemberExporter(
             $memberRepository,
             self::getGroupRepository(),
-            self::getPositionRepository()
+            self::getPositionRepository(),
+            $auditLogger
         );
 
         self::$memberExportHandler = new MemberExportHandler($memberExporter);
@@ -242,6 +255,21 @@ class Plugin
     {
         return self::$container;
     }
+
+    public static function getAuditLogger(): ?AuditLoggerInterface
+    {
+        if (self::$container === null || !self::auditLoggerAvailable()) {
+            return null;
+        }
+
+        try {
+            return self::$container->get(AuditLogger::class);
+        } catch (\Exception $e) {
+            error_log('Reconcile: Could not resolve Audit Logger - ' . $e->getMessage());
+            return null;
+        }
+    }
+
 
     /**
      * Get the MemberRepository from Unity's container
