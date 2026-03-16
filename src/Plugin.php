@@ -263,7 +263,7 @@ class Plugin
         }
 
         try {
-            return self::$container->get(AuditLogger::class);
+            return self::$container->get(AuditLoggerInterface::class);
         } catch (\Exception $e) {
             error_log('Reconcile: Could not resolve Audit Logger - ' . $e->getMessage());
             return null;

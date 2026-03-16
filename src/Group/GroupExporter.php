@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace Reconcile\Group;
 
-use Scrutiny\Audit\AuditLogger;
+use Scrutiny\Audit\Interfaces\AuditLoggerInterface;
 use Unity\Groups\Interfaces\Group;
 use Unity\Groups\Interfaces\GroupRepository;
 
@@ -23,9 +23,9 @@ class GroupExporter
 {
     private ?GroupRepository $groupRepository;
 
-    private ?AuditLogger $auditLogger;
+    private ?AuditLoggerInterface $auditLogger;
 
-    public function __construct(?GroupRepository $groupRepository, ?AuditLogger $auditLogger)
+    public function __construct(?GroupRepository $groupRepository, ?AuditLoggerInterface $auditLogger)
     {
         $this->groupRepository = $groupRepository;
         $this->auditLogger = $auditLogger;
@@ -106,7 +106,7 @@ class GroupExporter
         $csv = stream_get_contents($output);
         fclose($output);
 
-        $this->auditLogger->log("Export", "Group", -1, "Contacts Name, Email, Telephone");
+        $this->auditLogger->log(AuditLoggerInterface::ACTION_EXPORT, AuditLoggerInterface::ENTITY_GROUP, -1, "Group Contacts", "Name, Email, Telephone");
 
         return $csv !== false ? $csv : '';
     }

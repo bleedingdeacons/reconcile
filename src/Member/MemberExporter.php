@@ -45,6 +45,7 @@ class MemberExporter
         $this->memberRepository = $memberRepository;
         $this->groupRepository = $groupRepository;
         $this->positionRepository = $positionRepository;
+        $this->auditLogger = $auditLogger;
     }
 
     /**
@@ -114,7 +115,7 @@ class MemberExporter
         $csv = stream_get_contents($output);
         fclose($output);
 
-        $this->auditLogger->log("Export", "Member", -1, "Anonymous Name, Mobile");
+        $this->auditLogger->log(AuditLoggerInterface::ACTION_EXPORT, AuditLoggerInterface::ENTITY_MEMBER, -1, "Name, Email, Mobile", "All populated fields.");
 
         return $csv !== false ? $csv : '';
     }
