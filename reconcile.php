@@ -10,7 +10,8 @@ declare(strict_types=1);
  * Requires Plugins: scrutiny
  * Requires PHP: 8.0
  * Author: The Bleeding Deacons
- * Author URI: thebleedingdeacons@gmail.com
+ * Author URI: https://github.com/bleedingdeacons/integrity
+ * Contact: thebleedingdeacons@gmail.com
  * License: MIT (Modified)
  */
 
