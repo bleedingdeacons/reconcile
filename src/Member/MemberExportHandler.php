@@ -4,6 +4,11 @@ declare(strict_types=1);
 
 namespace Reconcile\Member;
 
+// Prevent direct access
+if (!defined('ABSPATH')) {
+    exit;
+}
+
 /**
  * Member Export Handler
  *
@@ -51,7 +56,9 @@ class MemberExportHandler
         try {
             $csv = $this->exporter->export();
         } catch (\Throwable $e) {
+            // phpcs:ignore WordPress.PHP.DevelopmentFunctions.error_log_error_log
             error_log('Reconcile Member Export: Error — ' . get_class($e) . ': ' . $e->getMessage());
+            // phpcs:ignore WordPress.PHP.DevelopmentFunctions.error_log_error_log
             error_log('Reconcile Member Export: Stack trace — ' . $e->getTraceAsString());
             wp_die(
                 __('Export failed: ', 'reconcile') . esc_html($e->getMessage()),

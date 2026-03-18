@@ -4,6 +4,11 @@ declare(strict_types=1);
 
 namespace Reconcile\Group;
 
+// Prevent direct access
+if (!defined('ABSPATH')) {
+    exit;
+}
+
 use Reconcile\Core\OperationResult;
 use Reconcile\Core\SpreadsheetReader;
 use RuntimeException;
@@ -82,6 +87,7 @@ class GroupImporter
         try {
             $data = $this->reader->read($filePath);
         } catch (RuntimeException $e) {
+            // phpcs:ignore WordPress.PHP.DevelopmentFunctions.error_log_error_log
             error_log('Reconcile GroupImporter: Failed to read spreadsheet — ' . $e->getMessage());
             $result->addError($e->getMessage());
             return $result;
@@ -354,6 +360,7 @@ class GroupImporter
         try {
             return $this->groupRepository->findById($groupId);
         } catch (\Exception $e) {
+            // phpcs:ignore WordPress.PHP.DevelopmentFunctions.error_log_error_log
             error_log('Reconcile: Error finding group by ID – ' . $e->getMessage());
             return null;
         }

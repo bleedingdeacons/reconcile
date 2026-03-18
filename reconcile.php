@@ -5,7 +5,7 @@ declare(strict_types=1);
 /**
  * Plugin Name: Reconcile
  * Description: Import/Export of member, group and position data from spreadsheets using Unity framework.
- * Version: 1.9.4
+ * Version: 1.9.5
  * Requires at least: 6.0
  * Requires Plugins: scrutiny
  * Requires PHP: 8.0
@@ -45,8 +45,10 @@ spl_autoload_register(function ($class) {
             require $file;
         }
     } catch (\Exception $e) {
+        // phpcs:ignore WordPress.PHP.DevelopmentFunctions.error_log_error_log
         error_log('Reconcile Autoloader Error: ' . $e->getMessage());
     } catch (\Throwable $e) {
+        // phpcs:ignore WordPress.PHP.DevelopmentFunctions.error_log_error_log
         error_log('Reconcile Autoloader Fatal Error: ' . $e->getMessage());
     }
 });
@@ -78,7 +80,9 @@ add_action('unity/loaded', function ($container) {
         do_action('reconcile_loaded');
 
     } catch (\Exception $e) {
+        // phpcs:ignore WordPress.PHP.DevelopmentFunctions.error_log_error_log
         error_log('Reconcile Plugin Initialization Error: ' . $e->getMessage());
+        // phpcs:ignore WordPress.PHP.DevelopmentFunctions.error_log_error_log
         error_log('Reconcile Plugin Stack Trace: ' . $e->getTraceAsString());
 
         if (is_admin()) {
@@ -91,7 +95,9 @@ add_action('unity/loaded', function ($container) {
             });
         }
     } catch (\Throwable $e) {
+        // phpcs:ignore WordPress.PHP.DevelopmentFunctions.error_log_error_log
         error_log('Reconcile Plugin Fatal Error: ' . $e->getMessage());
+        // phpcs:ignore WordPress.PHP.DevelopmentFunctions.error_log_error_log
         error_log('Reconcile Plugin Stack Trace: ' . $e->getTraceAsString());
 
         if (is_admin()) {

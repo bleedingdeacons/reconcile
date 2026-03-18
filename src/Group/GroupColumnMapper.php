@@ -4,6 +4,11 @@ declare(strict_types=1);
 
 namespace Reconcile\Group;
 
+// Prevent direct access
+if (!defined('ABSPATH')) {
+    exit;
+}
+
 /**
  * Group Column Mapper
  *

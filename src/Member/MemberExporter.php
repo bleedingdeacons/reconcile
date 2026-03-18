@@ -4,6 +4,11 @@ declare(strict_types=1);
 
 namespace Reconcile\Member;
 
+// Prevent direct access
+if (!defined('ABSPATH')) {
+    exit;
+}
+
 use Scrutiny\Audit\Interfaces\AuditLoggerInterface;
 use Unity\Groups\Interfaces\Group;
 use Unity\Groups\Interfaces\GroupRepository;
@@ -137,6 +142,7 @@ class MemberExporter
                 }
             }
         } catch (\Exception $e) {
+            // phpcs:ignore WordPress.PHP.DevelopmentFunctions.error_log_error_log
             error_log('Reconcile MemberExporter: Failed to build group cache — ' . $e->getMessage());
         }
     }
@@ -158,6 +164,7 @@ class MemberExporter
                 }
             }
         } catch (\Exception $e) {
+            // phpcs:ignore WordPress.PHP.DevelopmentFunctions.error_log_error_log
             error_log('Reconcile MemberExporter: Failed to build position cache — ' . $e->getMessage());
         }
     }

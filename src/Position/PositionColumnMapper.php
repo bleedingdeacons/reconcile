@@ -4,6 +4,11 @@ declare(strict_types=1);
 
 namespace Reconcile\Position;
 
+// Prevent direct access
+if (!defined('ABSPATH')) {
+    exit;
+}
+
 /**
  * Position Column Mapper
  *

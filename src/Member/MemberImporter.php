@@ -4,6 +4,11 @@ declare(strict_types=1);
 
 namespace Reconcile\Member;
 
+// Prevent direct access
+if (!defined('ABSPATH')) {
+    exit;
+}
+
 use Reconcile\Core\OperationResult;
 use Reconcile\Core\SpreadsheetReader;
 use Reconcile\Group\GroupLookup;
@@ -538,6 +543,7 @@ class MemberImporter
 
             return !empty($members) ? $members[0] : null;
         } catch (\Exception $e) {
+            // phpcs:ignore WordPress.PHP.DevelopmentFunctions.error_log_error_log
             error_log('Reconcile: Error finding member by name – ' . $e->getMessage());
             return null;
         }
@@ -555,6 +561,7 @@ class MemberImporter
         try {
             return $this->memberRepository->findById($memberId);
         } catch (\Exception $e) {
+            // phpcs:ignore WordPress.PHP.DevelopmentFunctions.error_log_error_log
             error_log('Reconcile: Error finding member by ID – ' . $e->getMessage());
             return null;
         }

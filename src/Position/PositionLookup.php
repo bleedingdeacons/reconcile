@@ -4,6 +4,11 @@ declare(strict_types=1);
 
 namespace Reconcile\Position;
 
+// Prevent direct access
+if (!defined('ABSPATH')) {
+    exit;
+}
+
 use Unity\Positions\Interfaces\Position;
 use Unity\Positions\Interfaces\PositionRepository;
 
@@ -115,6 +120,7 @@ class PositionLookup
         try {
             $positions = $this->positionRepository->findAll();
         } catch (\Exception $e) {
+            // phpcs:ignore WordPress.PHP.DevelopmentFunctions.error_log_error_log
             error_log('Reconcile PositionLookup: Failed to load positions - ' . $e->getMessage());
             return;
         }

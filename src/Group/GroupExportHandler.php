@@ -4,6 +4,11 @@ declare(strict_types=1);
 
 namespace Reconcile\Group;
 
+// Prevent direct access
+if (!defined('ABSPATH')) {
+    exit;
+}
+
 /**
  * Group Export Handler
  *
@@ -51,7 +56,9 @@ class GroupExportHandler
         try {
             $csv = $this->exporter->export();
         } catch (\Throwable $e) {
+            // phpcs:ignore WordPress.PHP.DevelopmentFunctions.error_log_error_log
             error_log('Reconcile Group Export: Error — ' . get_class($e) . ': ' . $e->getMessage());
+            // phpcs:ignore WordPress.PHP.DevelopmentFunctions.error_log_error_log
             error_log('Reconcile Group Export: Stack trace — ' . $e->getTraceAsString());
             wp_die(
                 __('Export failed: ', 'reconcile') . esc_html($e->getMessage()),

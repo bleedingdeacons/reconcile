@@ -4,6 +4,11 @@ declare(strict_types=1);
 
 namespace Reconcile\Group;
 
+// Prevent direct access
+if (!defined('ABSPATH')) {
+    exit;
+}
+
 use Unity\Groups\Interfaces\Group;
 use Unity\Groups\Interfaces\GroupRepository;
 
@@ -114,6 +119,7 @@ class GroupLookup
         try {
             $groups = $this->groupRepository->findAll();
         } catch (\Exception $e) {
+            // phpcs:ignore WordPress.PHP.DevelopmentFunctions.error_log_error_log
             error_log('Reconcile GroupLookup: Failed to load groups - ' . $e->getMessage());
             return;
         }

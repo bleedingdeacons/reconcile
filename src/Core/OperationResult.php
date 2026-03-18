@@ -4,6 +4,11 @@ declare(strict_types=1);
 
 namespace Reconcile\Core;
 
+// Prevent direct access
+if (!defined('ABSPATH')) {
+    exit;
+}
+
 /**
  * Export or Import Result
  *

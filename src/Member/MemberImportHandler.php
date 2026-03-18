@@ -4,6 +4,11 @@ declare(strict_types=1);
 
 namespace Reconcile\Member;
 
+// Prevent direct access
+if (!defined('ABSPATH')) {
+    exit;
+}
+
 /**
  * Import Handler
  *
@@ -98,7 +103,9 @@ class MemberImportHandler
         } catch (\Throwable $e) {
             // Cleanup
             @unlink($tempFile);
+            // phpcs:ignore WordPress.PHP.DevelopmentFunctions.error_log_error_log
             error_log('Reconcile Member Import: Uncaught exception — ' . get_class($e) . ': ' . $e->getMessage());
+            // phpcs:ignore WordPress.PHP.DevelopmentFunctions.error_log_error_log
             error_log('Reconcile Member Import: Stack trace — ' . $e->getTraceAsString());
             wp_send_json_error(['message' => 'Import failed unexpectedly: ' . $e->getMessage()], 500);
             return; // unreachable but explicit

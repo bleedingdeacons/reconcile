@@ -4,6 +4,11 @@ declare(strict_types=1);
 
 namespace Reconcile\Position;
 
+// Prevent direct access
+if (!defined('ABSPATH')) {
+    exit;
+}
+
 /**
  * Position Export Handler
  *
@@ -49,7 +54,9 @@ class PositionExportHandler
         try {
             $csv = $this->exporter->export();
         } catch (\Throwable $e) {
+            // phpcs:ignore WordPress.PHP.DevelopmentFunctions.error_log_error_log
             error_log('Reconcile Position Export: Error — ' . get_class($e) . ': ' . $e->getMessage());
+            // phpcs:ignore WordPress.PHP.DevelopmentFunctions.error_log_error_log
             error_log('Reconcile Position Export: Stack trace — ' . $e->getTraceAsString());
             wp_die(
                 __('Export failed: ', 'reconcile') . esc_html($e->getMessage()),
