@@ -204,6 +204,8 @@ class Plugin
     {
         self::$container = $container;
 
+        self::logInfo('Reconcile initialised', ['version' => defined('RECONCILE_VERSION') ? RECONCILE_VERSION : 'unknown']);
+
         if (!is_admin()) {
             return;
         }
