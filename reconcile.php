@@ -84,7 +84,7 @@ add_action('unity/loaded', function ($container) {
         /**
          * Fires after Reconcile is fully loaded.
          */
-        do_action('reconcile_loaded');
+        do_action('reconcile/loaded');
 
     } catch (\Exception $e) {
         function_exists('wp_log')
