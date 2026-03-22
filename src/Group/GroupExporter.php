@@ -54,7 +54,7 @@ class GroupExporter
 
         $groups = $this->groupRepository->findAll();
 
-        error_log('Reconcile GroupExporter: Found ' . count($groups) . ' group(s) to export.');
+        \Reconcile\Plugin::logInfo('Reconcile GroupExporter: Found ' . count($groups) . ' group(s) to export.');
 
         $output = fopen('php://temp', 'r+');
 

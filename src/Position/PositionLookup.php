@@ -113,15 +113,14 @@ class PositionLookup
         $this->cacheBuilt = true;
 
         if ($this->positionRepository === null) {
-            error_log('Reconcile PositionLookup: PositionRepository is not available.');
+            \Reconcile\Plugin::logError('Reconcile PositionLookup: PositionRepository is not available.');
             return;
         }
 
         try {
             $positions = $this->positionRepository->findAll();
         } catch (\Exception $e) {
-            // phpcs:ignore WordPress.PHP.DevelopmentFunctions.error_log_error_log
-            error_log('Reconcile PositionLookup: Failed to load positions - ' . $e->getMessage());
+            \Reconcile\Plugin::logError('Reconcile PositionLookup: Failed to load positions: ' . $e->getMessage(), ['exception' => $e->getMessage(), 'trace' => $e->getTraceAsString()]);
             return;
         }
 

@@ -63,16 +63,16 @@ class PositionImporter
     {
         $result = new OperationResult();
 
-        error_log('Reconcile PositionImporter: Starting import from ' . $filePath . ' (dry_run=' . ($dryRun ? 'true' : 'false') . ').');
+        \Reconcile\Plugin::logDebug('Reconcile PositionImporter: Starting import from ' . $filePath . ' (dry_run=' . ($dryRun ? 'true' : 'false') . ').');
 
         if ($this->positionRepository === null) {
-            error_log('Reconcile PositionImporter: PositionRepository is null.');
+            \Reconcile\Plugin::logError('Reconcile PositionImporter: PositionRepository is null.');
             $result->addError('Unity PositionRepository is not available. Is Unity fully configured?');
             return $result;
         }
 
         if ($this->positionFactory === null) {
-            error_log('Reconcile PositionImporter: PositionFactory is null.');
+            \Reconcile\Plugin::logError('Reconcile PositionImporter: PositionFactory is null.');
             $result->addError('Unity PositionFactory is not available. Is Unity fully configured?');
             return $result;
         }
@@ -81,8 +81,7 @@ class PositionImporter
         try {
             $data = $this->reader->read($filePath);
         } catch (RuntimeException $e) {
-            // phpcs:ignore WordPress.PHP.DevelopmentFunctions.error_log_error_log
-            error_log('Reconcile PositionImporter: Failed to read spreadsheet — ' . $e->getMessage());
+            \Reconcile\Plugin::logError('Reconcile PositionImporter: Failed to read spreadsheet: ' . $e->getMessage(), ['exception' => $e->getMessage(), 'trace' => $e->getTraceAsString()]);
             $result->addError($e->getMessage());
             return $result;
         }
@@ -90,12 +89,12 @@ class PositionImporter
         $headers = $data['headers'];
         $rows = $data['rows'];
 
-        error_log('Reconcile PositionImporter: Read ' . count($rows) . ' data row(s) with headers: ' . implode(', ', $headers));
+        \Reconcile\Plugin::logDebug('Reconcile PositionImporter: Read ' . count($rows) . ' data row(s) with headers: ' . implode(', ', $headers));
 
         // 2. Map columns
         $mapping = $this->columnMapper->mapHeaders($headers);
 
-        error_log('Reconcile PositionImporter: Column mapping — ' . json_encode($mapping));
+        \Reconcile\Plugin::logDebug('Reconcile PositionImporter: Column mapping — ' . json_encode($mapping));
 
         $missing = $this->columnMapper->validateMapping($mapping);
 
@@ -105,7 +104,7 @@ class PositionImporter
             $errorMsg = 'Missing required columns: ' . implode(', ', $missingLabels) . '. '
                 . 'Please ensure your spreadsheet has headers matching: '
                 . implode(', ', array_map(fn($p) => $labels[$p] ?? $p, array_keys($labels))) . '.';
-            error_log('Reconcile PositionImporter: ' . $errorMsg);
+            \Reconcile\Plugin::logError('Reconcile PositionImporter: ' . $errorMsg);
             $result->addError($errorMsg);
             return $result;
         }
@@ -286,8 +285,7 @@ class PositionImporter
         try {
             return $this->positionRepository->findById($positionId);
         } catch (\Exception $e) {
-            // phpcs:ignore WordPress.PHP.DevelopmentFunctions.error_log_error_log
-            error_log('Reconcile: Error finding position by ID – ' . $e->getMessage());
+            \Reconcile\Plugin::logError('Reconcile: Error finding position by ID: ' . $e->getMessage(), ['exception' => $e->getMessage(), 'trace' => $e->getTraceAsString()]);
             return null;
         }
     }

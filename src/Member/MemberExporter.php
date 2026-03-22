@@ -75,7 +75,7 @@ class MemberExporter
 
         $members = $this->memberRepository->findAll();
 
-        error_log('Reconcile MemberExporter: Found ' . count($members) . ' member(s) to export.');
+        \Reconcile\Plugin::logInfo('Reconcile MemberExporter: Found ' . count($members) . ' member(s) to export.');
 
         $output = fopen('php://temp', 'r+');
 
@@ -142,8 +142,7 @@ class MemberExporter
                 }
             }
         } catch (\Exception $e) {
-            // phpcs:ignore WordPress.PHP.DevelopmentFunctions.error_log_error_log
-            error_log('Reconcile MemberExporter: Failed to build group cache — ' . $e->getMessage());
+            \Reconcile\Plugin::logError('Reconcile MemberExporter: Failed to build group cache: ' . $e->getMessage(), ['exception' => $e->getMessage(), 'trace' => $e->getTraceAsString()]);
         }
     }
 
@@ -164,8 +163,7 @@ class MemberExporter
                 }
             }
         } catch (\Exception $e) {
-            // phpcs:ignore WordPress.PHP.DevelopmentFunctions.error_log_error_log
-            error_log('Reconcile MemberExporter: Failed to build position cache — ' . $e->getMessage());
+            \Reconcile\Plugin::logError('Reconcile MemberExporter: Failed to build position cache: ' . $e->getMessage(), ['exception' => $e->getMessage(), 'trace' => $e->getTraceAsString()]);
         }
     }
 

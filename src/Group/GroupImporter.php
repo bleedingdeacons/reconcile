@@ -69,16 +69,16 @@ class GroupImporter
     {
         $result = new OperationResult();
 
-        error_log('Reconcile GroupImporter: Starting import from ' . $filePath . ' (dry_run=' . ($dryRun ? 'true' : 'false') . ').');
+        \Reconcile\Plugin::logDebug('Reconcile GroupImporter: Starting import from ' . $filePath . ' (dry_run=' . ($dryRun ? 'true' : 'false') . ').');
 
         if ($this->groupRepository === null) {
-            error_log('Reconcile GroupImporter: GroupRepository is null.');
+            \Reconcile\Plugin::logError('Reconcile GroupImporter: GroupRepository is null.');
             $result->addError('Unity GroupRepository is not available. Is Unity fully configured?');
             return $result;
         }
 
         if ($this->groupFactory === null) {
-            error_log('Reconcile GroupImporter: GroupFactory is null.');
+            \Reconcile\Plugin::logError('Reconcile GroupImporter: GroupFactory is null.');
             $result->addError('Unity GroupFactory is not available. Is Unity fully configured?');
             return $result;
         }
@@ -87,8 +87,7 @@ class GroupImporter
         try {
             $data = $this->reader->read($filePath);
         } catch (RuntimeException $e) {
-            // phpcs:ignore WordPress.PHP.DevelopmentFunctions.error_log_error_log
-            error_log('Reconcile GroupImporter: Failed to read spreadsheet — ' . $e->getMessage());
+            \Reconcile\Plugin::logError('Reconcile GroupImporter: Failed to read spreadsheet: ' . $e->getMessage(), ['exception' => $e->getMessage(), 'trace' => $e->getTraceAsString()]);
             $result->addError($e->getMessage());
             return $result;
         }
@@ -96,12 +95,12 @@ class GroupImporter
         $headers = $data['headers'];
         $rows = $data['rows'];
 
-        error_log('Reconcile GroupImporter: Read ' . count($rows) . ' data row(s) with headers: ' . implode(', ', $headers));
+        \Reconcile\Plugin::logDebug('Reconcile GroupImporter: Read ' . count($rows) . ' data row(s) with headers: ' . implode(', ', $headers));
 
         // 2. Map columns
         $mapping = $this->columnMapper->mapHeaders($headers);
 
-        error_log('Reconcile GroupImporter: Column mapping — ' . json_encode($mapping));
+        \Reconcile\Plugin::logDebug('Reconcile GroupImporter: Column mapping — ' . json_encode($mapping));
 
         $missing = $this->columnMapper->validateMapping($mapping);
 
@@ -111,7 +110,7 @@ class GroupImporter
             $errorMsg = 'Missing required columns: ' . implode(', ', $missingLabels) . '. '
                 . 'Please ensure your spreadsheet has headers matching: '
                 . implode(', ', array_map(fn($p) => $labels[$p] ?? $p, array_keys($labels))) . '.';
-            error_log('Reconcile GroupImporter: ' . $errorMsg);
+            \Reconcile\Plugin::logError('Reconcile GroupImporter: ' . $errorMsg);
             $result->addError($errorMsg);
             return $result;
         }
@@ -360,8 +359,7 @@ class GroupImporter
         try {
             return $this->groupRepository->findById($groupId);
         } catch (\Exception $e) {
-            // phpcs:ignore WordPress.PHP.DevelopmentFunctions.error_log_error_log
-            error_log('Reconcile: Error finding group by ID – ' . $e->getMessage());
+            \Reconcile\Plugin::logError('Reconcile: Error finding group by ID: ' . $e->getMessage(), ['exception' => $e->getMessage(), 'trace' => $e->getTraceAsString()]);
             return null;
         }
     }
@@ -383,7 +381,7 @@ class GroupImporter
 
         if (is_wp_error($postId)) {
             $errorMessage = $postId->get_error_message();
-            error_log('Reconcile: wp_insert_post failed – ' . $errorMessage);
+            \Reconcile\Plugin::logError('Reconcile: wp_insert_post failed – ' . $errorMessage);
             return 0;
         }
 

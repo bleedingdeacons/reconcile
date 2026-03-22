@@ -37,11 +37,11 @@ class GroupExportHandler
      */
     public function handleExport(): void
     {
-        error_log('Reconcile Group Export: Handler invoked.');
+        \Reconcile\Plugin::logDebug('Reconcile Group Export: Handler invoked.');
 
         // Security checks
         if (!current_user_can('manage_options')) {
-            error_log('Reconcile Group Export: Permission denied.');
+            \Reconcile\Plugin::logWarning('Reconcile Group Export: Permission denied.');
             wp_die(__('You do not have permission to perform this action.', 'reconcile'), 403);
         }
 
@@ -49,17 +49,15 @@ class GroupExportHandler
             !isset($_GET['_wpnonce'])
             || !wp_verify_nonce(sanitize_text_field(wp_unslash($_GET['_wpnonce'])), 'reconcile_group_export')
         ) {
-            error_log('Reconcile Group Export: Nonce verification failed.');
+            \Reconcile\Plugin::logWarning('Reconcile Group Export: Nonce verification failed.');
             wp_die(__('Security check failed. Please go back and try again.', 'reconcile'), 403);
         }
 
         try {
             $csv = $this->exporter->export();
         } catch (\Throwable $e) {
-            // phpcs:ignore WordPress.PHP.DevelopmentFunctions.error_log_error_log
-            error_log('Reconcile Group Export: Error — ' . get_class($e) . ': ' . $e->getMessage());
-            // phpcs:ignore WordPress.PHP.DevelopmentFunctions.error_log_error_log
-            error_log('Reconcile Group Export: Stack trace — ' . $e->getTraceAsString());
+            \Reconcile\Plugin::logError('Reconcile Group Export: Error — ' . get_class($e) . ': ' . $e->getMessage(), ['exception' => $e->getMessage(), 'trace' => $e->getTraceAsString()]);
+            // Stack trace now captured in logger context
             wp_die(
                 __('Export failed: ', 'reconcile') . esc_html($e->getMessage()),
                 __('Export Error', 'reconcile'),
@@ -69,7 +67,7 @@ class GroupExportHandler
 
         $filename = 'groups-export-' . gmdate('Y-m-d-His') . '.csv';
 
-        error_log('Reconcile Group Export: Sending CSV download — ' . $filename . '.');
+        \Reconcile\Plugin::logInfo('Reconcile Group Export: Sending CSV download — ' . $filename . '.');
 
         // Send as file download
         header('Content-Type: text/csv; charset=utf-8');

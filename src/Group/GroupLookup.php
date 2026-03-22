@@ -112,15 +112,14 @@ class GroupLookup
         $this->cacheBuilt = true;
 
         if ($this->groupRepository === null) {
-            error_log('Reconcile GroupLookup: GroupRepository is not available.');
+            \Reconcile\Plugin::logError('Reconcile GroupLookup: GroupRepository is not available.');
             return;
         }
 
         try {
             $groups = $this->groupRepository->findAll();
         } catch (\Exception $e) {
-            // phpcs:ignore WordPress.PHP.DevelopmentFunctions.error_log_error_log
-            error_log('Reconcile GroupLookup: Failed to load groups - ' . $e->getMessage());
+            \Reconcile\Plugin::logError('Reconcile GroupLookup: Failed to load groups: ' . $e->getMessage(), ['exception' => $e->getMessage(), 'trace' => $e->getTraceAsString()]);
             return;
         }
 

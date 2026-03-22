@@ -5,10 +5,10 @@ declare(strict_types=1);
 /**
  * Plugin Name: Reconcile
  * Description: Import/Export of member, group and position data from spreadsheets using Unity framework.
- * Version: 1.9.5
+ * Version: 1.10.0
  * Requires at least: 6.0
- * Requires Plugins: scrutiny
  * Requires PHP: 8.0
+ * Requires Plugins: sentinel, scrutiny
  * Author: The Bleeding Deacons
  * Author URI: https://github.com/bleedingdeacons/integrity
  * Contact: thebleedingdeacons@gmail.com
@@ -46,11 +46,13 @@ spl_autoload_register(function ($class) {
             require $file;
         }
     } catch (\Exception $e) {
-        // phpcs:ignore WordPress.PHP.DevelopmentFunctions.error_log_error_log
-        error_log('Reconcile Autoloader Error: ' . $e->getMessage());
+        function_exists('wp_log')
+            ? wp_log('reconcile')->error('Reconcile Autoloader Error: ' . $e->getMessage(), ['exception' => $e->getMessage(), 'trace' => $e->getTraceAsString()])
+            : error_log('Reconcile Autoloader Error: ' . $e->getMessage());
     } catch (\Throwable $e) {
-        // phpcs:ignore WordPress.PHP.DevelopmentFunctions.error_log_error_log
-        error_log('Reconcile Autoloader Fatal Error: ' . $e->getMessage());
+        function_exists('wp_log')
+            ? wp_log('reconcile')->critical('Reconcile Autoloader Fatal Error: ' . $e->getMessage(), ['exception' => $e->getMessage(), 'trace' => $e->getTraceAsString()])
+            : error_log('Reconcile Autoloader Fatal Error: ' . $e->getMessage());
     }
 });
 
@@ -64,12 +66,16 @@ if (is_admin()) {
 add_action('unity/loaded', function ($container) {
     try {
         if (!class_exists('Reconcile\Plugin')) {
-            error_log('Reconcile: Plugin class not found — aborting init.');
+            function_exists('wp_log')
+                ? wp_log('reconcile')->error('Reconcile: Plugin class not found — aborting init.')
+                : error_log('Reconcile: Plugin class not found — aborting init.');
             throw new \Exception('Reconcile\Plugin class not found. Check that Plugin.php exists in the src/ directory.');
         }
 
         if (!\Reconcile\Plugin::unityIsAvailable()) {
-            error_log('Reconcile: unityIsAvailable() returned false — Unity core classes not found. Aborting init.');
+            function_exists('wp_log')
+                ? wp_log('reconcile')->error('Reconcile: unityIsAvailable() returned false — Unity core classes not found. Aborting init.')
+                : error_log('Reconcile: unityIsAvailable() returned false — Unity core classes not found. Aborting init.');
             return;
         }
 
@@ -81,10 +87,9 @@ add_action('unity/loaded', function ($container) {
         do_action('reconcile_loaded');
 
     } catch (\Exception $e) {
-        // phpcs:ignore WordPress.PHP.DevelopmentFunctions.error_log_error_log
-        error_log('Reconcile Plugin Initialization Error: ' . $e->getMessage());
-        // phpcs:ignore WordPress.PHP.DevelopmentFunctions.error_log_error_log
-        error_log('Reconcile Plugin Stack Trace: ' . $e->getTraceAsString());
+        function_exists('wp_log')
+            ? wp_log('reconcile')->error('Reconcile Plugin Initialization Error: ' . $e->getMessage(), ['exception' => $e->getMessage(), 'trace' => $e->getTraceAsString()])
+            : error_log('Reconcile Plugin Initialization Error: ' . $e->getMessage());
 
         if (is_admin()) {
             add_action('admin_notices', function () use ($e) {
@@ -96,10 +101,9 @@ add_action('unity/loaded', function ($container) {
             });
         }
     } catch (\Throwable $e) {
-        // phpcs:ignore WordPress.PHP.DevelopmentFunctions.error_log_error_log
-        error_log('Reconcile Plugin Fatal Error: ' . $e->getMessage());
-        // phpcs:ignore WordPress.PHP.DevelopmentFunctions.error_log_error_log
-        error_log('Reconcile Plugin Stack Trace: ' . $e->getTraceAsString());
+        function_exists('wp_log')
+            ? wp_log('reconcile')->critical('Reconcile Plugin Fatal Error: ' . $e->getMessage(), ['exception' => $e->getMessage(), 'trace' => $e->getTraceAsString()])
+            : error_log('Reconcile Plugin Fatal Error: ' . $e->getMessage());
 
         if (is_admin()) {
             add_action('admin_notices', function () {
@@ -113,12 +117,13 @@ add_action('unity/loaded', function ($container) {
 // serve an admin page or AJAX request, log a diagnostic message.
 add_action('admin_init', function () {
     if (\Reconcile\Plugin::getContainer() === null) {
-        error_log(
-            'Reconcile: Container is still null at admin_init. '
-            . 'The unity/loaded hook has not fired. '
-            . 'Unity plugin status: ' . (class_exists('Unity\\Plugin') ? 'class exists' : 'class NOT found') . '. '
-            . 'did_action(unity/loaded): ' . did_action('unity/loaded') . '.'
-        );
+        function_exists('wp_log')
+            ? wp_log('reconcile')->error('Container is still null at admin_init', [
+                'unity_hook_fired' => did_action('unity/loaded'),
+                'unity_class_exists' => class_exists('Unity\\Plugin'),
+            ])
+            : error_log('Reconcile: Container is still null at admin_init. '
+                . 'did_action(unity/loaded): ' . did_action('unity/loaded') . '.');
     }
 }, 999);
 

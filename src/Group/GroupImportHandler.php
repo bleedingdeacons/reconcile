@@ -37,11 +37,11 @@ class GroupImportHandler
      */
     public function handleImport(): void
     {
-        error_log('Reconcile Group Import: AJAX handler invoked.');
+        \Reconcile\Plugin::logDebug('Reconcile Group Import: AJAX handler invoked.');
 
         // Security checks
         if (!current_user_can('manage_options')) {
-            error_log('Reconcile Group Import: Permission denied — user lacks manage_options capability.');
+            \Reconcile\Plugin::logWarning('Reconcile Group Import: Permission denied — user lacks manage_options capability.');
             wp_send_json_error(['message' => 'You do not have permission to perform this action.'], 403);
         }
 
@@ -49,28 +49,28 @@ class GroupImportHandler
             !isset($_POST['reconcile_group_nonce'])
             || !wp_verify_nonce(sanitize_text_field(wp_unslash($_POST['reconcile_group_nonce'])), 'reconcile_group_import')
         ) {
-            error_log('Reconcile Group Import: Nonce verification failed.');
+            \Reconcile\Plugin::logWarning('Reconcile Group Import: Nonce verification failed.');
             wp_send_json_error(['message' => 'Security check failed. Please refresh and try again.'], 403);
         }
 
         // Validate file upload
         if (!isset($_FILES['import_file']) || $_FILES['import_file']['error'] !== UPLOAD_ERR_OK) {
             $errorCode = $_FILES['import_file']['error'] ?? UPLOAD_ERR_NO_FILE;
-            error_log('Reconcile Group Import: File upload failed with code ' . $errorCode . '.');
+            \Reconcile\Plugin::logError('Reconcile Group Import: File upload failed with code ' . $errorCode . '.');
             wp_send_json_error([
                 'message' => 'File upload failed: ' . $this->uploadErrorMessage($errorCode),
             ], 400);
         }
 
         $file = $_FILES['import_file'];
-        error_log('Reconcile Group Import: Received file "' . $file['name'] . '" (' . $file['size'] . ' bytes).');
+        \Reconcile\Plugin::logDebug('Reconcile Group Import: Received file "' . $file['name'] . '" (' . $file['size'] . ' bytes).');
 
         // Validate MIME type / extension
         $allowedExtensions = ['csv', 'xlsx'];
         $extension = strtolower(pathinfo($file['name'], PATHINFO_EXTENSION));
 
         if (!in_array($extension, $allowedExtensions, true)) {
-            error_log('Reconcile Group Import: Rejected file type .' . $extension . '.');
+            \Reconcile\Plugin::logWarning('Reconcile Group Import: Rejected file type .' . $extension . '.');
             wp_send_json_error([
                 'message' => "Invalid file type: .{$extension}. Please upload a .csv or .xlsx file.",
             ], 400);
@@ -87,15 +87,15 @@ class GroupImportHandler
         $tempFile = $tempDir . wp_unique_filename($tempDir, sanitize_file_name($file['name']));
 
         if (!move_uploaded_file($file['tmp_name'], $tempFile)) {
-            error_log('Reconcile Group Import: Failed to move uploaded file to ' . $tempFile . '.');
+            \Reconcile\Plugin::logError('Reconcile Group Import: Failed to move uploaded file to ' . $tempFile . '.');
             wp_send_json_error(['message' => 'Could not move uploaded file.'], 500);
         }
 
-        error_log('Reconcile Group Import: File moved to ' . $tempFile . '.');
+        \Reconcile\Plugin::logDebug('Reconcile Group Import: File moved to ' . $tempFile . '.');
 
         // Determine dry-run mode
         $dryRun = isset($_POST['dry_run']) && $_POST['dry_run'] === '1';
-        error_log('Reconcile Group Import: Dry run = ' . ($dryRun ? 'yes' : 'no') . '.');
+        \Reconcile\Plugin::logDebug('Reconcile Group Import: Dry run = ' . ($dryRun ? 'yes' : 'no') . '.');
 
         // Run the import
         try {
@@ -103,10 +103,8 @@ class GroupImportHandler
         } catch (\Throwable $e) {
             // Cleanup
             @unlink($tempFile);
-            // phpcs:ignore WordPress.PHP.DevelopmentFunctions.error_log_error_log
-            error_log('Reconcile Group Import: Uncaught exception — ' . get_class($e) . ': ' . $e->getMessage());
-            // phpcs:ignore WordPress.PHP.DevelopmentFunctions.error_log_error_log
-            error_log('Reconcile Group Import: Stack trace — ' . $e->getTraceAsString());
+            \Reconcile\Plugin::logError('Reconcile Group Import: Uncaught exception — ' . get_class($e) . ': ' . $e->getMessage(), ['exception' => $e->getMessage(), 'trace' => $e->getTraceAsString()]);
+            // Stack trace now captured in logger context
             wp_send_json_error(['message' => 'Import failed unexpectedly: ' . $e->getMessage()], 500);
             return; // unreachable but explicit
         }
@@ -118,17 +116,17 @@ class GroupImportHandler
         @rmdir($tempDir);
 
         // Log result summary
-        error_log('Reconcile Group Import: ' . $result->getSummary());
+        \Reconcile\Plugin::logInfo('Reconcile Group Import: ' . $result->getSummary());
 
         if ($result->hasWarnings()) {
             foreach ($result->getWarnings() as $warning) {
-                error_log('Reconcile Group Import Warning: ' . $warning);
+                \Reconcile\Plugin::logWarning('Reconcile Group Import Warning: ' . $warning);
             }
         }
 
         if ($result->hasErrors()) {
             foreach ($result->getErrors() as $error) {
-                error_log('Reconcile Group Import Error: ' . $error);
+                \Reconcile\Plugin::logError('Reconcile Group Import Error: ' . $error);
             }
         }
 

@@ -37,11 +37,11 @@ class PositionImportHandler
      */
     public function handleImport(): void
     {
-        error_log('Reconcile Position Import: AJAX handler invoked.');
+        \Reconcile\Plugin::logDebug('Reconcile Position Import: AJAX handler invoked.');
 
         // Security checks
         if (!current_user_can('manage_options')) {
-            error_log('Reconcile Position Import: Permission denied — user lacks manage_options capability.');
+            \Reconcile\Plugin::logWarning('Reconcile Position Import: Permission denied — user lacks manage_options capability.');
             wp_send_json_error(['message' => 'You do not have permission to perform this action.'], 403);
         }
 
@@ -49,28 +49,28 @@ class PositionImportHandler
             !isset($_POST['reconcile_position_nonce'])
             || !wp_verify_nonce(sanitize_text_field(wp_unslash($_POST['reconcile_position_nonce'])), 'reconcile_position_import')
         ) {
-            error_log('Reconcile Position Import: Nonce verification failed.');
+            \Reconcile\Plugin::logWarning('Reconcile Position Import: Nonce verification failed.');
             wp_send_json_error(['message' => 'Security check failed. Please refresh and try again.'], 403);
         }
 
         // Validate file upload
         if (!isset($_FILES['import_file']) || $_FILES['import_file']['error'] !== UPLOAD_ERR_OK) {
             $errorCode = $_FILES['import_file']['error'] ?? UPLOAD_ERR_NO_FILE;
-            error_log('Reconcile Position Import: File upload failed with code ' . $errorCode . '.');
+            \Reconcile\Plugin::logError('Reconcile Position Import: File upload failed with code ' . $errorCode . '.');
             wp_send_json_error([
                 'message' => 'File upload failed: ' . $this->uploadErrorMessage($errorCode),
             ], 400);
         }
 
         $file = $_FILES['import_file'];
-        error_log('Reconcile Position Import: Received file "' . $file['name'] . '" (' . $file['size'] . ' bytes).');
+        \Reconcile\Plugin::logDebug('Reconcile Position Import: Received file "' . $file['name'] . '" (' . $file['size'] . ' bytes).');
 
         // Validate MIME type / extension
         $allowedExtensions = ['csv', 'xlsx'];
         $extension = strtolower(pathinfo($file['name'], PATHINFO_EXTENSION));
 
         if (!in_array($extension, $allowedExtensions, true)) {
-            error_log('Reconcile Position Import: Rejected file type .' . $extension . '.');
+            \Reconcile\Plugin::logWarning('Reconcile Position Import: Rejected file type .' . $extension . '.');
             wp_send_json_error([
                 'message' => "Invalid file type: .{$extension}. Please upload a .csv or .xlsx file.",
             ], 400);
@@ -87,15 +87,15 @@ class PositionImportHandler
         $tempFile = $tempDir . wp_unique_filename($tempDir, sanitize_file_name($file['name']));
 
         if (!move_uploaded_file($file['tmp_name'], $tempFile)) {
-            error_log('Reconcile Position Import: Failed to move uploaded file to ' . $tempFile . '.');
+            \Reconcile\Plugin::logError('Reconcile Position Import: Failed to move uploaded file to ' . $tempFile . '.');
             wp_send_json_error(['message' => 'Could not move uploaded file.'], 500);
         }
 
-        error_log('Reconcile Position Import: File moved to ' . $tempFile . '.');
+        \Reconcile\Plugin::logDebug('Reconcile Position Import: File moved to ' . $tempFile . '.');
 
         // Determine dry-run mode
         $dryRun = isset($_POST['dry_run']) && $_POST['dry_run'] === '1';
-        error_log('Reconcile Position Import: Dry run = ' . ($dryRun ? 'yes' : 'no') . '.');
+        \Reconcile\Plugin::logDebug('Reconcile Position Import: Dry run = ' . ($dryRun ? 'yes' : 'no') . '.');
 
         // Run the import
         try {
@@ -103,10 +103,8 @@ class PositionImportHandler
         } catch (\Throwable $e) {
             // Cleanup
             @unlink($tempFile);
-            // phpcs:ignore WordPress.PHP.DevelopmentFunctions.error_log_error_log
-            error_log('Reconcile Position Import: Uncaught exception — ' . get_class($e) . ': ' . $e->getMessage());
-            // phpcs:ignore WordPress.PHP.DevelopmentFunctions.error_log_error_log
-            error_log('Reconcile Position Import: Stack trace — ' . $e->getTraceAsString());
+            \Reconcile\Plugin::logError('Reconcile Position Import: Uncaught exception — ' . get_class($e) . ': ' . $e->getMessage(), ['exception' => $e->getMessage(), 'trace' => $e->getTraceAsString()]);
+            // Stack trace now captured in logger context
             wp_send_json_error(['message' => 'Import failed unexpectedly: ' . $e->getMessage()], 500);
             return; // unreachable but explicit
         }
@@ -118,17 +116,17 @@ class PositionImportHandler
         @rmdir($tempDir);
 
         // Log result summary
-        error_log('Reconcile Position Import: ' . $result->getSummary());
+        \Reconcile\Plugin::logInfo('Reconcile Position Import: ' . $result->getSummary());
 
         if ($result->hasWarnings()) {
             foreach ($result->getWarnings() as $warning) {
-                error_log('Reconcile Position Import Warning: ' . $warning);
+                \Reconcile\Plugin::logWarning('Reconcile Position Import Warning: ' . $warning);
             }
         }
 
         if ($result->hasErrors()) {
             foreach ($result->getErrors() as $error) {
-                error_log('Reconcile Position Import Error: ' . $error);
+                \Reconcile\Plugin::logError('Reconcile Position Import Error: ' . $error);
             }
         }
 

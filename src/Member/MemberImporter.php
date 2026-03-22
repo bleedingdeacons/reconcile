@@ -543,8 +543,7 @@ class MemberImporter
 
             return !empty($members) ? $members[0] : null;
         } catch (\Exception $e) {
-            // phpcs:ignore WordPress.PHP.DevelopmentFunctions.error_log_error_log
-            error_log('Reconcile: Error finding member by name – ' . $e->getMessage());
+            \Reconcile\Plugin::logError('Reconcile: Error finding member by name: ' . $e->getMessage(), ['exception' => $e->getMessage(), 'trace' => $e->getTraceAsString()]);
             return null;
         }
     }
@@ -561,8 +560,7 @@ class MemberImporter
         try {
             return $this->memberRepository->findById($memberId);
         } catch (\Exception $e) {
-            // phpcs:ignore WordPress.PHP.DevelopmentFunctions.error_log_error_log
-            error_log('Reconcile: Error finding member by ID – ' . $e->getMessage());
+            \Reconcile\Plugin::logError('Reconcile: Error finding member by ID: ' . $e->getMessage(), ['exception' => $e->getMessage(), 'trace' => $e->getTraceAsString()]);
             return null;
         }
     }
@@ -661,7 +659,7 @@ class MemberImporter
 
         if (is_wp_error($postId)) {
             $errorMessage = $postId->get_error_message();
-            error_log('Reconcile: wp_insert_post failed – ' . $errorMessage);
+            \Reconcile\Plugin::logError('Reconcile: wp_insert_post failed – ' . $errorMessage);
             return 0;
         }
 

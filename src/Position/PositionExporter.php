@@ -44,7 +44,7 @@ class PositionExporter
 
         $positions = $this->positionRepository->findAll();
 
-        error_log('Reconcile PositionExporter: Found ' . count($positions) . ' position(s) to export.');
+        \Reconcile\Plugin::logInfo('Reconcile PositionExporter: Found ' . count($positions) . ' position(s) to export.');
 
         $output = fopen('php://temp', 'r+');
 

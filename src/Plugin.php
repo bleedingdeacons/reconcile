@@ -49,6 +49,13 @@ use Unity\Positions\Interfaces\PositionRepository;
  */
 class Plugin
 {
+    use \Reconcile\Logger\HasLogger;
+
+    protected static function logChannel(): string
+    {
+        return 'reconcile';
+    }
+
     private static ?ContainerInterface $container = null;
     private static ?MembersAdmin $auditLogger = null;
     private static ?MembersAdmin $memberAdminPage = null;
@@ -188,7 +195,6 @@ class Plugin
         return interface_exists('Scrutiny\\Audit\\Interfaces\\AuditLoggerInterface');
     }
 
-
     /**
      * Initialise import services with Unity's container.
      *
@@ -270,12 +276,10 @@ class Plugin
         try {
             return self::$container->get(AuditLoggerInterface::class);
         } catch (\Exception $e) {
-            // phpcs:ignore WordPress.PHP.DevelopmentFunctions.error_log_error_log
-            error_log('Reconcile: Could not resolve Audit Logger - ' . $e->getMessage());
+            \Reconcile\Plugin::logError('Reconcile: Could not resolve Audit Logger: ' . $e->getMessage(), ['exception' => $e->getMessage(), 'trace' => $e->getTraceAsString()]);
             return null;
         }
     }
-
 
     /**
      * Get the MemberRepository from Unity's container
@@ -289,8 +293,7 @@ class Plugin
         try {
             return self::$container->get(MemberRepository::class);
         } catch (\Exception $e) {
-            // phpcs:ignore WordPress.PHP.DevelopmentFunctions.error_log_error_log
-            error_log('Reconcile: Could not resolve MemberRepository - ' . $e->getMessage());
+            \Reconcile\Plugin::logError('Reconcile: Could not resolve MemberRepository: ' . $e->getMessage(), ['exception' => $e->getMessage(), 'trace' => $e->getTraceAsString()]);
             return null;
         }
     }
@@ -307,8 +310,7 @@ class Plugin
         try {
             return self::$container->get(MemberFactory::class);
         } catch (\Exception $e) {
-            // phpcs:ignore WordPress.PHP.DevelopmentFunctions.error_log_error_log
-            error_log('Reconcile: Could not resolve MemberFactory - ' . $e->getMessage());
+            \Reconcile\Plugin::logError('Reconcile: Could not resolve MemberFactory: ' . $e->getMessage(), ['exception' => $e->getMessage(), 'trace' => $e->getTraceAsString()]);
             return null;
         }
     }
@@ -325,8 +327,7 @@ class Plugin
         try {
             return self::$container->get(GroupRepository::class);
         } catch (\Exception $e) {
-            // phpcs:ignore WordPress.PHP.DevelopmentFunctions.error_log_error_log
-            error_log('Reconcile: Could not resolve GroupRepository - ' . $e->getMessage());
+            \Reconcile\Plugin::logError('Reconcile: Could not resolve GroupRepository: ' . $e->getMessage(), ['exception' => $e->getMessage(), 'trace' => $e->getTraceAsString()]);
             return null;
         }
     }
@@ -343,8 +344,7 @@ class Plugin
         try {
             return self::$container->get(GroupFactory::class);
         } catch (\Exception $e) {
-            // phpcs:ignore WordPress.PHP.DevelopmentFunctions.error_log_error_log
-            error_log('Reconcile: Could not resolve GroupFactory - ' . $e->getMessage());
+            \Reconcile\Plugin::logError('Reconcile: Could not resolve GroupFactory: ' . $e->getMessage(), ['exception' => $e->getMessage(), 'trace' => $e->getTraceAsString()]);
             return null;
         }
     }
@@ -361,8 +361,7 @@ class Plugin
         try {
             return self::$container->get(ContactFactory::class);
         } catch (\Exception $e) {
-            // phpcs:ignore WordPress.PHP.DevelopmentFunctions.error_log_error_log
-            error_log('Reconcile: Could not resolve ContactFactory - ' . $e->getMessage());
+            \Reconcile\Plugin::logError('Reconcile: Could not resolve ContactFactory: ' . $e->getMessage(), ['exception' => $e->getMessage(), 'trace' => $e->getTraceAsString()]);
             return null;
         }
     }
@@ -379,8 +378,7 @@ class Plugin
         try {
             return self::$container->get(PositionRepository::class);
         } catch (\Exception $e) {
-            // phpcs:ignore WordPress.PHP.DevelopmentFunctions.error_log_error_log
-            error_log('Reconcile: Could not resolve PositionRepository - ' . $e->getMessage());
+            \Reconcile\Plugin::logError('Reconcile: Could not resolve PositionRepository: ' . $e->getMessage(), ['exception' => $e->getMessage(), 'trace' => $e->getTraceAsString()]);
             return null;
         }
     }
@@ -397,8 +395,7 @@ class Plugin
         try {
             return self::$container->get(PositionFactory::class);
         } catch (\Exception $e) {
-            // phpcs:ignore WordPress.PHP.DevelopmentFunctions.error_log_error_log
-            error_log('Reconcile: Could not resolve PositionFactory - ' . $e->getMessage());
+            \Reconcile\Plugin::logError('Reconcile: Could not resolve PositionFactory: ' . $e->getMessage(), ['exception' => $e->getMessage(), 'trace' => $e->getTraceAsString()]);
             return null;
         }
     }
