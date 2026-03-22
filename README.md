@@ -4,7 +4,7 @@
 
 Reconcile adds spreadsheet-based import/export workflows to the [Unity](https://github.com/bleeding-deacons/unity) intergroup management plugin. Upload `.xlsx`, `.xls`, or `.csv` files to bulk-create or update members, groups, and positions; download the current data as formatted spreadsheets for offline editing or reporting.
 
-**Version:** 1.10.0
+**Version:** 1.10.1
 **Requires:** WordPress 6.0+ · PHP 8.0+
 **Dependencies:** Unity, Scrutiny
 **License:** MIT (Modified — see [License](#license))
