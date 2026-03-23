@@ -12,6 +12,7 @@ if (!defined('ABSPATH')) {
 use Reconcile\Core\OperationResult;
 use Reconcile\Core\SpreadsheetReader;
 use RuntimeException;
+use Scrutiny\Audit\Interfaces\AuditLoggerInterface;
 use Unity\Positions\Interfaces\Position;
 use Unity\Positions\Interfaces\PositionFactory;
 use Unity\Positions\Interfaces\PositionRepository;
@@ -37,16 +38,19 @@ class PositionImporter
 {
     private ?PositionRepository $positionRepository;
     private ?PositionFactory $positionFactory;
+    private AuditLoggerInterface $auditLogger;
     private PositionColumnMapper $columnMapper;
     private SpreadsheetReader $reader;
     private PositionLookup $positionLookup;
 
     public function __construct(
         ?PositionRepository $positionRepository,
-        ?PositionFactory $positionFactory
+        ?PositionFactory $positionFactory,
+        AuditLoggerInterface $auditLogger
     ) {
         $this->positionRepository = $positionRepository;
         $this->positionFactory = $positionFactory;
+        $this->auditLogger = $auditLogger;
         $this->columnMapper = new PositionColumnMapper();
         $this->reader = new SpreadsheetReader();
         $this->positionLookup = new PositionLookup($positionRepository);
@@ -214,6 +218,17 @@ class PositionImporter
                     isset($rowData) ? $this->buildRowDetails($rowData) : []
                 );
             }
+        }
+
+        $imported = $result->getCreated() + $result->getUpdated();
+        if ($imported > 0 && !$dryRun) {
+            $this->auditLogger->log(
+                AuditLoggerInterface::ACTION_IMPORT,
+                'position',
+                -1,
+                'Position Details',
+                $imported . ' position(s) imported from spreadsheet.'
+            );
         }
 
         return $result;

@@ -215,7 +215,7 @@ class Plugin
         $memberFactory = self::getMemberFactory();
         $groupLookup = new GroupLookup(self::getGroupRepository());
         $positionLookup = new PositionLookup(self::getPositionRepository());
-        $memberImporter = new MemberImporter($memberRepository, $memberFactory, $groupLookup, $positionLookup);
+        $memberImporter = new MemberImporter($memberRepository, $memberFactory, $groupLookup, $positionLookup, $auditLogger);
 
         self::$importHandler = new MemberImportHandler($memberImporter);
         self::$importHandler->register();
@@ -223,7 +223,7 @@ class Plugin
         $groupRepository = self::getGroupRepository();
         $groupFactory = self::getGroupFactory();
         $contactFactory = self::getContactFactory();
-        $groupImporter = new GroupImporter($groupRepository, $groupFactory, $contactFactory);
+        $groupImporter = new GroupImporter($groupRepository, $groupFactory, $contactFactory, $auditLogger);
 
         self::$groupImportHandler = new GroupImportHandler($groupImporter);
         self::$groupImportHandler->register();
@@ -248,13 +248,13 @@ class Plugin
         // --- Position Import AJAX handler ---
         $positionRepository = self::getPositionRepository();
         $positionFactory = self::getPositionFactory();
-        $positionImporter = new PositionImporter($positionRepository, $positionFactory);
+        $positionImporter = new PositionImporter($positionRepository, $positionFactory, $auditLogger);
 
         self::$positionImportHandler = new PositionImportHandler($positionImporter);
         self::$positionImportHandler->register();
 
         // --- Position Export handler ---
-        $positionExporter = new PositionExporter($positionRepository);
+        $positionExporter = new PositionExporter($positionRepository, $auditLogger);
 
         self::$positionExportHandler = new PositionExportHandler($positionExporter);
         self::$positionExportHandler->register();

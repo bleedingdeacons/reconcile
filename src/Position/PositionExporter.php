@@ -9,6 +9,7 @@ if (!defined('ABSPATH')) {
     exit;
 }
 
+use Scrutiny\Audit\Interfaces\AuditLoggerInterface;
 use Unity\Positions\Interfaces\Position;
 use Unity\Positions\Interfaces\PositionRepository;
 
@@ -25,9 +26,12 @@ class PositionExporter
 {
     private ?PositionRepository $positionRepository;
 
-    public function __construct(?PositionRepository $positionRepository)
+    private ?AuditLoggerInterface $auditLogger;
+
+    public function __construct(?PositionRepository $positionRepository, ?AuditLoggerInterface $auditLogger)
     {
         $this->positionRepository = $positionRepository;
+        $this->auditLogger = $auditLogger;
     }
 
     /**
@@ -38,6 +42,10 @@ class PositionExporter
      */
     public function export(): string
     {
+        if ($this->auditLogger === null) {
+            throw new \RuntimeException('Scrutiny AuditLogger is not available. Is Scrutiny started??');
+        }
+
         if ($this->positionRepository === null) {
             throw new \RuntimeException('Unity PositionRepository is not available. Is Unity fully configured?');
         }
@@ -83,6 +91,8 @@ class PositionExporter
         rewind($output);
         $csv = stream_get_contents($output);
         fclose($output);
+
+        $this->auditLogger->log(AuditLoggerInterface::ACTION_EXPORT, 'position', -1, "Position Details", "Name, Email, Sobriety, Term, Description, Summary");
 
         return $csv !== false ? $csv : '';
     }

@@ -10,6 +10,7 @@ use Mockery;
 use Mockery\Adapter\Phpunit\MockeryPHPUnitIntegration;
 use PHPUnit\Framework\TestCase;
 use Position\PositionLookup;
+use Scrutiny\Audit\Interfaces\AuditLoggerInterface;
 use Unity\Members\Interfaces\Member;
 use Unity\Members\Interfaces\MemberFactory;
 use Unity\Members\Interfaces\MemberRepository;
@@ -25,6 +26,7 @@ class MemberImporterTest extends TestCase
     private MemberFactory|Mockery\MockInterface $memberFactory;
     private GroupLookup|Mockery\MockInterface $groupLookup;
     private PositionLookup|Mockery\MockInterface $positionLookup;
+    private AuditLoggerInterface|Mockery\MockInterface $auditLogger;
     private MemberImporter $importer;
 
     protected function setUp(): void
@@ -35,17 +37,20 @@ class MemberImporterTest extends TestCase
         $this->memberFactory = Mockery::mock(MemberFactory::class);
         $this->groupLookup = Mockery::mock(GroupLookup::class);
         $this->positionLookup = Mockery::mock(PositionLookup::class);
+        $this->auditLogger = Mockery::mock(AuditLoggerInterface::class);
 
         $this->groupLookup->shouldReceive('resetUnresolved')->byDefault();
         $this->positionLookup->shouldReceive('resetUnresolved')->byDefault();
         $this->groupLookup->shouldReceive('getUnresolvedNames')->andReturn([])->byDefault();
         $this->positionLookup->shouldReceive('getUnresolvedNames')->andReturn([])->byDefault();
+        $this->auditLogger->shouldReceive('log')->byDefault();
 
         $this->importer = new MemberImporter(
             $this->memberRepo,
             $this->memberFactory,
             $this->groupLookup,
-            $this->positionLookup
+            $this->positionLookup,
+            $this->auditLogger
         );
     }
 
@@ -76,7 +81,8 @@ class MemberImporterTest extends TestCase
             null,
             $this->memberFactory,
             $this->groupLookup,
-            $this->positionLookup
+            $this->positionLookup,
+            $this->auditLogger
         );
 
         $result = $importer->import('/tmp/dummy.csv');
@@ -94,7 +100,8 @@ class MemberImporterTest extends TestCase
             $this->memberRepo,
             null,
             $this->groupLookup,
-            $this->positionLookup
+            $this->positionLookup,
+            $this->auditLogger
         );
 
         $result = $importer->import('/tmp/dummy.csv');

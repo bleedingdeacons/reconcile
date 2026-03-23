@@ -14,6 +14,7 @@ use Reconcile\Core\SpreadsheetReader;
 use Reconcile\Group\GroupLookup;
 use Reconcile\Position\PositionLookup;
 use RuntimeException;
+use Scrutiny\Audit\Interfaces\AuditLoggerInterface;
 use Unity\Members\Interfaces\Member;
 use Unity\Members\Interfaces\MemberFactory;
 use Unity\Members\Interfaces\MemberRepository;
@@ -57,6 +58,7 @@ class MemberImporter
 
     private ?MemberRepository $memberRepository;
     private ?MemberFactory $memberFactory;
+    private AuditLoggerInterface $auditLogger;
     private GroupLookup $groupLookup;
     private PositionLookup $positionLookup;
     private MemberColumnMapper $columnMapper;
@@ -66,10 +68,12 @@ class MemberImporter
         ?MemberRepository $memberRepository,
         ?MemberFactory $memberFactory,
         GroupLookup $groupLookup,
-        PositionLookup $positionLookup
+        PositionLookup $positionLookup,
+        AuditLoggerInterface $auditLogger
     ) {
         $this->memberRepository = $memberRepository;
         $this->memberFactory = $memberFactory;
+        $this->auditLogger = $auditLogger;
         $this->groupLookup = $groupLookup;
         $this->positionLookup = $positionLookup;
         $this->columnMapper = new MemberColumnMapper();
@@ -334,6 +338,17 @@ class MemberImporter
             $result->addWarning(
                 'The following Intergroup Position names could not be matched to existing positions: '
                 . implode(', ', array_map(fn($n) => "\"{$n}\"", $unresolvedPositions))
+            );
+        }
+
+        $imported = $result->getCreated() + $result->getUpdated();
+        if ($imported > 0 && !$dryRun) {
+            $this->auditLogger->log(
+                AuditLoggerInterface::ACTION_IMPORT,
+                AuditLoggerInterface::ENTITY_MEMBER,
+                -1,
+                'Name, Email, Mobile',
+                $imported . ' member(s) imported from spreadsheet.'
             );
         }
 
