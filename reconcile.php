@@ -5,9 +5,9 @@ declare(strict_types=1);
 /**
  * Plugin Name: Reconcile
  * Description: Import/Export of member, group and position data from spreadsheets using Unity framework.
- * Version: 1.10.3
+ * Version: 1.10.6
  * Requires at least: 6.0
- * Requires PHP: 8.0
+ * Requires PHP: 8.1
  * Requires Plugins: sentinel, scrutiny
  * Author: The Bleeding Deacons
  * Author URI: https://github.com/bleedingdeacons/integrity

@@ -204,8 +204,6 @@ class Plugin
     {
         self::$container = $container;
 
-        self::logInfo('Reconcile initialised', ['version' => defined('RECONCILE_VERSION') ? RECONCILE_VERSION : 'unknown']);
-
         if (!is_admin()) {
             return;
         }
@@ -258,6 +256,8 @@ class Plugin
 
         self::$positionExportHandler = new PositionExportHandler($positionExporter);
         self::$positionExportHandler->register();
+
+        self::logDebug('Initialised', ['version' => defined('RECONCILE_VERSION') ? RECONCILE_VERSION : 'unknown']);
 
     }
 
