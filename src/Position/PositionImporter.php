@@ -12,7 +12,6 @@ if (!defined('ABSPATH')) {
 use Reconcile\Core\OperationResult;
 use Reconcile\Core\SpreadsheetReader;
 use RuntimeException;
-use Scrutiny\Audit\Interfaces\AuditLoggerInterface;
 use Unity\Positions\Interfaces\Position;
 use Unity\Positions\Interfaces\PositionFactory;
 use Unity\Positions\Interfaces\PositionRepository;
@@ -38,19 +37,16 @@ class PositionImporter
 {
     private ?PositionRepository $positionRepository;
     private ?PositionFactory $positionFactory;
-    private AuditLoggerInterface $auditLogger;
     private PositionColumnMapper $columnMapper;
     private SpreadsheetReader $reader;
     private PositionLookup $positionLookup;
 
     public function __construct(
         ?PositionRepository $positionRepository,
-        ?PositionFactory $positionFactory,
-        AuditLoggerInterface $auditLogger
+        ?PositionFactory $positionFactory
     ) {
         $this->positionRepository = $positionRepository;
         $this->positionFactory = $positionFactory;
-        $this->auditLogger = $auditLogger;
         $this->columnMapper = new PositionColumnMapper();
         $this->reader = new SpreadsheetReader();
         $this->positionLookup = new PositionLookup($positionRepository);
@@ -222,13 +218,8 @@ class PositionImporter
 
         $imported = $result->getCreated() + $result->getUpdated();
         if ($imported > 0 && !$dryRun) {
-            $this->auditLogger->log(
-                AuditLoggerInterface::ACTION_IMPORT,
-                'position',
-                -1,
-                'Position Details',
-                $imported . ' position(s) imported from spreadsheet.'
-            );
+            /** @see \Scrutiny\Audit\AuditTracker::onPositionImport() */
+            do_action('unity/position_import', $imported, 'Position Details');
         }
 
         return $result;

@@ -12,7 +12,6 @@ if (!defined('ABSPATH')) {
 use Reconcile\Core\OperationResult;
 use Reconcile\Core\SpreadsheetReader;
 use RuntimeException;
-use Scrutiny\Audit\Interfaces\AuditLoggerInterface;
 use Unity\Contacts\Interfaces\ContactFactory;
 use Unity\Groups\Interfaces\Group;
 use Unity\Groups\Interfaces\GroupFactory;
@@ -42,7 +41,6 @@ class GroupImporter
     private ?GroupRepository $groupRepository;
     private ?GroupFactory $groupFactory;
     private ?ContactFactory $contactFactory;
-    private AuditLoggerInterface $auditLogger;
     private GroupColumnMapper $columnMapper;
     private SpreadsheetReader $reader;
     private GroupLookup $groupLookup;
@@ -50,13 +48,11 @@ class GroupImporter
     public function __construct(
         ?GroupRepository $groupRepository,
         ?GroupFactory $groupFactory,
-        ?ContactFactory $contactFactory,
-        AuditLoggerInterface $auditLogger
+        ?ContactFactory $contactFactory
     ) {
         $this->groupRepository = $groupRepository;
         $this->groupFactory = $groupFactory;
         $this->contactFactory = $contactFactory;
-        $this->auditLogger = $auditLogger;
         $this->columnMapper = new GroupColumnMapper();
         $this->reader = new SpreadsheetReader();
         $this->groupLookup = new GroupLookup($groupRepository);
@@ -261,13 +257,8 @@ class GroupImporter
 
         $imported = $result->getCreated() + $result->getUpdated();
         if ($imported > 0 && !$dryRun) {
-            $this->auditLogger->log(
-                AuditLoggerInterface::ACTION_IMPORT,
-                AuditLoggerInterface::ENTITY_GROUP,
-                -1,
-                'Group Contacts',
-                $imported . ' group(s) imported from spreadsheet.'
-            );
+            /** @see \Scrutiny\Audit\AuditTracker::onGroupImport() */
+            do_action('unity/group_import', $imported, 'Group Contacts');
         }
 
         return $result;

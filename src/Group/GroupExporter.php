@@ -9,7 +9,6 @@ if (!defined('ABSPATH')) {
     exit;
 }
 
-use Scrutiny\Audit\Interfaces\AuditLoggerInterface;
 use Unity\Groups\Interfaces\Group;
 use Unity\Groups\Interfaces\GroupRepository;
 
@@ -28,12 +27,9 @@ class GroupExporter
 {
     private ?GroupRepository $groupRepository;
 
-    private ?AuditLoggerInterface $auditLogger;
-
-    public function __construct(?GroupRepository $groupRepository, ?AuditLoggerInterface $auditLogger)
+    public function __construct(?GroupRepository $groupRepository)
     {
         $this->groupRepository = $groupRepository;
-        $this->auditLogger = $auditLogger;
     }
 
     /**
@@ -44,10 +40,6 @@ class GroupExporter
      */
     public function export(): string
     {
-        if ($this->auditLogger === null) {
-            throw new \RuntimeException('Scrutiny AuditLogger is not available. Is Scrutiny started??');
-        }
-
         if ($this->groupRepository === null) {
             throw new \RuntimeException('Unity GroupRepository is not available. Is Unity fully configured?');
         }
@@ -111,7 +103,8 @@ class GroupExporter
         $csv = stream_get_contents($output);
         fclose($output);
 
-        $this->auditLogger->log(AuditLoggerInterface::ACTION_EXPORT, AuditLoggerInterface::ENTITY_GROUP, -1, "Group Contacts", "Name, Email, Telephone");
+        /** @see \Scrutiny\Audit\AuditTracker::onGroupExport() */
+        do_action('unity/group_export', count($groups), 'Group Contacts');
 
         return $csv !== false ? $csv : '';
     }

@@ -9,7 +9,6 @@ if (!defined('ABSPATH')) {
     exit;
 }
 
-use Scrutiny\Audit\Interfaces\AuditLoggerInterface;
 use Unity\Groups\Interfaces\Group;
 use Unity\Groups\Interfaces\GroupRepository;
 use Unity\Members\Interfaces\Member;
@@ -30,7 +29,6 @@ use Unity\Positions\Interfaces\PositionRepository;
  */
 class MemberExporter
 {
-    private ?AuditLoggerInterface $auditLogger = null;
     private ?MemberRepository $memberRepository;
     private ?GroupRepository $groupRepository;
     private ?PositionRepository $positionRepository;
@@ -44,13 +42,11 @@ class MemberExporter
     public function __construct(
         ?MemberRepository $memberRepository,
         ?GroupRepository $groupRepository,
-        ?PositionRepository $positionRepository,
-        ?AuditLoggerInterface $auditLogger
+        ?PositionRepository $positionRepository
     ) {
         $this->memberRepository = $memberRepository;
         $this->groupRepository = $groupRepository;
         $this->positionRepository = $positionRepository;
-        $this->auditLogger = $auditLogger;
     }
 
     /**
@@ -61,10 +57,6 @@ class MemberExporter
      */
     public function export(): string
     {
-
-        if ($this->auditLogger === null) {
-            throw new \RuntimeException('Scrutiny AuditLogger is not available. Is Scrutiny started??');
-        }
 
         if ($this->memberRepository === null) {
             throw new \RuntimeException('Unity MemberRepository is not available. Is Unity fully configured?');
@@ -120,7 +112,8 @@ class MemberExporter
         $csv = stream_get_contents($output);
         fclose($output);
 
-        $this->auditLogger->log(AuditLoggerInterface::ACTION_EXPORT, AuditLoggerInterface::ENTITY_MEMBER, -1, "Name, Email, Mobile", "All populated fields.");
+        /** @see \Scrutiny\Audit\AuditTracker::onMemberExport() */
+        do_action('unity/member_export', count($members), 'Name, Email, Mobile');
 
         return $csv !== false ? $csv : '';
     }

@@ -27,9 +27,6 @@ use Psr\Container\ContainerInterface;
 use Reconcile\Admin\GroupsAdmin;
 use Reconcile\Admin\MembersAdmin;
 use Reconcile\Admin\PositionsAdmin;
-use Scrutiny\Audit\AuditLogger;
-use Scrutiny\Audit\Interfaces\AuditLoggerInterface;
-use Scrutiny\Audit\Interfaces\AuditRepositoryInterface;
 use Unity\Contacts\Interfaces\ContactFactory;
 use Unity\Groups\Interfaces\GroupFactory;
 use Unity\Groups\Interfaces\GroupRepository;
@@ -57,7 +54,6 @@ class Plugin
     }
 
     private static ?ContainerInterface $container = null;
-    private static ?AuditLoggerInterface $auditLogger = null;
     private static ?MembersAdmin $memberAdminPage = null;
     private static ?GroupsAdmin $groupAdminPage = null;
     private static ?PositionsAdmin $positionAdminPage = null;
@@ -188,14 +184,6 @@ class Plugin
     }
 
     /**
-     * Check if Unity's contact interfaces are available
-     */
-    public static function auditLoggerAvailable(): bool
-    {
-        return interface_exists('Scrutiny\\Audit\\Interfaces\\AuditLoggerInterface');
-    }
-
-    /**
      * Initialise import services with Unity's container.
      *
      * Called from the unity/loaded hook once the container is ready.
@@ -208,12 +196,11 @@ class Plugin
             return;
         }
 
-        $auditLogger = self::getAuditLogger();
         $memberRepository = self::getMemberRepository();
         $memberFactory = self::getMemberFactory();
         $groupLookup = new GroupLookup(self::getGroupRepository());
         $positionLookup = new PositionLookup(self::getPositionRepository());
-        $memberImporter = new MemberImporter($memberRepository, $memberFactory, $groupLookup, $positionLookup, $auditLogger);
+        $memberImporter = new MemberImporter($memberRepository, $memberFactory, $groupLookup, $positionLookup);
 
         self::$importHandler = new MemberImportHandler($memberImporter);
         self::$importHandler->register();
@@ -221,13 +208,13 @@ class Plugin
         $groupRepository = self::getGroupRepository();
         $groupFactory = self::getGroupFactory();
         $contactFactory = self::getContactFactory();
-        $groupImporter = new GroupImporter($groupRepository, $groupFactory, $contactFactory, $auditLogger);
+        $groupImporter = new GroupImporter($groupRepository, $groupFactory, $contactFactory);
 
         self::$groupImportHandler = new GroupImportHandler($groupImporter);
         self::$groupImportHandler->register();
 
         // --- Group Export handler ---
-        $groupExporter = new GroupExporter($groupRepository, $auditLogger);
+        $groupExporter = new GroupExporter($groupRepository);
 
         self::$groupExportHandler = new GroupExportHandler($groupExporter);
         self::$groupExportHandler->register();
@@ -236,8 +223,7 @@ class Plugin
         $memberExporter = new MemberExporter(
             $memberRepository,
             self::getGroupRepository(),
-            self::getPositionRepository(),
-            $auditLogger
+            self::getPositionRepository()
         );
 
         self::$memberExportHandler = new MemberExportHandler($memberExporter);
@@ -246,13 +232,13 @@ class Plugin
         // --- Position Import AJAX handler ---
         $positionRepository = self::getPositionRepository();
         $positionFactory = self::getPositionFactory();
-        $positionImporter = new PositionImporter($positionRepository, $positionFactory, $auditLogger);
+        $positionImporter = new PositionImporter($positionRepository, $positionFactory);
 
         self::$positionImportHandler = new PositionImportHandler($positionImporter);
         self::$positionImportHandler->register();
 
         // --- Position Export handler ---
-        $positionExporter = new PositionExporter($positionRepository, $auditLogger);
+        $positionExporter = new PositionExporter($positionRepository);
 
         self::$positionExportHandler = new PositionExportHandler($positionExporter);
         self::$positionExportHandler->register();
@@ -267,20 +253,6 @@ class Plugin
     public static function getContainer(): ?ContainerInterface
     {
         return self::$container;
-    }
-
-    public static function getAuditLogger(): ?AuditLoggerInterface
-    {
-        if (self::$container === null || !self::auditLoggerAvailable()) {
-            return null;
-        }
-
-        try {
-            return self::$container->get(AuditLoggerInterface::class);
-        } catch (\Exception $e) {
-            \Reconcile\Plugin::logError('Reconcile: Could not resolve Audit Logger: ' . $e->getMessage(), ['exception' => $e->getMessage(), 'trace' => $e->getTraceAsString()]);
-            return null;
-        }
     }
 
     /**
