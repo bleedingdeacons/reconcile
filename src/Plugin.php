@@ -57,7 +57,7 @@ class Plugin
     }
 
     private static ?ContainerInterface $container = null;
-    private static ?MembersAdmin $auditLogger = null;
+    private static ?AuditLoggerInterface $auditLogger = null;
     private static ?MembersAdmin $memberAdminPage = null;
     private static ?GroupsAdmin $groupAdminPage = null;
     private static ?PositionsAdmin $positionAdminPage = null;
