@@ -136,7 +136,7 @@
                     var sr = data.skipped_rows[k];
                     var hasDetails = sr.details && Object.keys(sr.details).length > 0;
                     html += '<tr>';
-                    html += '<td>' + sr.row + '</td>';
+                    html += '<td>' + escHtml(String(sr.row)) + '</td>';
                     html += '<td>' + escHtml(sr.reason);
                     if (hasDetails) {
                         html += ' <a href="#" class="reconcile-toggle-details" data-index="' + k + '">Show details</a>';
@@ -189,7 +189,7 @@
 
         function stat(value, label) {
             return '<div class="reconcile-stat">'
-                + '<span class="reconcile-stat-value">' + value + '</span>'
+                + '<span class="reconcile-stat-value">' + escHtml(String(value)) + '</span>'
                 + '<span class="reconcile-stat-label">' + escHtml(label) + '</span>'
                 + '</div>';
         }
