@@ -611,12 +611,12 @@ class MemberImporter
     }
 
     /**
-     * Create a new WordPress post for a member.
-     *
-     * @return int The new post ID, or 0 on failure
-     */
-    /**
      * Save a member via the repository, capturing any PHP errors or exceptions.
+     *
+     * Temporarily installs an error handler to capture warning/notice text
+     * for diagnostic reporting in the import result. The handler does NOT
+     * suppress the error (returns false) so that other handlers in the
+     * chain — including Sentinel's global logger — still see it.
      *
      * @param Member $member The member to save
      * @param string $errorMessage Populated with the error/exception message on failure
@@ -624,12 +624,14 @@ class MemberImporter
      */
     private function saveMember(Member $member, string &$errorMessage = ''): bool
     {
-        $capturedError = '';
+        $capturedErrors = [];
 
-        // Temporarily capture PHP warnings/notices that the repository might trigger
-        set_error_handler(function (int $errno, string $errstr) use (&$capturedError): bool {
-            $capturedError = $errstr;
-            return true; // suppress the error from propagating
+        // Temporarily capture PHP warnings/notices that the repository might trigger.
+        // Returns false so the error continues to propagate to the previous handler
+        // (Sentinel, Xdebug, PHP default) rather than being silently swallowed.
+        set_error_handler(function (int $errno, string $errstr) use (&$capturedErrors): bool {
+            $capturedErrors[] = $errstr;
+            return false;
         });
 
         try {
@@ -641,8 +643,8 @@ class MemberImporter
             restore_error_handler();
         }
 
-        if (!$saved && $capturedError !== '') {
-            $errorMessage = $capturedError;
+        if (!$saved && !empty($capturedErrors)) {
+            $errorMessage = implode('; ', $capturedErrors);
         }
 
         return $saved;
