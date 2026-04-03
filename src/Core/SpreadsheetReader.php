@@ -32,7 +32,8 @@ class SpreadsheetReader
     public function read(string $filePath): array
     {
         if (!file_exists($filePath) || !is_readable($filePath)) {
-            throw new RuntimeException("File not found or not readable: {$filePath}");
+            $fileName = basename($filePath);
+            throw new RuntimeException("File not found or not readable: {$fileName}");
         }
 
         $extension = strtolower(pathinfo($filePath, PATHINFO_EXTENSION));
