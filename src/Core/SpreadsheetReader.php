@@ -152,7 +152,19 @@ class SpreadsheetReader
                     $value = (string) ($cell->v ?? '');
                 }
 
-                $cells[] = trim($value);
+                // The 'r' attribute holds the cell reference (e.g. "A1", "C3").
+                // Parse the column index from it so that sparse rows — where
+                // empty cells are omitted from the XML — place values in the
+                // correct column rather than packing them sequentially.
+                $ref = (string) ($cell['r'] ?? '');
+                $colIndex = $ref !== '' ? $this->columnRefToIndex($ref) : count($cells);
+
+                // Fill any gap between the last written column and this one
+                while (count($cells) < $colIndex) {
+                    $cells[] = '';
+                }
+
+                $cells[$colIndex] = trim($value);
             }
 
             if ($rowIndex === 1) {
@@ -215,5 +227,34 @@ class SpreadsheetReader
         }
 
         return $strings;
+    }
+
+    /**
+     * Convert an XLSX cell reference to a zero-based column index.
+     *
+     * Extracts the column letters from a reference like "A1", "C3", or "AA5"
+     * and converts them to a zero-based index (A=0, B=1, …, Z=25, AA=26, …).
+     *
+     * @param string $ref Cell reference (e.g. "B3")
+     * @return int Zero-based column index
+     */
+    private function columnRefToIndex(string $ref): int
+    {
+        // Strip the row number, leaving only column letters
+        $col = preg_replace('/[0-9]/', '', $ref);
+
+        if ($col === '' || $col === null) {
+            return 0;
+        }
+
+        $col = strtoupper($col);
+        $index = 0;
+
+        for ($i = 0, $len = strlen($col); $i < $len; $i++) {
+            $index = $index * 26 + (ord($col[$i]) - ord('A') + 1);
+        }
+
+        // Convert from 1-based (A=1) to 0-based (A=0)
+        return $index - 1;
     }
 }
