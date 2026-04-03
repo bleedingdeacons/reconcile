@@ -14,6 +14,7 @@ use Reconcile\Core\SpreadsheetReader;
 use Reconcile\Group\GroupLookup;
 use Reconcile\Position\PositionLookup;
 use RuntimeException;
+use Unity\Core\Interfaces\Configuration;
 use Unity\Members\Interfaces\Member;
 use Unity\Members\Interfaces\MemberFactory;
 use Unity\Members\Interfaces\MemberRepository;
@@ -61,13 +62,16 @@ class MemberImporter
     private PositionLookup $positionLookup;
     private MemberColumnMapper $columnMapper;
     private SpreadsheetReader $reader;
+    private readonly array $memberConfig;
 
     public function __construct(
+        Configuration $configuration,
         ?MemberRepository $memberRepository,
         ?MemberFactory $memberFactory,
         GroupLookup $groupLookup,
         PositionLookup $positionLookup
     ) {
+        $this->memberConfig = $configuration->getConfig(Member::class) ?? [];
         $this->memberRepository = $memberRepository;
         $this->memberFactory = $memberFactory;
         $this->groupLookup = $groupLookup;
@@ -539,7 +543,7 @@ class MemberImporter
             $members = $this->memberRepository->findAll([
                 'meta_query' => [
                     [
-                        'key'     => 'about-layout-group_anonymous-name',
+                        'key'     => $this->memberConfig['FIELD_ANONYMOUS_NAME'],
                         'value'   => $anonymousName,
                         'compare' => '=',
                     ],

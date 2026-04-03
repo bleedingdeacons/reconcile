@@ -28,6 +28,7 @@ use Reconcile\Admin\GroupsAdmin;
 use Reconcile\Admin\MembersAdmin;
 use Reconcile\Admin\PositionsAdmin;
 use Unity\Contacts\Interfaces\ContactFactory;
+use Unity\Core\Interfaces\Configuration;
 use Unity\Groups\Interfaces\GroupFactory;
 use Unity\Groups\Interfaces\GroupRepository;
 use Unity\Members\Interfaces\MemberFactory;
@@ -240,6 +241,7 @@ class Plugin
         // --- Member services ---
         $container->register(MemberImporter::class, function (ContainerInterface $c) {
             return new MemberImporter(
+                $c->get(Configuration::class),
                 $c->get(MemberRepository::class),
                 $c->get(MemberFactory::class),
                 $c->get(GroupLookup::class),

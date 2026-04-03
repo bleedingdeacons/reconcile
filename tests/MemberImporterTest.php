@@ -10,6 +10,7 @@ use Mockery;
 use Mockery\Adapter\Phpunit\MockeryPHPUnitIntegration;
 use PHPUnit\Framework\TestCase;
 use Position\PositionLookup;
+use Unity\Core\Interfaces\Configuration;
 use Unity\Members\Interfaces\Member;
 use Unity\Members\Interfaces\MemberFactory;
 use Unity\Members\Interfaces\MemberRepository;
@@ -21,6 +22,7 @@ class MemberImporterTest extends TestCase
 {
     use MockeryPHPUnitIntegration;
 
+    private Configuration|Mockery\MockInterface $configuration;
     private MemberRepository|Mockery\MockInterface $memberRepo;
     private MemberFactory|Mockery\MockInterface $memberFactory;
     private GroupLookup|Mockery\MockInterface $groupLookup;
@@ -30,6 +32,17 @@ class MemberImporterTest extends TestCase
     protected function setUp(): void
     {
         parent::setUp();
+
+        $this->configuration = Mockery::mock(Configuration::class);
+        $this->configuration->shouldReceive('getConfig')
+            ->with(Member::class)
+            ->andReturn([
+                'POST_TYPE' => 'intergroup-member',
+                'FIELD_ANONYMOUS_NAME' => 'about-layout-group_anonymous-name',
+                'FIELD_PERSONAL_EMAIL' => 'about-layout-group_personal-email',
+                'FIELD_MOBILE_NUMBER' => 'about-layout-group_mobile-number',
+            ])
+            ->byDefault();
 
         $this->memberRepo = Mockery::mock(MemberRepository::class);
         $this->memberFactory = Mockery::mock(MemberFactory::class);
@@ -42,6 +55,7 @@ class MemberImporterTest extends TestCase
         $this->positionLookup->shouldReceive('getUnresolvedNames')->andReturn([])->byDefault();
 
         $this->importer = new MemberImporter(
+            $this->configuration,
             $this->memberRepo,
             $this->memberFactory,
             $this->groupLookup,
@@ -73,6 +87,7 @@ class MemberImporterTest extends TestCase
     public function import_returns_error_when_member_repository_is_null(): void
     {
         $importer = new MemberImporter(
+            $this->configuration,
             null,
             $this->memberFactory,
             $this->groupLookup,
@@ -91,6 +106,7 @@ class MemberImporterTest extends TestCase
     public function import_returns_error_when_member_factory_is_null(): void
     {
         $importer = new MemberImporter(
+            $this->configuration,
             $this->memberRepo,
             null,
             $this->groupLookup,
