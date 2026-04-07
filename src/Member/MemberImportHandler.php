@@ -102,7 +102,9 @@ class MemberImportHandler
             $result = $this->importer->import($tempFile, $dryRun);
         } catch (\Throwable $e) {
             // Cleanup
-            @unlink($tempFile);
+            if (file_exists($tempFile) && !unlink($tempFile)) {
+                \Reconcile\Plugin::logWarning('Reconcile Member Import: Failed to delete temp file: ' . $tempFile);
+            }
             \Reconcile\Plugin::logError('Reconcile Member Import: Uncaught exception — ' . get_class($e) . ': ' . $e->getMessage(), ['exception' => $e->getMessage(), 'trace' => $e->getTraceAsString()]);
             // Stack trace now captured in logger context
             wp_send_json_error(['message' => 'Import failed unexpectedly: ' . $e->getMessage()], 500);
@@ -110,10 +112,16 @@ class MemberImportHandler
         }
 
         // Cleanup the temp file
-        @unlink($tempFile);
+        if (file_exists($tempFile) && !unlink($tempFile)) {
+            \Reconcile\Plugin::logWarning('Reconcile Member Import: Failed to delete temp file: ' . $tempFile);
+        }
 
         // Also try to remove the temp directory if empty
-        @rmdir($tempDir);
+        if (is_dir($tempDir) && !rmdir($tempDir)) {
+            // rmdir() fails if the directory is not empty — this is expected
+            // when other imports are running concurrently, so log at debug level.
+            \Reconcile\Plugin::logDebug('Reconcile Member Import: Could not remove temp directory (may not be empty): ' . $tempDir);
+        }
 
         // Log result summary
         \Reconcile\Plugin::logInfo('Reconcile Member Import: ' . $result->getSummary());
