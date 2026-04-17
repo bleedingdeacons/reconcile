@@ -21,6 +21,31 @@ use RuntimeException;
 class SpreadsheetReader
 {
     /**
+     * Maximum uncompressed size (bytes) accepted for any single XML member
+     * of the XLSX archive. XLSX files are ZIPs; a 5 KB archive can expand
+     * to gigabytes if the compression ratio is adversarial ("zip bomb").
+     *
+     * 50 MB is well above any legitimate sharedStrings or sheet XML we
+     * expect — real spreadsheets with hundreds of thousands of rows come
+     * in comfortably under this.
+     */
+    private const MAX_XML_UNCOMPRESSED_BYTES = 50 * 1024 * 1024;
+
+    /**
+     * Maximum compression ratio (uncompressed / compressed) tolerated for
+     * any single XML member. Normal text XML compresses ~10x; 200x is a
+     * strong signal of a malicious payload crafted to exhaust memory.
+     */
+    private const MAX_COMPRESSION_RATIO = 200;
+
+    /**
+     * Hard cap on the number of rows processed from a sheet (excluding
+     * header). XLSX allows up to 1,048,576 rows; loading that many into
+     * memory would OOM any reasonable host.
+     */
+    private const MAX_ROWS = 50_000;
+
+    /**
      * Read a spreadsheet file and return all rows.
      *
      * The first row is treated as headers.
@@ -109,6 +134,13 @@ class SpreadsheetReader
             throw new RuntimeException("Could not open XLSX file: {$filePath}");
         }
 
+        // Zip-bomb defence: inspect the central directory before reading
+        // any member. statName() returns uncompressed and compressed sizes
+        // without actually decompressing — this is the only cheap way to
+        // reject a payload before it blows up memory.
+        $this->assertZipMemberSafe($zip, 'xl/sharedStrings.xml', /* required */ false);
+        $this->assertZipMemberSafe($zip, 'xl/worksheets/sheet1.xml', /* required */ true);
+
         // 1. Read shared strings
         $sharedStrings = $this->readSharedStrings($zip);
 
@@ -122,7 +154,24 @@ class SpreadsheetReader
 
         $zip->close();
 
-        $xml = simplexml_load_string($sheetXml);
+        // Disable external entity loading before parsing user-supplied XML
+        // to defend against XXE (billion-laughs / external-file reads).
+        $previousEntityLoader = null;
+        if (PHP_VERSION_ID < 80000 && function_exists('libxml_disable_entity_loader')) {
+            $previousEntityLoader = libxml_disable_entity_loader(true);
+        }
+
+        try {
+            $xml = simplexml_load_string(
+                $sheetXml,
+                'SimpleXMLElement',
+                LIBXML_NONET | LIBXML_NOENT
+            );
+        } finally {
+            if ($previousEntityLoader !== null && function_exists('libxml_disable_entity_loader')) {
+                libxml_disable_entity_loader($previousEntityLoader);
+            }
+        }
 
         if ($xml === false) {
             throw new RuntimeException('Could not parse sheet1.xml.');
@@ -137,6 +186,17 @@ class SpreadsheetReader
 
         foreach ($xml->sheetData->row as $row) {
             $rowIndex++;
+
+            // Row-count guard: refuse to load pathologically large sheets.
+            // The -1 accounts for the header row, which is not stored in
+            // $rows but is counted by $rowIndex.
+            if ($rowIndex - 1 > self::MAX_ROWS) {
+                throw new RuntimeException(sprintf(
+                    'Spreadsheet exceeds the %s-row limit. Please split the file into smaller batches.',
+                    number_format(self::MAX_ROWS)
+                ));
+            }
+
             $cells = [];
 
             foreach ($row->c as $cell) {
@@ -189,6 +249,51 @@ class SpreadsheetReader
             'headers' => $headers,
             'rows'    => $rows,
         ];
+    }
+
+    /**
+     * Reject ZIP members whose uncompressed size or compression ratio
+     * looks like a zip bomb. Throws if the member exceeds either limit.
+     *
+     * @param \ZipArchive $zip      Opened archive.
+     * @param string      $name     Member path within the archive.
+     * @param bool        $required If true, throw when the member is missing.
+     *
+     * @throws RuntimeException
+     */
+    private function assertZipMemberSafe(\ZipArchive $zip, string $name, bool $required): void
+    {
+        $stat = $zip->statName($name);
+
+        if ($stat === false) {
+            if ($required) {
+                throw new RuntimeException("Required archive member missing: {$name}");
+            }
+            return;
+        }
+
+        $uncompressed = (int) ($stat['size'] ?? 0);
+        $compressed   = (int) ($stat['comp_size'] ?? 0);
+
+        if ($uncompressed > self::MAX_XML_UNCOMPRESSED_BYTES) {
+            throw new RuntimeException(sprintf(
+                'XLSX archive member %s exceeds the uncompressed size limit (%d bytes > %d).',
+                $name,
+                $uncompressed,
+                self::MAX_XML_UNCOMPRESSED_BYTES
+            ));
+        }
+
+        // Compression ratio check catches bombs that stay under the raw
+        // size cap individually but whose compressed-to-uncompressed ratio
+        // is implausibly high for real office XML.
+        if ($compressed > 0 && ($uncompressed / $compressed) > self::MAX_COMPRESSION_RATIO) {
+            throw new RuntimeException(sprintf(
+                'XLSX archive member %s has a suspicious compression ratio (%.0fx).',
+                $name,
+                $uncompressed / $compressed
+            ));
+        }
     }
 
     /**

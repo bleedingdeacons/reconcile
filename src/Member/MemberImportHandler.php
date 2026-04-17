@@ -76,19 +76,18 @@ class MemberImportHandler
             ], 400);
         }
 
-        // Move to a temporary location WordPress manages
-        $uploadDir = wp_upload_dir();
-        $tempDir = trailingslashit($uploadDir['basedir']) . 'reconcile-tmp/';
-
-        if (!file_exists($tempDir)) {
-            wp_mkdir_p($tempDir);
-        }
-
-        $tempFile = $tempDir . wp_unique_filename($tempDir, sanitize_file_name($file['name']));
-
-        if (!move_uploaded_file($file['tmp_name'], $tempFile)) {
-            \Reconcile\Plugin::logError('Reconcile Member Import: Failed to move uploaded file to ' . $tempFile . '.');
-            wp_send_json_error(['message' => 'Could not move uploaded file.'], 500);
+        // Move to a non-web-accessible temp location. ImportTempDir prefers
+        // the system temp dir, falls back to a hardened dir under wp-content
+        // with .htaccess + index.php, sniffs the MIME type to reject files
+        // whose extension does not match their content, and registers the
+        // file for shutdown-time cleanup so it does not linger if PHP fatals
+        // or times out.
+        try {
+            $tempFile = \Reconcile\Core\ImportTempDir::accept($file);
+        } catch (\Throwable $e) {
+            \Reconcile\Plugin::logError('Reconcile Member Import: Rejected upload — ' . $e->getMessage());
+            wp_send_json_error(['message' => $e->getMessage()], 400);
+            return;
         }
 
         \Reconcile\Plugin::logDebug('Reconcile Member Import: File moved to ' . $tempFile . '.');
@@ -101,27 +100,17 @@ class MemberImportHandler
         try {
             $result = $this->importer->import($tempFile, $dryRun);
         } catch (\Throwable $e) {
-            // Cleanup
-            if (file_exists($tempFile) && !unlink($tempFile)) {
-                \Reconcile\Plugin::logWarning('Reconcile Member Import: Failed to delete temp file: ' . $tempFile);
-            }
+            \Reconcile\Core\ImportTempDir::cleanup($tempFile);
             \Reconcile\Plugin::logError('Reconcile Member Import: Uncaught exception — ' . get_class($e) . ': ' . $e->getMessage(), ['exception' => $e->getMessage(), 'trace' => $e->getTraceAsString()]);
             // Stack trace now captured in logger context
             wp_send_json_error(['message' => 'Import failed unexpectedly: ' . $e->getMessage()], 500);
             return; // unreachable but explicit
         }
 
-        // Cleanup the temp file
-        if (file_exists($tempFile) && !unlink($tempFile)) {
-            \Reconcile\Plugin::logWarning('Reconcile Member Import: Failed to delete temp file: ' . $tempFile);
-        }
-
-        // Also try to remove the temp directory if empty
-        if (is_dir($tempDir) && !rmdir($tempDir)) {
-            // rmdir() fails if the directory is not empty — this is expected
-            // when other imports are running concurrently, so log at debug level.
-            \Reconcile\Plugin::logDebug('Reconcile Member Import: Could not remove temp directory (may not be empty): ' . $tempDir);
-        }
+        // Cleanup the temp file. ImportTempDir also has a shutdown handler
+        // registered that will delete this file even if the request is
+        // aborted before reaching this line.
+        \Reconcile\Core\ImportTempDir::cleanup($tempFile);
 
         // Log result summary
         \Reconcile\Plugin::logInfo('Reconcile Member Import: ' . $result->getSummary());
