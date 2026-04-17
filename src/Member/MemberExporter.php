@@ -39,6 +39,29 @@ class MemberExporter
     /** @var array<int, string> Cached position ID => long name */
     private array $positionCache = [];
 
+    /**
+     * Sanitize a single CSV field to prevent formula injection in spreadsheet applications.
+     *
+     * Any value whose first non-whitespace character is one of = + - @ \t \r
+     * is prefixed with a single quote so that Excel/LibreOffice treats it as text.
+     *
+     * @param mixed $value
+     * @return mixed
+     */
+    private static function sanitizeCsvField(mixed $value): mixed
+    {
+        if (!is_string($value) || $value === '') {
+            return $value;
+        }
+
+        $trimmed = ltrim($value);
+        if ($trimmed !== '' && str_contains("=+-@\t\r", $trimmed[0])) {
+            return "'" . $value;
+        }
+
+        return $value;
+    }
+
     public function __construct(
         ?MemberRepository $memberRepository,
         ?GroupRepository $groupRepository,
@@ -96,7 +119,7 @@ class MemberExporter
             $homeGroupId = $member->getHomeGroup();
             $positionId = $member->getIntergroupPosition();
 
-            fputcsv($output, [
+            $row = [
                 $member->getId(),
                 $member->getAnonymousName(),
                 $this->resolveGroupName($homeGroupId),
@@ -105,7 +128,11 @@ class MemberExporter
                 $member->isGSR() ? 'Yes' : 'No',
                 $this->resolvePositionName($positionId),
                 $member->getIntergroupPositionRotation(),
-            ]);
+            ];
+
+            $row = array_map([self::class, 'sanitizeCsvField'], $row);
+
+            fputcsv($output, $row);
         }
 
         rewind($output);

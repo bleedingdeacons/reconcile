@@ -33,6 +33,29 @@ class GroupExporter
     }
 
     /**
+     * Sanitize a single CSV field to prevent formula injection in spreadsheet applications.
+     *
+     * Any value whose first non-whitespace character is one of = + - @ \t \r
+     * is prefixed with a single quote so that Excel/LibreOffice treats it as text.
+     *
+     * @param mixed $value
+     * @return mixed
+     */
+    private static function sanitizeCsvField(mixed $value): mixed
+    {
+        if (!is_string($value) || $value === '') {
+            return $value;
+        }
+
+        $trimmed = ltrim($value);
+        if ($trimmed !== '' && str_contains("=+-@\t\r", $trimmed[0])) {
+            return "'" . $value;
+        }
+
+        return $value;
+    }
+
+    /**
      * Export all groups as a CSV string.
      *
      * @return string The CSV content
@@ -95,6 +118,8 @@ class GroupExporter
                     $row[] = '';
                 }
             }
+
+            $row = array_map([self::class, 'sanitizeCsvField'], $row);
 
             fputcsv($output, $row);
         }
