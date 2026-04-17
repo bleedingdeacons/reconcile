@@ -43,6 +43,7 @@ class PositionImportHandler
         if (!current_user_can('manage_options')) {
             \Reconcile\Plugin::logWarning('Reconcile Position Import: Permission denied — user lacks manage_options capability.');
             wp_send_json_error(['message' => 'You do not have permission to perform this action.'], 403);
+            return;
         }
 
         if (
@@ -51,6 +52,7 @@ class PositionImportHandler
         ) {
             \Reconcile\Plugin::logWarning('Reconcile Position Import: Nonce verification failed.');
             wp_send_json_error(['message' => 'Security check failed. Please refresh and try again.'], 403);
+            return;
         }
 
         // Validate file upload
@@ -60,6 +62,7 @@ class PositionImportHandler
             wp_send_json_error([
                 'message' => 'File upload failed: ' . $this->uploadErrorMessage($errorCode),
             ], 400);
+            return;
         }
 
         $file = $_FILES['import_file'];
@@ -74,6 +77,7 @@ class PositionImportHandler
             wp_send_json_error([
                 'message' => "Invalid file type: .{$extension}. Please upload a .csv or .xlsx file.",
             ], 400);
+            return;
         }
 
         // Move to a non-web-accessible temp location. ImportTempDir prefers
@@ -132,6 +136,7 @@ class PositionImportHandler
             wp_send_json_success($result->toArray());
         } else {
             wp_send_json_error($result->toArray(), 422);
+            return;
         }
     }
 
