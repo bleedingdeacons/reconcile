@@ -249,7 +249,6 @@ class GroupImporterChangingEventTest extends TestCase
 
 // ─── do_action capture stub (only registered if not already defined) ───
 // Lives in the global namespace because that's where WP's do_action lives.
-namespace {
     if (!function_exists('do_action')) {
         function do_action(string $action, ...$args): void
         {
@@ -261,4 +260,3 @@ namespace {
             }
         }
     }
-}
