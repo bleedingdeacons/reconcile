@@ -430,6 +430,14 @@ class GroupImporter
     /**
      * Update an existing group with imported data.
      *
+     * On a successful save, fires unity/group_changing with the
+     * pre-write and re-read post-write Group objects so listeners
+     * (notably Scrutiny's audit tracker) can diff them. Scrutiny's
+     * onGroupChanged listener only logs contact changes, which means
+     * import-time contact edits land in the audit log per group while
+     * group-level title/email changes stay covered only by the
+     * unity/group_import summary entry.
+     *
      * @param Group $existing The existing group
      * @param array<string, string> $rowData The imported row data
      * @param array<int, array{name: string, email: string, phone: string}> $contacts
@@ -469,6 +477,17 @@ class GroupImporter
             }
 
             $this->saveMetaFields($postId, $rowData, $contacts);
+
+            // Re-read after writes so the diff sees what actually
+            // landed. Repository may be null in edge configurations
+            // (the constructor allows it); skip the event in that
+            // case rather than failing the import.
+            if ($this->groupRepository !== null) {
+                $updated = $this->groupRepository->findById($postId);
+                if ($updated !== null) {
+                    do_action('unity/group_changing', $updated, $existing);
+                }
+            }
 
             return true;
         } catch (\Throwable $e) {
