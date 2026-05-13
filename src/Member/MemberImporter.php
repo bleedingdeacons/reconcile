@@ -195,6 +195,50 @@ class MemberImporter
                 // Parse GSR boolean
                 $isGSR = $this->parseBool($rowData['is_gsr']);
 
+                // Parse 12th-stepper fields. The Accepts column maps human
+                // labels (Male/Female/Non-Binary/All) to ACF stored values;
+                // unknown labels reject the row to avoid silently dropping
+                // intent that the spreadsheet author clearly meant something by.
+                $isTwelfthStepper = $this->parseBool($rowData['is_twelfth_stepper']);
+                $unknownAccepts = [];
+                $accepts = $this->parseAcceptsList($rowData['accepts'], $unknownAccepts);
+                $area = trim($rowData['area']);
+
+                if (!empty($unknownAccepts)) {
+                    $allowed = implode(', ', self::getAcceptedAcceptsLabels());
+                    $unknownList = implode(', ', array_map(fn($v) => "\"{$v}\"", $unknownAccepts));
+                    $result->skipRow(
+                        $lineNumber,
+                        "Accepts contains unrecognised value(s) {$unknownList}. "
+                        . "Allowed labels (pipe-separated): {$allowed}.",
+                        $this->buildRowDetails($rowData, $homeGroupId, $intergroupPositionId)
+                    );
+                    continue;
+                }
+
+                // ACF makes member-area and member-accepts conditional on
+                // is-twelfth-stepper == 1. If the spreadsheet has values for
+                // those fields but the 12th-stepper flag is false/blank, we
+                // clear them (so they don't sit as orphan data) and warn
+                // the operator so they can correct the source if needed.
+                if (!$isTwelfthStepper && ($area !== '' || !empty($accepts))) {
+                    $cleared = [];
+                    if ($area !== '') {
+                        $cleared[] = 'Area';
+                    }
+                    if (!empty($accepts)) {
+                        $cleared[] = 'Accepts';
+                    }
+                    $result->addWarning(
+                        "Row {$lineNumber}: 12th Stepper is not set, so "
+                        . implode(' and ', $cleared) . " "
+                        . (count($cleared) === 1 ? 'was' : 'were')
+                        . ' cleared.'
+                    );
+                    $area = '';
+                    $accepts = [];
+                }
+
                 // Resolve the target member:
                 // If Member ID is provided, use it to find the member directly.
                 // If not provided, fall back to anonymous name lookup.
@@ -237,6 +281,9 @@ class MemberImporter
                     $intergroupPositionId,
                     $positionRotation,
                     $isGSR,
+                    $isTwelfthStepper,
+                    $area,
+                    $accepts,
                     $existingMember
                 );
 
@@ -247,7 +294,10 @@ class MemberImporter
                     $intergroupPositionId,
                     $positionRotation,
                     $isGSR,
-                    $existingMember ? $existingMember->getId() : null
+                    $existingMember ? $existingMember->getId() : null,
+                    $isTwelfthStepper,
+                    $area,
+                    $accepts
                 );
 
                 if ($dryRun) {
@@ -294,7 +344,10 @@ class MemberImporter
                         $homeGroupId,
                         $intergroupPositionId,
                         $positionRotation,
-                        $isGSR
+                        $isGSR,
+                        $isTwelfthStepper,
+                        $area,
+                        $accepts
                     );
 
                     $saveError = '';
@@ -368,6 +421,9 @@ class MemberImporter
             'is_gsr'                        => '',
             'intergroup_position'           => '',
             'intergroup_position_rotation'  => '',
+            'is_twelfth_stepper'            => '',
+            'area'                          => '',
+            'accepts'                       => '',
         ];
 
         foreach ($mapping as $colIndex => $property) {
@@ -396,6 +452,9 @@ class MemberImporter
      * @param string|null $positionRotation Parsed rotation date (null if not yet parsed)
      * @param bool|null $isGSR Parsed GSR boolean (null if not yet parsed)
      * @param int|null $existingMemberId Existing member post ID if updating (null if not checked yet)
+     * @param bool|null $isTwelfthStepper Parsed 12th-stepper boolean (null if not yet parsed)
+     * @param string|null $area Parsed area (null if not yet parsed, post-clear-on-false)
+     * @param array<int, string>|null $accepts Parsed accepts (null if not yet parsed, post-clear-on-false)
      * @return array<string, string>
      */
     private function buildRowDetails(
@@ -404,7 +463,10 @@ class MemberImporter
         ?int $intergroupPositionId = null,
         ?string $positionRotation = null,
         ?bool $isGSR = null,
-        ?int $existingMemberId = null
+        ?int $existingMemberId = null,
+        ?bool $isTwelfthStepper = null,
+        ?string $area = null,
+        ?array $accepts = null
     ): array {
         $labels = MemberColumnMapper::getPropertyLabels();
         $details = [];
@@ -436,6 +498,18 @@ class MemberImporter
             $details['GSR → Parsed'] = $isGSR ? 'true' : 'false';
         }
 
+        if ($isTwelfthStepper !== null) {
+            $details['12th Stepper → Parsed'] = $isTwelfthStepper ? 'true' : 'false';
+        }
+
+        if ($area !== null) {
+            $details['Area → Parsed'] = $area !== '' ? $area : '(empty)';
+        }
+
+        if ($accepts !== null) {
+            $details['Accepts → Parsed'] = !empty($accepts) ? implode(', ', $accepts) : '(empty)';
+        }
+
         if ($existingMemberId !== null) {
             $details['Existing Member ID'] = (string) $existingMemberId;
         }
@@ -454,6 +528,81 @@ class MemberImporter
         $normalised = mb_strtolower(trim($value));
 
         return in_array($normalised, self::TRUTHY_VALUES, true);
+    }
+
+    /**
+     * Allowed labels (case-insensitive) for the "Accepts" column, mapped to
+     * the ACF checkbox stored values.
+     *
+     * Backed by the ACF field `member-accepts` (key field_6a01f2aff213e), whose
+     * choices are: accepts-male, accepts-female, accepts-non-binary, accepts-all.
+     * Spreadsheet authors write the human-readable label; the importer
+     * translates to the stored value before persistence.
+     *
+     * @var array<string, string>
+     */
+    private const ACCEPTS_LABEL_TO_VALUE = [
+        'male'       => 'accepts-male',
+        'female'     => 'accepts-female',
+        'non-binary' => 'accepts-non-binary',
+        'all'        => 'accepts-all',
+    ];
+
+    /**
+     * Parse a pipe-separated list of "Accepts" labels into ACF stored values.
+     *
+     * Splits on the pipe character, trims and lowercases each entry, filters
+     * out empties, and translates each label to its ACF stored value. Unknown
+     * tokens are reported back via the $unknownLabels reference parameter so
+     * the caller can decide whether to reject the row.
+     *
+     * Examples (success):
+     *   "Male|Female"   → ['accepts-male', 'accepts-female']
+     *   " all "          → ['accepts-all']
+     *   "Non-Binary"     → ['accepts-non-binary']
+     *   ""               → []
+     *
+     * @param string $value Raw cell value.
+     * @param string[] $unknownLabels Populated by reference with any labels that
+     *                                did not match the allow-list (preserved in
+     *                                the order they appeared).
+     * @return array<int, string> ACF stored values for matched labels.
+     */
+    private function parseAcceptsList(string $value, array &$unknownLabels = []): array
+    {
+        $unknownLabels = [];
+        $value = trim($value);
+
+        if ($value === '') {
+            return [];
+        }
+
+        $values = [];
+
+        foreach (explode('|', $value) as $part) {
+            $normalised = mb_strtolower(trim($part));
+            if ($normalised === '') {
+                continue;
+            }
+
+            if (isset(self::ACCEPTS_LABEL_TO_VALUE[$normalised])) {
+                $values[] = self::ACCEPTS_LABEL_TO_VALUE[$normalised];
+            } else {
+                $unknownLabels[] = trim($part);
+            }
+        }
+
+        return $values;
+    }
+
+    /**
+     * Get the list of allowed labels for the Accepts column (for help text).
+     *
+     * @return string[]
+     */
+    public static function getAcceptedAcceptsLabels(): array
+    {
+        return ['Male', 'Female', 'Non-Binary', 'All'];
     }
 
     /**
@@ -585,6 +734,10 @@ class MemberImporter
      * @param int $intergroupPositionId Resolved intergroup position post ID
      * @param string $positionRotation Position rotation value from spreadsheet
      * @param bool $isGSR Parsed GSR status
+     * @param bool $isTwelfthStepper Parsed 12th-stepper status
+     * @param string $area Geographic area covered (already cleared if not a 12th-stepper)
+     * @param array<int, string> $accepts ACF stored values for accepted call groups
+     *                                    (already cleared if not a 12th-stepper)
      * @param Member|null $existing Existing member for field preservation
      */
     private function buildMember(
@@ -594,6 +747,9 @@ class MemberImporter
         int $intergroupPositionId,
         string $positionRotation,
         bool $isGSR,
+        bool $isTwelfthStepper,
+        string $area,
+        array $accepts,
         ?Member $existing = null
     ): Member {
         return $this->memberFactory->createNew(
@@ -611,6 +767,9 @@ class MemberImporter
             meetingPO: $existing ? $existing->getMeetingPO() : null,
             personalEmail: $rowData['personal_email'],
             mobileNumber: $rowData['mobile_number'],
+            twelfthStepper: $isTwelfthStepper,
+            area: $area,
+            accepts: $accepts,
         );
     }
 

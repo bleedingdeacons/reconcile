@@ -26,6 +26,10 @@ if (!defined('ABSPATH')) {
  *  - is_gsr
  *  - intergroup_position  (string – resolved to post ID via PositionLookup)
  *  - intergroup_position_rotation  (conditionally required when intergroup_position has a value)
+ *  - is_twelfth_stepper  (optional – truthy/falsy string; parsed like is_gsr)
+ *  - area                (optional – free text, geographic area covered)
+ *  - accepts             (optional – pipe-separated list of who the member accepts
+ *                          calls from, e.g. "male|female|non-binary|all")
  */
 class MemberColumnMapper
 {
@@ -72,6 +76,25 @@ class MemberColumnMapper
         'intergroup_position_rotation' => [
             'intergroup position rotation',
             'intergroup_position_rotation',
+        ],
+        'is_twelfth_stepper' => [
+            '12th stepper',
+            '12th_stepper',
+            'twelfth stepper',
+            'twelfth_stepper',
+            'is_twelfth_stepper',
+            'is 12th stepper',
+        ],
+        'area' => [
+            'area',
+            '12th step area',
+            'twelfth step area',
+        ],
+        'accepts' => [
+            'accepts',
+            '12th step accepts',
+            'twelfth step accepts',
+            'accepts calls from',
         ],
     ];
 
@@ -153,6 +176,9 @@ class MemberColumnMapper
             'is_gsr'                        => 'GSR Status',
             'intergroup_position'           => 'Intergroup Position',
             'intergroup_position_rotation'  => 'Intergroup Position Rotation',
+            'is_twelfth_stepper'            => '12th Stepper',
+            'area'                          => 'Area',
+            'accepts'                       => 'Accepts',
         ];
     }
 

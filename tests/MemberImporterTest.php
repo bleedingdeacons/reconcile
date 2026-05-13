@@ -546,28 +546,196 @@ class MemberImporterTest extends TestCase
         unlink($path);
     }
 
+    // ── 12th Stepper / Area / Accepts ──────────────────────────────────
+
     /**
      * @test
      */
-    public function import_works_without_member_id_column(): void
+    public function import_works_when_new_optional_columns_are_absent(): void
     {
+        // The existing column set must keep working unchanged — the three new
+        // columns are optional and absent spreadsheets must not regress.
         $path = $this->writeCsv(
             ['Anonymous Name', 'Home Group', 'Personal Email', 'Mobile', 'GSR', 'Intergroup Position', 'Intergroup Position Rotation'],
             [
-                ['Alice A.', 'Group One', 'alice@example.com', '555-0001', 'yes', '', ''],
+                ['Alice A.', 'Group One', 'alice@example.com', '555-0001', 'no', '', ''],
+            ]
+        );
+
+        $this->groupLookup->shouldReceive('resolve')->andReturn(10);
+        $this->positionLookup->shouldReceive('resolve')->with('')->andReturn(0);
+        $this->memberRepo->shouldReceive('findAll')->andReturn([]);
+
+        $result = $this->importer->import($path, dryRun: true);
+
+        $this->assertTrue($result->isSuccess());
+        $this->assertEquals(1, $result->getCreated());
+        $this->assertEquals(0, $result->getSkipped());
+        $this->assertEmpty($result->getWarnings());
+
+        unlink($path);
+    }
+
+    /**
+     * @test
+     */
+    public function import_parses_twelfth_stepper_with_area_and_accepts(): void
+    {
+        $path = $this->writeCsv(
+            ['Anonymous Name', 'Home Group', 'Personal Email', 'Mobile', 'GSR', 'Intergroup Position', 'Intergroup Position Rotation', '12th Stepper', 'Area', 'Accepts'],
+            [
+                ['Alice A.', 'Group One', 'alice@example.com', '555-0001', 'no', '', '', 'yes', 'East London', 'Male|Female'],
             ]
         );
 
         $this->groupLookup->shouldReceive('resolve')->andReturn(10);
         $this->positionLookup->shouldReceive('resolve')->andReturn(0);
+        $this->memberRepo->shouldReceive('findAll')->andReturn([]);
 
-        // Falls back to anonymous name lookup — no existing member
+        // Capture the named args that reach the factory. MemberImporter
+        // calls createNew with named arguments, so reflect on the callee
+        // signature to map positional args back to names.
+        $capturedNamed = null;
+        $this->memberFactory->shouldReceive('createNew')
+            ->andReturnUsing(function (...$args) use (&$capturedNamed) {
+                $capturedNamed = $args;
+                return Mockery::mock(Member::class);
+            });
+
+        $result = $this->importer->import($path, dryRun: true);
+
+        $this->assertEquals(1, $result->getCreated());
+        $this->assertEquals(0, $result->getSkipped());
+
+        // PHP collapses named args into the variadic in positional order,
+        // matching the interface signature: the trailing three values must
+        // be the parsed 12th-stepper bool, area string, and accepts array.
+        $this->assertNotNull($capturedNamed, 'createNew should have been called.');
+        $this->assertContains(true, $capturedNamed, 'twelfthStepper=true should reach the factory.');
+        $this->assertContains('East London', $capturedNamed, 'Area string should reach the factory.');
+
+        // Find the accepts array among the captured args.
+        $acceptsArg = null;
+        foreach ($capturedNamed as $arg) {
+            if (is_array($arg) && in_array('accepts-male', $arg, true)) {
+                $acceptsArg = $arg;
+                break;
+            }
+        }
+        $this->assertNotNull($acceptsArg, 'Accepts array should reach the factory.');
+        $this->assertSame(['accepts-male', 'accepts-female'], $acceptsArg);
+
+        unlink($path);
+    }
+
+    /**
+     * @test
+     */
+    public function import_clears_area_and_accepts_with_warning_when_not_twelfth_stepper(): void
+    {
+        $path = $this->writeCsv(
+            ['Anonymous Name', 'Home Group', 'Personal Email', 'Mobile', 'GSR', 'Intergroup Position', 'Intergroup Position Rotation', '12th Stepper', 'Area', 'Accepts'],
+            [
+                // 12th Stepper is "no" but Area and Accepts are populated —
+                // ACF makes these fields conditional on the 12th-stepper flag,
+                // so the importer clears them and warns the operator.
+                ['Alice A.', 'Group One', 'alice@example.com', '555-0001', 'no', '', '', 'no', 'East London', 'Male'],
+            ]
+        );
+
+        $this->groupLookup->shouldReceive('resolve')->andReturn(10);
+        $this->positionLookup->shouldReceive('resolve')->andReturn(0);
         $this->memberRepo->shouldReceive('findAll')->andReturn([]);
 
         $result = $this->importer->import($path, dryRun: true);
 
         $this->assertEquals(1, $result->getCreated());
         $this->assertEquals(0, $result->getSkipped());
+
+        $warnings = $result->getWarnings();
+        $this->assertNotEmpty($warnings, 'Expected a clearing warning to be raised.');
+        $combined = implode("\n", $warnings);
+        $this->assertStringContainsString('12th Stepper is not set', $combined);
+        $this->assertStringContainsString('Area', $combined);
+        $this->assertStringContainsString('Accepts', $combined);
+
+        unlink($path);
+    }
+
+    /**
+     * @test
+     */
+    public function import_does_not_warn_when_not_twelfth_stepper_and_area_accepts_are_empty(): void
+    {
+        $path = $this->writeCsv(
+            ['Anonymous Name', 'Home Group', 'Personal Email', 'Mobile', 'GSR', 'Intergroup Position', 'Intergroup Position Rotation', '12th Stepper', 'Area', 'Accepts'],
+            [
+                ['Alice A.', 'Group One', 'alice@example.com', '555-0001', 'no', '', '', 'no', '', ''],
+            ]
+        );
+
+        $this->groupLookup->shouldReceive('resolve')->andReturn(10);
+        $this->positionLookup->shouldReceive('resolve')->andReturn(0);
+        $this->memberRepo->shouldReceive('findAll')->andReturn([]);
+
+        $result = $this->importer->import($path, dryRun: true);
+
+        $this->assertEquals(1, $result->getCreated());
+        $this->assertEmpty(
+            $result->getWarnings(),
+            'Did not expect a clearing warning when Area and Accepts are already empty.'
+        );
+
+        unlink($path);
+    }
+
+    /**
+     * @test
+     */
+    public function import_skips_row_with_unrecognised_accepts_value(): void
+    {
+        $path = $this->writeCsv(
+            ['Anonymous Name', 'Home Group', 'Personal Email', 'Mobile', 'GSR', 'Intergroup Position', 'Intergroup Position Rotation', '12th Stepper', 'Area', 'Accepts'],
+            [
+                ['Alice A.', 'Group One', 'alice@example.com', '555-0001', 'no', '', '', 'yes', 'East London', 'Male|Banana'],
+            ]
+        );
+
+        $this->groupLookup->shouldReceive('resolve')->andReturn(10);
+        $this->positionLookup->shouldReceive('resolve')->andReturn(0);
+        $this->memberRepo->shouldReceive('findAll')->andReturn([]);
+
+        $result = $this->importer->import($path, dryRun: true);
+
+        $this->assertEquals(1, $result->getSkipped());
+        $skipped = $result->getSkippedRows();
+        $this->assertStringContainsString('Banana', $skipped[0]['reason']);
+        $this->assertStringContainsString('Male, Female, Non-Binary, All', $skipped[0]['reason']);
+
+        unlink($path);
+    }
+
+    /**
+     * @test
+     */
+    public function import_accepts_labels_case_insensitively(): void
+    {
+        $path = $this->writeCsv(
+            ['Anonymous Name', 'Home Group', 'Personal Email', 'Mobile', 'GSR', 'Intergroup Position', 'Intergroup Position Rotation', '12th Stepper', 'Area', 'Accepts'],
+            [
+                ['Alice A.', 'Group One', 'alice@example.com', '555-0001', 'no', '', '', 'yes', 'East London', ' male | NON-BINARY |all '],
+            ]
+        );
+
+        $this->groupLookup->shouldReceive('resolve')->andReturn(10);
+        $this->positionLookup->shouldReceive('resolve')->andReturn(0);
+        $this->memberRepo->shouldReceive('findAll')->andReturn([]);
+
+        $result = $this->importer->import($path, dryRun: true);
+
+        $this->assertEquals(1, $result->getCreated());
+        $this->assertEquals(0, $result->getSkipped());
+        $this->assertEmpty($result->getWarnings());
 
         unlink($path);
     }

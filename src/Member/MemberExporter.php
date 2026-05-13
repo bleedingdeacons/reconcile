@@ -25,10 +25,31 @@ use Unity\Positions\Interfaces\PositionRepository;
  *
  * Output columns:
  *  Member ID, Anonymous Name, Home Group, Personal Email, Mobile,
- *  GSR Status, Intergroup Position, Intergroup Position Rotation
+ *  GSR Status, Intergroup Position, Intergroup Position Rotation,
+ *  12th Stepper, Area, Accepts
+ *
+ * The Accepts column round-trips with the importer: ACF stored values
+ * (accepts-male, accepts-female, accepts-non-binary, accepts-all) are
+ * translated to human labels (Male, Female, Non-Binary, All) and joined
+ * with the pipe character.
  */
 class MemberExporter
 {
+    /**
+     * Reverse map of the ACF `member-accepts` checkbox: stored value => label.
+     *
+     * Symmetric with MemberImporter::ACCEPTS_LABEL_TO_VALUE so that an
+     * export-then-import round-trip is lossless.
+     *
+     * @var array<string, string>
+     */
+    private const ACCEPTS_VALUE_TO_LABEL = [
+        'accepts-male'       => 'Male',
+        'accepts-female'     => 'Female',
+        'accepts-non-binary' => 'Non-Binary',
+        'accepts-all'        => 'All',
+    ];
+
     private ?MemberRepository $memberRepository;
     private ?GroupRepository $groupRepository;
     private ?PositionRepository $positionRepository;
@@ -108,6 +129,9 @@ class MemberExporter
             'GSR',
             'Intergroup Position',
             'Intergroup Position Rotation',
+            '12th Stepper',
+            'Area',
+            'Accepts',
         ]);
 
         // Data rows
@@ -128,6 +152,9 @@ class MemberExporter
                 $member->isGSR() ? 'Yes' : 'No',
                 $this->resolvePositionName($positionId),
                 $member->getIntergroupPositionRotation(),
+                $member->isTwelfthStepper() ? 'Yes' : 'No',
+                $member->getArea(),
+                $this->formatAccepts($member->getAccepts()),
             ];
 
             $row = array_map([self::class, 'sanitizeCsvField'], $row);
@@ -209,5 +236,23 @@ class MemberExporter
         }
 
         return $this->positionCache[$positionId] ?? '';
+    }
+
+    /**
+     * Format an ACF `member-accepts` value list as a pipe-separated string
+     * of human-readable labels, suitable for the CSV cell.
+     *
+     * Unknown stored values are passed through verbatim so the operator can
+     * see and clean them up rather than having them silently dropped.
+     *
+     * @param array<int, string> $values
+     */
+    private function formatAccepts(array $values): string
+    {
+        $labels = [];
+        foreach ($values as $value) {
+            $labels[] = self::ACCEPTS_VALUE_TO_LABEL[$value] ?? $value;
+        }
+        return implode('|', $labels);
     }
 }
