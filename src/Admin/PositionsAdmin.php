@@ -76,9 +76,9 @@ class PositionsAdmin
                     <?php esc_html_e(
                         'Upload a .csv or .xlsx file with position data. The first row must contain column headers '
                         . 'that match the expected property names. Each row must include either a Position ID or a '
-                        . 'Position Name (or both) to identify the position to update. If both are provided, the position '
+                        . 'Position Name (or both) to identify the position. If both are provided, the position '
                         . 'is looked up by ID and its name is updated. If only a name is provided, it is used to '
-                        . 'find the matching position. '
+                        . 'find the matching position; if no match is found, a new position is created. '
                         . 'Only non-empty fields in the spreadsheet will be updated; empty fields are left unchanged.',
                         'reconcile'
                     ); ?>
@@ -197,6 +197,7 @@ class PositionsAdmin
                 . 'the position is found by ID and its name is updated. '
                 . 'Either <strong>Position ID</strong> or <strong>Position Name</strong> must be supplied.',
             'position_name' => 'The full name of the position. Used to look up the position if no Position ID is provided. '
+                . 'If no existing position matches the name, a new position is created. '
                 . 'If both ID and Name are provided, the position name is updated. '
                 . 'Either <strong>Position ID</strong> or <strong>Position Name</strong> must be supplied.',
             'email' => 'Optional. The position\'s dedicated email address.',

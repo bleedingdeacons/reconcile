@@ -27,7 +27,9 @@ use Unity\Positions\Interfaces\PositionRepository;
  *     - If Position ID is provided, looks up by ID. If Position Name is also provided,
  *       updates the position title.
  *     - If only Position Name is provided (no ID column or ID is empty), looks up by name.
- *  5. Updates positions through the Unity PositionRepository
+ *       If no match is found, a new position is created (mirrors the Member importer
+ *       behaviour when Member ID is empty).
+ *  5. Creates or updates positions through wp_insert_post / wp_update_post and ACF meta.
  *
  * Rows that cannot be imported are skipped with a "Skipped – [reason]" warning.
  *
@@ -152,60 +154,116 @@ class PositionImporter
                         continue;
                     }
                 } else {
-                    // No ID supplied — use position name to find the position
+                    // No ID supplied — use position name to find the position.
+                    // If not found, fall through to creating a new position
+                    // (mirrors the Member importer behaviour when Member ID is empty).
                     $resolvedId = $this->positionLookup->resolve($rawPositionName);
 
-                    if ($resolvedId === 0) {
-                        $result->skipRow(
-                            $lineNumber,
-                            "Position Name \"{$rawPositionName}\" does not match an existing position.",
-                            $this->buildRowDetails($rowData)
-                        );
-                        continue;
-                    }
+                    if ($resolvedId !== 0) {
+                        $existingPosition = $this->findExistingPosition($resolvedId);
 
-                    $existingPosition = $this->findExistingPosition($resolvedId);
-
-                    if ($existingPosition === null) {
-                        $result->skipRow(
-                            $lineNumber,
-                            "Position Name \"{$rawPositionName}\" resolved to ID {$resolvedId} but the position could not be loaded.",
-                            $this->buildRowDetails($rowData)
-                        );
-                        continue;
+                        if ($existingPosition === null) {
+                            $result->skipRow(
+                                $lineNumber,
+                                "Position Name \"{$rawPositionName}\" resolved to ID {$resolvedId} but the position could not be loaded.",
+                                $this->buildRowDetails($rowData)
+                            );
+                            continue;
+                        }
                     }
+                    // If $resolvedId === 0 we leave $existingPosition null and
+                    // fall through to the create path below.
                 }
 
                 // Full context for reporting
                 $fullDetails = $this->buildRowDetails(
                     $rowData,
-                    $existingPosition->getId()
+                    $existingPosition?->getId()
                 );
 
                 if ($dryRun) {
-                    $result->incrementUpdated();
+                    if ($existingPosition) {
+                        $result->incrementUpdated();
+                    } else {
+                        $result->incrementCreated();
+                    }
                     continue;
                 }
 
-                // Persist update
-                $saveError = '';
-                $saved = $this->updatePosition(
-                    $existingPosition,
-                    $rowData,
-                    $saveError
-                );
-                if ($saved) {
-                    $result->incrementUpdated();
-                } else {
-                    $resolvedId = $existingPosition->getId();
-                    $positionLabel = !empty($rowData['position_name'])
-                        ? "\"{$rowData['position_name']}\" (ID: {$resolvedId})"
-                        : "ID: {$resolvedId}";
-                    $reason = "Failed to update position {$positionLabel}.";
-                    if ($saveError !== '') {
-                        $reason .= " Error: {$saveError}";
+                if ($existingPosition) {
+                    // Persist update
+                    $saveError = '';
+                    $saved = $this->updatePosition(
+                        $existingPosition,
+                        $rowData,
+                        $saveError
+                    );
+                    if ($saved) {
+                        $result->incrementUpdated();
+                    } else {
+                        $resolvedId = $existingPosition->getId();
+                        $positionLabel = !empty($rowData['position_name'])
+                            ? "\"{$rowData['position_name']}\" (ID: {$resolvedId})"
+                            : "ID: {$resolvedId}";
+                        $reason = "Failed to update position {$positionLabel}.";
+                        if ($saveError !== '') {
+                            $reason .= " Error: {$saveError}";
+                        }
+                        $result->skipRow($lineNumber, $reason, $fullDetails);
                     }
-                    $result->skipRow($lineNumber, $reason, $fullDetails);
+                } else {
+                    // Create a new position
+                    $wpError = '';
+                    $postId = $this->createPositionPost($rawPositionName, $wpError);
+
+                    if ($postId === 0) {
+                        $reason = "Failed to create WordPress post for position \"{$rawPositionName}\".";
+                        if ($wpError !== '') {
+                            $reason .= " wp_insert_post error: {$wpError}";
+                        }
+                        $result->skipRow($lineNumber, $reason, $fullDetails);
+                        continue;
+                    }
+
+                    // Build a Position via the factory so the importer goes through
+                    // the same factory contract used by the rest of Unity (parallels
+                    // MemberFactory::createNew()).
+                    $newPosition = $this->positionFactory->createNew(
+                        id: $postId,
+                        minimumSobriety: ctype_digit(trim($rowData['minimum_sobriety']))
+                            ? (int) trim($rowData['minimum_sobriety'])
+                            : 6,
+                        termYears: ctype_digit(trim($rowData['term_years']))
+                            ? (int) trim($rowData['term_years'])
+                            : 1,
+                        email: trim($rowData['email']),
+                        longName: $rawPositionName,
+                        shortDescription: trim($rowData['short_description']),
+                        summary: trim($rowData['summary'])
+                    );
+
+                    $saveError = '';
+                    $saved = $this->updatePosition(
+                        $newPosition,
+                        $rowData,
+                        $saveError
+                    );
+
+                    if ($saved) {
+                        $result->incrementCreated();
+                    } else {
+                        $fullDetails['Post ID'] = (string) $postId;
+                        $reason = "Post created (#{$postId}) but fields failed to save"
+                            . " for position \"{$rawPositionName}\".";
+                        if ($saveError !== '') {
+                            $reason .= " Error: {$saveError}";
+                        }
+                        $result->skipRow($lineNumber, $reason, $fullDetails);
+                    }
+
+                    // Invalidate the name->ID cache so a later row referencing
+                    // this same new position by name resolves to the just-created post.
+                    $this->positionLookup->invalidateCache();
                 }
             } catch (\Exception $e) {
                 $result->skipRow(
@@ -383,5 +441,29 @@ class PositionImporter
         if ($summary !== '') {
             update_post_meta($postId, 'summary', $summary);
         }
+    }
+
+    /**
+     * Create a WordPress post for a new position.
+     *
+     * @param string $title The post title (position name)
+     * @param string $errorMessage Populated with the error message if creation fails
+     * @return int The new post ID, or 0 on failure
+     */
+    private function createPositionPost(string $title, string &$errorMessage = ''): int
+    {
+        $postId = wp_insert_post([
+            'post_type'   => 'intergroup-position',
+            'post_status' => 'publish',
+            'post_title'  => $title,
+        ], true);
+
+        if (is_wp_error($postId)) {
+            $errorMessage = $postId->get_error_message();
+            \Reconcile\Plugin::logError('Reconcile: wp_insert_post failed – ' . $errorMessage);
+            return 0;
+        }
+
+        return (int) $postId;
     }
 }
