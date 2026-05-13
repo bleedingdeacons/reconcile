@@ -723,7 +723,7 @@ class MemberImporterTest extends TestCase
         $path = $this->writeCsv(
             ['Anonymous Name', 'Home Group', 'Personal Email', 'Mobile', 'GSR', 'Intergroup Position', 'Intergroup Position Rotation', '12th Stepper', 'Area', 'Accepts'],
             [
-                ['Alice A.', 'Group One', 'alice@example.com', '555-0001', 'no', '', '', 'yes', 'East London', ' male | NON-BINARY |all '],
+                ['Alice A.', 'Group One', 'alice@example.com', '555-0001', 'no', '', '', 'yes', 'East London', ' male | NON-binary '],
             ]
         );
 
@@ -736,6 +736,93 @@ class MemberImporterTest extends TestCase
         $this->assertEquals(1, $result->getCreated());
         $this->assertEquals(0, $result->getSkipped());
         $this->assertEmpty($result->getWarnings());
+
+        unlink($path);
+    }
+
+    /**
+     * @test
+     */
+    public function import_expands_accepts_all_to_every_concrete_value(): void
+    {
+        $path = $this->writeCsv(
+            ['Anonymous Name', 'Home Group', 'Personal Email', 'Mobile', 'GSR', 'Intergroup Position', 'Intergroup Position Rotation', '12th Stepper', 'Area', 'Accepts'],
+            [
+                ['Alice A.', 'Group One', 'alice@example.com', '555-0001', 'no', '', '', 'yes', 'East London', 'All'],
+            ]
+        );
+
+        $this->groupLookup->shouldReceive('resolve')->andReturn(10);
+        $this->positionLookup->shouldReceive('resolve')->andReturn(0);
+        $this->memberRepo->shouldReceive('findAll')->andReturn([]);
+
+        $capturedArgs = null;
+        $this->memberFactory->shouldReceive('createNew')
+            ->andReturnUsing(function (...$args) use (&$capturedArgs) {
+                $capturedArgs = $args;
+                return Mockery::mock(Member::class);
+            });
+
+        $result = $this->importer->import($path, dryRun: true);
+
+        $this->assertEquals(1, $result->getCreated());
+
+        $acceptsArg = null;
+        foreach ($capturedArgs as $arg) {
+            if (is_array($arg) && in_array('accepts-male', $arg, true)) {
+                $acceptsArg = $arg;
+                break;
+            }
+        }
+        $this->assertSame(
+            ['accepts-male', 'accepts-female', 'accepts-non-binary'],
+            $acceptsArg,
+            '"All" should expand to every concrete accepts value.'
+        );
+
+        unlink($path);
+    }
+
+    /**
+     * @test
+     */
+    public function import_dedupes_when_all_is_combined_with_concrete_values(): void
+    {
+        $path = $this->writeCsv(
+            ['Anonymous Name', 'Home Group', 'Personal Email', 'Mobile', 'GSR', 'Intergroup Position', 'Intergroup Position Rotation', '12th Stepper', 'Area', 'Accepts'],
+            [
+                // "All|Female" is equivalent to "All" — the expansion already
+                // contains Female, so combining them must not produce a duplicate.
+                ['Alice A.', 'Group One', 'alice@example.com', '555-0001', 'no', '', '', 'yes', 'East London', 'All|Female'],
+            ]
+        );
+
+        $this->groupLookup->shouldReceive('resolve')->andReturn(10);
+        $this->positionLookup->shouldReceive('resolve')->andReturn(0);
+        $this->memberRepo->shouldReceive('findAll')->andReturn([]);
+
+        $capturedArgs = null;
+        $this->memberFactory->shouldReceive('createNew')
+            ->andReturnUsing(function (...$args) use (&$capturedArgs) {
+                $capturedArgs = $args;
+                return Mockery::mock(Member::class);
+            });
+
+        $result = $this->importer->import($path, dryRun: true);
+
+        $this->assertEquals(1, $result->getCreated());
+
+        $acceptsArg = null;
+        foreach ($capturedArgs as $arg) {
+            if (is_array($arg) && in_array('accepts-male', $arg, true)) {
+                $acceptsArg = $arg;
+                break;
+            }
+        }
+        $this->assertSame(
+            ['accepts-male', 'accepts-female', 'accepts-non-binary'],
+            $acceptsArg
+        );
 
         unlink($path);
     }

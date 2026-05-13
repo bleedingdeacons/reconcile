@@ -535,9 +535,12 @@ class MemberImporter
      * the ACF checkbox stored values.
      *
      * Backed by the ACF field `member-accepts` (key field_6a01f2aff213e), whose
-     * choices are: accepts-male, accepts-female, accepts-non-binary, accepts-all.
+     * stored choices are: accepts-male, accepts-female, accepts-non-binary.
+     *
      * Spreadsheet authors write the human-readable label; the importer
-     * translates to the stored value before persistence.
+     * translates to the stored value before persistence. The pseudo-label
+     * "All" is a shorthand that expands to every concrete value — it is not
+     * itself a stored ACF value (see ACCEPTS_ALL_EXPANSION).
      *
      * @var array<string, string>
      */
@@ -545,7 +548,19 @@ class MemberImporter
         'male'       => 'accepts-male',
         'female'     => 'accepts-female',
         'non-binary' => 'accepts-non-binary',
-        'all'        => 'accepts-all',
+    ];
+
+    /**
+     * The values that the "All" shorthand expands to.
+     *
+     * Kept in a deterministic order so that round-trip exports are stable.
+     *
+     * @var array<int, string>
+     */
+    private const ACCEPTS_ALL_EXPANSION = [
+        'accepts-male',
+        'accepts-female',
+        'accepts-non-binary',
     ];
 
     /**
@@ -556,11 +571,16 @@ class MemberImporter
      * tokens are reported back via the $unknownLabels reference parameter so
      * the caller can decide whether to reject the row.
      *
+     * The pseudo-label "All" expands to every concrete value. Combining "All"
+     * with other labels is allowed and de-duplicated (e.g. "All|Female" is
+     * equivalent to "All").
+     *
      * Examples (success):
      *   "Male|Female"   → ['accepts-male', 'accepts-female']
-     *   " all "          → ['accepts-all']
-     *   "Non-Binary"     → ['accepts-non-binary']
-     *   ""               → []
+     *   "All"           → ['accepts-male', 'accepts-female', 'accepts-non-binary']
+     *   "All|Female"    → ['accepts-male', 'accepts-female', 'accepts-non-binary']
+     *   "Non-Binary"    → ['accepts-non-binary']
+     *   ""              → []
      *
      * @param string $value Raw cell value.
      * @param string[] $unknownLabels Populated by reference with any labels that
@@ -585,6 +605,13 @@ class MemberImporter
                 continue;
             }
 
+            if ($normalised === 'all') {
+                foreach (self::ACCEPTS_ALL_EXPANSION as $expanded) {
+                    $values[] = $expanded;
+                }
+                continue;
+            }
+
             if (isset(self::ACCEPTS_LABEL_TO_VALUE[$normalised])) {
                 $values[] = self::ACCEPTS_LABEL_TO_VALUE[$normalised];
             } else {
@@ -592,7 +619,8 @@ class MemberImporter
             }
         }
 
-        return $values;
+        // De-duplicate while preserving order: "All|Female" → All-expansion only.
+        return array_values(array_unique($values));
     }
 
     /**

@@ -78,23 +78,14 @@ class MemberColumnMapper
             'intergroup_position_rotation',
         ],
         'is_twelfth_stepper' => [
-            '12th stepper',
-            '12th_stepper',
             'twelfth stepper',
             'twelfth_stepper',
-            'is_twelfth_stepper',
-            'is 12th stepper',
         ],
         'area' => [
             'area',
-            '12th step area',
-            'twelfth step area',
         ],
         'accepts' => [
             'accepts',
-            '12th step accepts',
-            'twelfth step accepts',
-            'accepts calls from',
         ],
     ];
 

@@ -39,7 +39,11 @@ class MemberExporter
      * Reverse map of the ACF `member-accepts` checkbox: stored value => label.
      *
      * Symmetric with MemberImporter::ACCEPTS_LABEL_TO_VALUE so that an
-     * export-then-import round-trip is lossless.
+     * export-then-import round-trip is lossless for concrete values. The
+     * importer's "All" shorthand expands to all three concrete values, so
+     * the exporter writes the expansion explicitly rather than collapsing
+     * back to "All" — this avoids guessing whether a member was originally
+     * set as "All" or as the three values individually.
      *
      * @var array<string, string>
      */
@@ -47,7 +51,6 @@ class MemberExporter
         'accepts-male'       => 'Male',
         'accepts-female'     => 'Female',
         'accepts-non-binary' => 'Non-Binary',
-        'accepts-all'        => 'All',
     ];
 
     private ?MemberRepository $memberRepository;
@@ -129,7 +132,7 @@ class MemberExporter
             'GSR',
             'Intergroup Position',
             'Intergroup Position Rotation',
-            '12th Stepper',
+            'Twelfth Stepper',
             'Area',
             'Accepts',
         ]);
