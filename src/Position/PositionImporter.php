@@ -29,7 +29,10 @@ use Unity\Positions\Interfaces\PositionRepository;
  *     - If only Position Name is provided (no ID column or ID is empty), looks up by name.
  *       If no match is found, a new position is created (mirrors the Member importer
  *       behaviour when Member ID is empty).
- *  5. Creates or updates positions through wp_insert_post / wp_update_post and ACF meta.
+ *  5. Builds a Position via PositionFactory::createNew(), merging imported row data
+ *     over any existing field values (blank cells preserve existing data).
+ *  6. Persists the Position via PositionRepository::save() so ACF fields are written
+ *     under the canonical field keys.
  *
  * Rows that cannot be imported are skipped with a "Skipped – [reason]" warning.
  *
@@ -191,13 +194,31 @@ class PositionImporter
                 }
 
                 if ($existingPosition) {
-                    // Persist update
-                    $saveError = '';
-                    $saved = $this->updatePosition(
-                        $existingPosition,
+                    // Build a merged Position via the factory: row values override
+                    // existing ones; blank cells preserve the existing field.
+                    $mergedPosition = $this->buildMergedPosition(
+                        $existingPosition->getId(),
                         $rowData,
-                        $saveError
+                        $existingPosition
                     );
+
+                    $invalidReason = $this->describeInvalidPosition($mergedPosition);
+                    if ($invalidReason !== '') {
+                        $resolvedId = $existingPosition->getId();
+                        $positionLabel = !empty($rowData['position_name'])
+                            ? "\"{$rowData['position_name']}\" (ID: {$resolvedId})"
+                            : "ID: {$resolvedId}";
+                        $result->skipRow(
+                            $lineNumber,
+                            "Cannot save position {$positionLabel}: {$invalidReason}",
+                            $fullDetails
+                        );
+                        continue;
+                    }
+
+                    $saveError = '';
+                    $saved = $this->savePosition($mergedPosition, $saveError);
+
                     if ($saved) {
                         $result->incrementUpdated();
                     } else {
@@ -212,7 +233,27 @@ class PositionImporter
                         $result->skipRow($lineNumber, $reason, $fullDetails);
                     }
                 } else {
-                    // Create a new position
+                    // Build the candidate Position FIRST so we can validate before
+                    // inserting any post. This avoids orphan posts when the row is
+                    // missing required fields.
+                    $newPosition = $this->buildMergedPosition(
+                        0,
+                        $rowData,
+                        null,
+                        $rawPositionName
+                    );
+
+                    $invalidReason = $this->describeInvalidPosition($newPosition, true);
+                    if ($invalidReason !== '') {
+                        $result->skipRow(
+                            $lineNumber,
+                            "Cannot create new position \"{$rawPositionName}\": {$invalidReason}",
+                            $fullDetails
+                        );
+                        continue;
+                    }
+
+                    // Create the post
                     $wpError = '';
                     $postId = $this->createPositionPost($rawPositionName, $wpError);
 
@@ -225,29 +266,17 @@ class PositionImporter
                         continue;
                     }
 
-                    // Build a Position via the factory so the importer goes through
-                    // the same factory contract used by the rest of Unity (parallels
-                    // MemberFactory::createNew()).
-                    $newPosition = $this->positionFactory->createNew(
-                        id: $postId,
-                        minimumSobriety: ctype_digit(trim($rowData['minimum_sobriety']))
-                            ? (int) trim($rowData['minimum_sobriety'])
-                            : 6,
-                        termYears: ctype_digit(trim($rowData['term_years']))
-                            ? (int) trim($rowData['term_years'])
-                            : 1,
-                        email: trim($rowData['email']),
-                        longName: $rawPositionName,
-                        shortDescription: trim($rowData['short_description']),
-                        summary: trim($rowData['summary'])
+                    // Rebuild the Position with the real post ID so isValid() passes
+                    // (it requires id > 0) and the repository writes to the right post.
+                    $newPosition = $this->buildMergedPosition(
+                        $postId,
+                        $rowData,
+                        null,
+                        $rawPositionName
                     );
 
                     $saveError = '';
-                    $saved = $this->updatePosition(
-                        $newPosition,
-                        $rowData,
-                        $saveError
-                    );
+                    $saved = $this->savePosition($newPosition, $saveError);
 
                     if ($saved) {
                         $result->incrementCreated();
@@ -355,92 +384,155 @@ class PositionImporter
     }
 
     /**
-     * Update an existing position with imported data.
+     * Return a human-readable description of why a Position would fail to save,
+     * or '' if it is valid. The repository's save() requires all fields to be
+     * populated (see TsmlPosition::isValid()); this lets us surface the missing
+     * field to the import operator rather than a generic "save failed".
      *
-     * @param Position $existing The existing position
-     * @param array<string, string> $rowData The imported row data
-     * @param string $errorMessage Populated with error message on failure
-     * @return bool Whether the update succeeded
+     * @param Position $position           The position to validate
+     * @param bool     $ignoreMissingId    When validating a candidate before the
+     *                                     WordPress post has been inserted, the
+     *                                     ID will legitimately be 0. Pass true in
+     *                                     that case so the ID requirement is not
+     *                                     reported as a problem.
      */
-    private function updatePosition(
-        Position $existing,
+    private function describeInvalidPosition(Position $position, bool $ignoreMissingId = false): string
+    {
+        $missing = [];
+        if (!$ignoreMissingId && $position->getId() <= 0) {
+            $missing[] = 'Post ID';
+        }
+        if ($position->getEmail() === '') {
+            $missing[] = 'Position Email';
+        }
+        if ($position->getLongName() === '') {
+            $missing[] = 'Position Name';
+        }
+        if ($position->getShortDescription() === '') {
+            $missing[] = 'Short Description';
+        }
+        if ($position->getSummary() === '') {
+            $missing[] = 'Summary';
+        }
+        if ($position->getMinimumSobriety() < 6) {
+            $missing[] = 'Minimum Sobriety (must be at least 6)';
+        }
+        if ($position->getTermYears() < 1) {
+            $missing[] = 'Term Years (must be at least 1)';
+        }
+
+        if (!empty($missing)) {
+            return 'missing required field(s): ' . implode(', ', $missing) . '.';
+        }
+
+        // All known field checks pass. If isValid() still rejects for some
+        // other reason, surface a generic message rather than reporting OK.
+        // When validating pre-create (ignoreMissingId=true) we skip this final
+        // isValid() call because the ID is legitimately 0 at this stage and
+        // isValid() requires id > 0.
+        if (!$ignoreMissingId && !$position->isValid()) {
+            return 'position is not valid';
+        }
+
+        return '';
+    }
+
+    /**
+     * Build a Position object by merging imported row data over the existing
+     * position's fields. Blank cells in the spreadsheet preserve the existing
+     * value (so partial-column imports don't wipe data).
+     *
+     * For new positions, $existing is null and $newLongName supplies the title;
+     * blank fields fall back to the Position defaults from the factory
+     * (minimumSobriety=6, termYears=1, empty strings).
+     *
+     * @param int           $id          Post ID
+     * @param array<string,string> $rowData Imported row data
+     * @param Position|null $existing    Existing position, or null when creating
+     * @param string        $newLongName Title for a new position (ignored when $existing is set)
+     */
+    private function buildMergedPosition(
+        int $id,
         array $rowData,
-        string &$errorMessage = ''
-    ): bool {
-        $postId = $existing->getId();
+        ?Position $existing,
+        string $newLongName = ''
+    ): Position {
+        $rawMinSobriety = trim($rowData['minimum_sobriety']);
+        $rawTermYears   = trim($rowData['term_years']);
+        $rawEmail       = trim($rowData['email']);
+        $rawShortDesc   = trim($rowData['short_description']);
+        $rawSummary     = trim($rowData['summary']);
+        $rawName        = trim($rowData['position_name']);
 
-        $capturedError = '';
+        $minimumSobriety = ctype_digit($rawMinSobriety)
+            ? (int) $rawMinSobriety
+            : ($existing ? $existing->getMinimumSobriety() : 6);
 
-        set_error_handler(function (int $errno, string $errstr) use (&$capturedError): bool {
-            $capturedError = $errstr;
-            return true;
+        $termYears = ctype_digit($rawTermYears)
+            ? (int) $rawTermYears
+            : ($existing ? $existing->getTermYears() : 1);
+
+        $email = $rawEmail !== ''
+            ? $rawEmail
+            : ($existing ? $existing->getEmail() : '');
+
+        $longName = $rawName !== ''
+            ? $rawName
+            : ($existing ? $existing->getLongName() : $newLongName);
+
+        $shortDescription = $rawShortDesc !== ''
+            ? $rawShortDesc
+            : ($existing ? $existing->getShortDescription() : '');
+
+        $summary = $rawSummary !== ''
+            ? $rawSummary
+            : ($existing ? $existing->getSummary() : '');
+
+        return $this->positionFactory->createNew(
+            id: $id,
+            minimumSobriety: $minimumSobriety,
+            termYears: $termYears,
+            email: $email,
+            longName: $longName,
+            shortDescription: $shortDescription,
+            summary: $summary
+        );
+    }
+
+    /**
+     * Save a position via the repository, capturing any PHP errors or exceptions.
+     *
+     * Mirrors MemberImporter::saveMember(): installs a non-suppressing error
+     * handler so warnings/notices are captured for the import result while
+     * still propagating to other handlers (Sentinel, Xdebug, PHP default).
+     *
+     * @param Position $position The position to save
+     * @param string $errorMessage Populated with the error/exception message on failure
+     * @return bool Whether the save succeeded
+     */
+    private function savePosition(Position $position, string &$errorMessage = ''): bool
+    {
+        $capturedErrors = [];
+
+        set_error_handler(function (int $errno, string $errstr) use (&$capturedErrors): bool {
+            $capturedErrors[] = $errstr;
+            return false;
         });
 
         try {
-            // Update post title only if a position name was provided
-            $positionName = trim($rowData['position_name']);
-            if ($positionName !== '') {
-                $postData = [
-                    'ID'          => $postId,
-                    'post_title'  => $positionName,
-                ];
-
-                $result = wp_update_post($postData, true);
-
-                if (is_wp_error($result)) {
-                    $errorMessage = $result->get_error_message();
-                    return false;
-                }
-            }
-
-            $this->saveMetaFields($postId, $rowData);
-
-            return true;
+            $saved = $this->positionRepository->save($position);
         } catch (\Throwable $e) {
             $errorMessage = $e->getMessage();
             return false;
         } finally {
             restore_error_handler();
         }
-    }
 
-    /**
-     * Save meta fields for a position post.
-     *
-     * Only updates fields that are present (non-empty) in the imported row data.
-     * Empty fields in the spreadsheet are left unchanged on the existing position.
-     *
-     * @param int $postId The WordPress post ID
-     * @param array<string, string> $rowData The imported row data
-     */
-    private function saveMetaFields(
-        int $postId,
-        array $rowData
-    ): void {
-        $email = trim($rowData['email']);
-        if ($email !== '') {
-            update_post_meta($postId, 'email', $email);
+        if (!$saved && !empty($capturedErrors)) {
+            $errorMessage = implode('; ', $capturedErrors);
         }
 
-        $minimumSobriety = trim($rowData['minimum_sobriety']);
-        if ($minimumSobriety !== '') {
-            update_post_meta($postId, 'minimum_sobriety', $minimumSobriety);
-        }
-
-        $termYears = trim($rowData['term_years']);
-        if ($termYears !== '') {
-            update_post_meta($postId, 'term_years', $termYears);
-        }
-
-        $shortDescription = trim($rowData['short_description']);
-        if ($shortDescription !== '') {
-            update_post_meta($postId, 'short_description', $shortDescription);
-        }
-
-        $summary = trim($rowData['summary']);
-        if ($summary !== '') {
-            update_post_meta($postId, 'summary', $summary);
-        }
+        return $saved;
     }
 
     /**
