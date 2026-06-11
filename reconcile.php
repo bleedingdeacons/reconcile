@@ -12,7 +12,7 @@ declare(strict_types=1);
  * GitHub Plugin URI: https://github.com/thebleedingdeacons/reconcile
  * GitHub Branch: main
  * Author: The Bleeding Deacons
- * Author URI: https://github.com/bleedingdeacons/integrity
+ * Author URI: https://github.com/bleedingdeacons/reconcile
  * Contact: thebleedingdeacons@gmail.com
  * License: MIT (Modified)
  */
