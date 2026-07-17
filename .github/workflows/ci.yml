@@ -15,9 +15,27 @@ jobs:
     name: PHP 8.1
     runs-on: ubuntu-latest
 
+    defaults:
+      run:
+        # Reconcile and Unity are checked out side by side, mirroring a
+        # WordPress plugins/ directory, so run everything from inside this one.
+        working-directory: reconcile
+
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
+        with:
+          path: reconcile
+
+      - name: Checkout Unity
+        # Reconcile is built on Unity's interfaces; the test suite asserts
+        # against the real contract rather than a copy (see tests/bootstrap.php),
+        # so Unity must sit alongside as ../unity. Public repo, no token needed.
+        uses: actions/checkout@v4
+        with:
+          repository: bleedingdeacons/unity
+          ref: main
+          path: unity
 
       - name: Setup PHP 8.1
         uses: shivammathur/setup-php@v2
@@ -37,8 +55,10 @@ jobs:
         with:
           # Keyed on composer.json: composer.lock is untracked in several of
           # these repos, so it is not a reliable cache key across the suite.
+          # Scoped to this plugin's file — Unity is checked out alongside, and
+          # a '**' glob would fold its composer.json into the key too.
           path: ${{ steps.composer-cache.outputs.dir }}
-          key: ${{ runner.os }}-php8.1-composer-${{ hashFiles('**/composer.json') }}
+          key: ${{ runner.os }}-php8.1-composer-${{ hashFiles('reconcile/composer.json') }}
           restore-keys: |
             ${{ runner.os }}-php8.1-composer-
 
@@ -72,6 +92,15 @@ jobs:
       - name: Build production archive
         # The build is what /bump ships, so a broken build must fail the PR.
         run: composer build:production
+
+      - name: PHPUnit
+        # A gate. The suite (38 tests) covers MemberImporter — including the
+        # buildMember path that once silently erased GDPR consent on re-import —
+        # and GroupImporter, asserting against Unity's real interfaces via the
+        # ../unity checkout above. It was previously unrunnable (no bootstrap,
+        # no phpunit, stale namespaces); now that it is green it guards the
+        # importers on every PR.
+        run: composer test
 
       # --- Advisory --------------------------------------------------------
       # Reported but not yet enforced. Promote to a gate once a repo is green.

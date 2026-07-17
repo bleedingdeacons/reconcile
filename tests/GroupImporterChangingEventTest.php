@@ -238,25 +238,11 @@ class GroupImporterChangingEventTest extends TestCase
     {
         $path = tempnam(sys_get_temp_dir(), 'group_import_test_') . '.csv';
         $handle = fopen($path, 'w');
-        fputcsv($handle, $headers);
+        fputcsv($handle, $headers, ',', '"', '');
         foreach ($rows as $row) {
-            fputcsv($handle, $row);
+            fputcsv($handle, $row, ',', '"', '');
         }
         fclose($handle);
         return $path;
     }
 }
-
-// ─── do_action capture stub (only registered if not already defined) ───
-// Lives in the global namespace because that's where WP's do_action lives.
-    if (!function_exists('do_action')) {
-        function do_action(string $action, ...$args): void
-        {
-            if ($action === 'unity/group_changing' && count($args) === 2) {
-                \Reconcile\Tests\Unit\Import\GroupImporterChangingEventTest::$dispatchedGroupChangingEvents[] = [
-                    $args[0],
-                    $args[1],
-                ];
-            }
-        }
-    }
