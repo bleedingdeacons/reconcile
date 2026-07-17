@@ -796,8 +796,22 @@ class MemberImporter
             personalEmail: $rowData['personal_email'],
             mobileNumber: $rowData['mobile_number'],
             twelfthStepper: $isTwelfthStepper,
+            // Not part of the member import, so preserved from the existing
+            // record (or left at the default for a new member). Leaving these
+            // out does not preserve them: createNew() substitutes its own
+            // defaults, and TsmlMemberRepository::updateFields() writes every
+            // field unconditionally — so re-importing an existing member used
+            // to erase their telephone-responder flag and their entire GDPR
+            // consent record.
+            telephoneResponder: $existing ? $existing->isTelephoneResponder() : false,
             area: $area,
             accepts: $accepts,
+            gdprAccepted: $existing ? $existing->isGdprAccepted() : false,
+            gdprAcceptedAt: $existing ? $existing->getGdprAcceptedAt() : '',
+            gdprAcceptanceVersion: $existing ? $existing->getGdprAcceptanceVersion() : '',
+            gdprAcceptanceMethod: $existing ? $existing->getGdprAcceptanceMethod() : '',
+            gdprAcceptanceStatement: $existing ? $existing->getGdprAcceptanceStatement() : '',
+            updated: $existing ? $existing->getUpdated() : '',
         );
     }
 
