@@ -33,6 +33,7 @@ use Unity\Groups\Interfaces\GroupFactory;
 use Unity\Groups\Interfaces\GroupRepository;
 use Unity\Members\Interfaces\MemberFactory;
 use Unity\Members\Interfaces\MemberRepository;
+use Unity\Members\Interfaces\MemberRevisor;
 use Unity\Positions\Interfaces\PositionFactory;
 use Unity\Positions\Interfaces\PositionRepository;
 
@@ -245,7 +246,8 @@ class Plugin
                 $c->get(MemberRepository::class),
                 $c->get(MemberFactory::class),
                 $c->get(GroupLookup::class),
-                $c->get(PositionLookup::class)
+                $c->get(PositionLookup::class),
+                $c->has(MemberRevisor::class) ? $c->get(MemberRevisor::class) : null
             );
         });
 

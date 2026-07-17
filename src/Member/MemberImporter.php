@@ -18,6 +18,7 @@ use Unity\Core\Interfaces\Configuration;
 use Unity\Members\Interfaces\Member;
 use Unity\Members\Interfaces\MemberFactory;
 use Unity\Members\Interfaces\MemberRepository;
+use Unity\Members\Interfaces\MemberRevisor;
 
 /**
  * Member Importer
@@ -58,6 +59,7 @@ class MemberImporter
 
     private ?MemberRepository $memberRepository;
     private ?MemberFactory $memberFactory;
+    private ?MemberRevisor $memberRevisor;
     private GroupLookup $groupLookup;
     private PositionLookup $positionLookup;
     private MemberColumnMapper $columnMapper;
@@ -69,11 +71,13 @@ class MemberImporter
         ?MemberRepository $memberRepository,
         ?MemberFactory $memberFactory,
         GroupLookup $groupLookup,
-        PositionLookup $positionLookup
+        PositionLookup $positionLookup,
+        ?MemberRevisor $memberRevisor = null
     ) {
         $this->memberConfig = $configuration->getConfig(Member::class) ?? [];
         $this->memberRepository = $memberRepository;
         $this->memberFactory = $memberFactory;
+        $this->memberRevisor = $memberRevisor;
         $this->groupLookup = $groupLookup;
         $this->positionLookup = $positionLookup;
         $this->columnMapper = new MemberColumnMapper();
@@ -780,38 +784,44 @@ class MemberImporter
         array $accepts,
         ?Member $existing = null
     ): Member {
+        // Updating an existing member: name only the fields this import
+        // supplies. Everything else — the telephone-responder flag, the GDPR
+        // consent record, the profile fields — is carried over by revise().
+        // They used to be listed here one by one, and the ones that were
+        // missed were silently erased on every re-import.
+        if ($existing !== null && $this->memberRevisor !== null) {
+            return $this->memberRevisor->revise(
+                $existing,
+                anonymousName: $rowData['anonymous_name'],
+                intergroupPosition: $intergroupPositionId,
+                // Blank in the spreadsheet means "leave it alone", which is
+                // exactly what null means to revise().
+                intergroupPositionRotation: $positionRotation !== '' ? $positionRotation : null,
+                homeGroup: $homeGroupId,
+                isGSR: $isGSR,
+                personalEmail: $rowData['personal_email'],
+                mobileNumber: $rowData['mobile_number'],
+                twelfthStepper: $isTwelfthStepper,
+                area: $area,
+                accepts: $accepts
+            );
+        }
+
+        // Creating a member: there is no prior state, so createNew()'s
+        // defaults are the correct starting values for everything the import
+        // does not supply.
         return $this->memberFactory->createNew(
             id: $id,
             anonymousName: $rowData['anonymous_name'],
-            showAnonymousName: $existing ? $existing->showAnonymousName() : false,
-            showMemberProfile: $existing ? $existing->showMemberProfile() : false,
-            anonymousProfile: $existing ? $existing->getAnonymousProfile() : '',
             intergroupPosition: $intergroupPositionId,
-            intergroupPositionRotation: $positionRotation !== ''
-                ? $positionRotation
-                : ($existing ? $existing->getIntergroupPositionRotation() : ''),
+            intergroupPositionRotation: $positionRotation,
             homeGroup: $homeGroupId,
             isGSR: $isGSR,
-            meetingPO: $existing ? $existing->getMeetingPO() : null,
             personalEmail: $rowData['personal_email'],
             mobileNumber: $rowData['mobile_number'],
             twelfthStepper: $isTwelfthStepper,
-            // Not part of the member import, so preserved from the existing
-            // record (or left at the default for a new member). Leaving these
-            // out does not preserve them: createNew() substitutes its own
-            // defaults, and TsmlMemberRepository::updateFields() writes every
-            // field unconditionally — so re-importing an existing member used
-            // to erase their telephone-responder flag and their entire GDPR
-            // consent record.
-            telephoneResponder: $existing ? $existing->isTelephoneResponder() : false,
             area: $area,
-            accepts: $accepts,
-            gdprAccepted: $existing ? $existing->isGdprAccepted() : false,
-            gdprAcceptedAt: $existing ? $existing->getGdprAcceptedAt() : '',
-            gdprAcceptanceVersion: $existing ? $existing->getGdprAcceptanceVersion() : '',
-            gdprAcceptanceMethod: $existing ? $existing->getGdprAcceptanceMethod() : '',
-            gdprAcceptanceStatement: $existing ? $existing->getGdprAcceptanceStatement() : '',
-            updated: $existing ? $existing->getUpdated() : '',
+            accepts: $accepts
         );
     }
 
