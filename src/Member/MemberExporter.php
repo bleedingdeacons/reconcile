@@ -135,7 +135,7 @@ class MemberExporter
             'Twelfth Stepper',
             'Area',
             'Accepts',
-        ]);
+        ], ',', '"', '');
 
         // Data rows
         foreach ($members as $member) {
@@ -162,7 +162,7 @@ class MemberExporter
 
             $row = array_map([self::class, 'sanitizeCsvField'], $row);
 
-            fputcsv($output, $row);
+            fputcsv($output, $row, ',', '"', '');
         }
 
         rewind($output);

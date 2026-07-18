@@ -85,7 +85,14 @@ class SpreadsheetReader
         $rows = [];
         $lineNumber = 0;
 
-        while (($data = fgetcsv($handle)) !== false) {
+        // escape: '' disables PHP's legacy backslash escaping, which is not
+        // part of RFC 4180 and is not what Excel or Google Sheets emit. With
+        // the old default, a quoted field ending in a backslash escaped its
+        // own closing quote and swallowed the row boundary — two spreadsheet
+        // rows would silently merge into one mangled record, losing a member.
+        // It is also the PHP 9 default, so this is explicit rather than
+        // relying on a default that is changing under us.
+        while (($data = fgetcsv($handle, 0, ',', '"', '')) !== false) {
             $lineNumber++;
 
             // Skip completely empty lines
