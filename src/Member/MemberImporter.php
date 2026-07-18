@@ -276,21 +276,6 @@ class MemberImporter
                     $existingMember = $this->findExistingMember($rowData['anonymous_name']);
                 }
 
-                // Build Member object
-                $memberId = $existingMember ? $existingMember->getId() : 0;
-                $member = $this->buildMember(
-                    $memberId,
-                    $rowData,
-                    $homeGroupId,
-                    $intergroupPositionId,
-                    $positionRotation,
-                    $isGSR,
-                    $isTwelfthStepper,
-                    $area,
-                    $accepts,
-                    $existingMember
-                );
-
                 // Full context for persistence failures
                 $fullDetails = $this->buildRowDetails(
                     $rowData,
@@ -313,8 +298,24 @@ class MemberImporter
                     continue;
                 }
 
-                // Persist
+                // Persist. The Member object is built only on the paths that
+                // actually save it — never in a dry run (which reports counts
+                // without touching the factory) and never on the create path
+                // below, which rebuilds it around the freshly inserted post ID.
                 if ($existingMember) {
+                    $member = $this->buildMember(
+                        $existingMember->getId(),
+                        $rowData,
+                        $homeGroupId,
+                        $intergroupPositionId,
+                        $positionRotation,
+                        $isGSR,
+                        $isTwelfthStepper,
+                        $area,
+                        $accepts,
+                        $existingMember
+                    );
+
                     $saveError = '';
                     $saved = $this->saveMember($member, $saveError);
                     if ($saved) {

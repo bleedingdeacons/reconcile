@@ -78,6 +78,8 @@ class MemberColumnMapper
             'intergroup_position_rotation',
         ],
         'is_twelfth_stepper' => [
+            '12th stepper',
+            '12th_stepper',
             'twelfth stepper',
             'twelfth_stepper',
         ],

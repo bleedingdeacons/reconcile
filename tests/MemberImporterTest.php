@@ -4,12 +4,12 @@ declare(strict_types=1);
 
 namespace Reconcile\Tests\Unit\Import;
 
-use Group\GroupLookup;
-use Member\MemberImporter;
+use Reconcile\Group\GroupLookup;
+use Reconcile\Member\MemberImporter;
 use Mockery;
 use Mockery\Adapter\Phpunit\MockeryPHPUnitIntegration;
 use PHPUnit\Framework\TestCase;
-use Position\PositionLookup;
+use Reconcile\Position\PositionLookup;
 use Unity\Core\Interfaces\Configuration;
 use Unity\Members\Interfaces\Member;
 use Unity\Members\Interfaces\MemberFactory;
@@ -70,9 +70,9 @@ class MemberImporterTest extends TestCase
     {
         $path = tempnam(sys_get_temp_dir(), 'import_test_') . '.csv';
         $handle = fopen($path, 'w');
-        fputcsv($handle, $headers);
+        fputcsv($handle, $headers, ',', '"', '');
         foreach ($rows as $row) {
-            fputcsv($handle, $row);
+            fputcsv($handle, $row, ',', '"', '');
         }
         fclose($handle);
 
@@ -590,11 +590,15 @@ class MemberImporterTest extends TestCase
 
         $this->groupLookup->shouldReceive('resolve')->andReturn(10);
         $this->positionLookup->shouldReceive('resolve')->andReturn(0);
-        $this->memberRepo->shouldReceive('findAll')->andReturn([]);
 
-        // Capture the named args that reach the factory. MemberImporter
-        // calls createNew with named arguments, so reflect on the callee
-        // signature to map positional args back to names.
+        // Capture the args reaching the factory via a real update: an existing
+        // member is found by name and saved (no dry run — a dry run reports
+        // counts without building), so createNew is exercised on a persisting
+        // path. The parsed 12th-stepper/area/accepts values are computed the
+        // same way whether the member is created or updated.
+        $this->memberRepo->shouldReceive('findAll')->andReturn([$this->existingMemberStub()]);
+        $this->memberRepo->shouldReceive('save')->andReturn(true);
+
         $capturedNamed = null;
         $this->memberFactory->shouldReceive('createNew')
             ->andReturnUsing(function (...$args) use (&$capturedNamed) {
@@ -602,9 +606,9 @@ class MemberImporterTest extends TestCase
                 return Mockery::mock(Member::class);
             });
 
-        $result = $this->importer->import($path, dryRun: true);
+        $result = $this->importer->import($path);
 
-        $this->assertEquals(1, $result->getCreated());
+        $this->assertEquals(1, $result->getUpdated());
         $this->assertEquals(0, $result->getSkipped());
 
         // PHP collapses named args into the variadic in positional order,
@@ -754,7 +758,8 @@ class MemberImporterTest extends TestCase
 
         $this->groupLookup->shouldReceive('resolve')->andReturn(10);
         $this->positionLookup->shouldReceive('resolve')->andReturn(0);
-        $this->memberRepo->shouldReceive('findAll')->andReturn([]);
+        $this->memberRepo->shouldReceive('findAll')->andReturn([$this->existingMemberStub()]);
+        $this->memberRepo->shouldReceive('save')->andReturn(true);
 
         $capturedArgs = null;
         $this->memberFactory->shouldReceive('createNew')
@@ -763,9 +768,9 @@ class MemberImporterTest extends TestCase
                 return Mockery::mock(Member::class);
             });
 
-        $result = $this->importer->import($path, dryRun: true);
+        $result = $this->importer->import($path);
 
-        $this->assertEquals(1, $result->getCreated());
+        $this->assertEquals(1, $result->getUpdated());
 
         $acceptsArg = null;
         foreach ($capturedArgs as $arg) {
@@ -799,7 +804,8 @@ class MemberImporterTest extends TestCase
 
         $this->groupLookup->shouldReceive('resolve')->andReturn(10);
         $this->positionLookup->shouldReceive('resolve')->andReturn(0);
-        $this->memberRepo->shouldReceive('findAll')->andReturn([]);
+        $this->memberRepo->shouldReceive('findAll')->andReturn([$this->existingMemberStub()]);
+        $this->memberRepo->shouldReceive('save')->andReturn(true);
 
         $capturedArgs = null;
         $this->memberFactory->shouldReceive('createNew')
@@ -808,9 +814,9 @@ class MemberImporterTest extends TestCase
                 return Mockery::mock(Member::class);
             });
 
-        $result = $this->importer->import($path, dryRun: true);
+        $result = $this->importer->import($path);
 
-        $this->assertEquals(1, $result->getCreated());
+        $this->assertEquals(1, $result->getUpdated());
 
         $acceptsArg = null;
         foreach ($capturedArgs as $arg) {
@@ -825,5 +831,20 @@ class MemberImporterTest extends TestCase
         );
 
         unlink($path);
+    }
+
+    /**
+     * A minimal existing-member stub for update-path tests.
+     *
+     * The importer's create-path createNew() does not read the existing
+     * member (the revisor does, but these Mockery-only tests run without a
+     * revisor), so the stub only needs the id the importer reads while
+     * routing and reporting the update.
+     */
+    private function existingMemberStub(int $id = 1): Member
+    {
+        $member = Mockery::mock(Member::class);
+        $member->shouldReceive('getId')->andReturn($id);
+        return $member;
     }
 }
