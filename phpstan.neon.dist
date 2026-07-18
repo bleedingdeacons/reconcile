@@ -1,0 +1,56 @@
+# Committed PHPStan config.
+#
+# phpstan.neon (no .dist) is gitignored and, if present, overrides this
+# file entirely — keep personal tweaks there. This .dist is what CI uses:
+# before it existed, CI ran PHPStan with no config at all, so the step
+# analysed nothing and reported nothing.
+#
+# scanDirectories makes the sibling plugins' symbols known without
+# analysing them. Without it PHPStan cannot see a single interface this
+# plugin implements, and reports every one as an "unknown class" — which
+# drowns real findings. CI checks these out alongside.
+
+includes:
+    - phpstan-baseline.neon
+    - vendor/szepeviktor/phpstan-wordpress/extension.neon
+
+parameters:
+    level: 5
+    # An ignoreErrors pattern that stops matching is reported as an error by
+    # default, so a stale pattern would fail the gate — and whether a pattern
+    # matches depends on which sibling plugins and stubs are present, which
+    # differs between a developer's checkout and CI. Don't let that break the
+    # build; dead patterns are tidied when noticed, not enforced.
+    reportUnmatchedIgnoredErrors: false
+    paths:
+        - src
+    excludePaths:
+        - tests
+    scanDirectories:
+        - ../unity/src
+        - ../sentinel/src
+        - ../unity/vendor/psr/container/src
+    ignoreErrors:
+        - '#Function get_plugin_data not found#'
+        - '#Function wp_insert_post not found#'
+        - '#Function is_wp_error not found#'
+        - '#Function wp_upload_dir not found#'
+        - '#Function wp_mkdir_p not found#'
+        - '#Function wp_unique_filename not found#'
+        - '#Function sanitize_file_name not found#'
+        - '#Function move_uploaded_file not found#'
+        - '#Function current_user_can not found#'
+        - '#Function wp_send_json_error not found#'
+        - '#Function wp_send_json_success not found#'
+        - '#Function wp_verify_nonce not found#'
+        - '#Function wp_create_nonce not found#'
+        - '#Function wp_nonce_field not found#'
+        - '#Function add_menu_page not found#'
+        - '#Function wp_enqueue_style not found#'
+        - '#Function wp_enqueue_script not found#'
+        - '#Function wp_localize_script not found#'
+        - '#Function add_action not found#'
+        - '#Function admin_url not found#'
+        - '#Function esc_html_e not found#'
+        - '#Function esc_html not found#'
+        - '#Function wp_kses not found#'

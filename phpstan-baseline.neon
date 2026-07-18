@@ -1,0 +1,76 @@
+parameters:
+	ignoreErrors:
+		-
+			message: "#^Constant RECONCILE_PLUGIN_URL not found\\.$#"
+			count: 2
+			path: src/Admin/GroupsAdmin.php
+
+		-
+			message: "#^Constant RECONCILE_VERSION not found\\.$#"
+			count: 2
+			path: src/Admin/GroupsAdmin.php
+
+		-
+			message: "#^Constant RECONCILE_PLUGIN_URL not found\\.$#"
+			count: 2
+			path: src/Admin/MembersAdmin.php
+
+		-
+			message: "#^Constant RECONCILE_VERSION not found\\.$#"
+			count: 2
+			path: src/Admin/MembersAdmin.php
+
+		-
+			message: "#^Constant RECONCILE_PLUGIN_URL not found\\.$#"
+			count: 2
+			path: src/Admin/PositionsAdmin.php
+
+		-
+			message: "#^Constant RECONCILE_VERSION not found\\.$#"
+			count: 2
+			path: src/Admin/PositionsAdmin.php
+
+		-
+			message: "#^Offset 'name' on array\\{name\\: string, tmp_name\\: non\\-falsy\\-string, size\\?\\: int\\} on left side of \\?\\? always exists and is not nullable\\.$#"
+			count: 1
+			path: src/Core/ImportTempDir.php
+
+		-
+			message: "#^Offset 'comp_size' on array\\{name\\: string, index\\: int, crc\\: int, size\\: int, mtime\\: int, comp_size\\: int, comp_method\\: int, encryption_method\\: int\\} on left side of \\?\\? always exists and is not nullable\\.$#"
+			count: 1
+			path: src/Core/SpreadsheetReader.php
+
+		-
+			message: "#^Offset 'size' on array\\{name\\: string, index\\: int, crc\\: int, size\\: int, mtime\\: int, comp_size\\: int, comp_method\\: int, encryption_method\\: int\\} on left side of \\?\\? always exists and is not nullable\\.$#"
+			count: 1
+			path: src/Core/SpreadsheetReader.php
+
+		-
+			message: "#^Unreachable statement \\- code above always terminates\\.$#"
+			count: 7
+			path: src/Group/GroupImportHandler.php
+
+		-
+			message: "#^Property Reconcile\\\\Group\\\\GroupImporter\\:\\:\\$contactFactory is never read, only written\\.$#"
+			count: 1
+			path: src/Group/GroupImporter.php
+
+		-
+			message: "#^Unreachable statement \\- code above always terminates\\.$#"
+			count: 7
+			path: src/Member/MemberImportHandler.php
+
+		-
+			message: "#^Call to an undefined method Psr\\\\Container\\\\ContainerInterface\\:\\:register\\(\\)\\.$#"
+			count: 14
+			path: src/Plugin.php
+
+		-
+			message: "#^Empty array passed to foreach\\.$#"
+			count: 1
+			path: src/Position/PositionColumnMapper.php
+
+		-
+			message: "#^Unreachable statement \\- code above always terminates\\.$#"
+			count: 7
+			path: src/Position/PositionImportHandler.php

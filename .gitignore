@@ -101,7 +101,8 @@ phpunit.xml.local
 
 # PHPStan
 /phpstan.neon
-/phpstan-baseline.neon
+# phpstan-baseline.neon is intentionally NOT ignored: phpstan.neon.dist
+# includes it, so CI needs it committed or the config fails to load.
 phpstan-baseline.php
 
 # PHP_CodeSniffer
