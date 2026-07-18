@@ -1,10 +1,14 @@
 # Reconcile
 
+[![CI](https://github.com/bleedingdeacons/reconcile/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/bleedingdeacons/reconcile/actions/workflows/ci.yml)
+![Version](https://img.shields.io/badge/version-1.13.16-blue)
+![PHP](https://img.shields.io/badge/php-8.1%2B-777bb4)
+![Licence](https://img.shields.io/badge/licence-MIT%20(Modified)-green)
+
 **Import and export member, group, and position data from spreadsheets using the Unity framework.**
 
 Reconcile adds spreadsheet-based import/export workflows to the [Unity](https://github.com/bleeding-deacons/unity) intergroup management plugin. Upload `.xlsx`, `.xls`, or `.csv` files to bulk-create or update members, groups, and positions; download the current data as formatted spreadsheets for offline editing or reporting.
 
-**Version:** 1.13.16
 **Requires:** WordPress 6.0+ · PHP 8.0+
 **Dependencies:** Unity, Scrutiny
 **License:** MIT (Modified — see [License](#license))
