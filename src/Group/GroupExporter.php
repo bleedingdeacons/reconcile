@@ -91,7 +91,7 @@ class GroupExporter
             'Contact 3 Name',
             'Contact 3 Email',
             'Contact 3 Phone',
-        ]);
+        ], ',', '"', '');
 
         // Data rows
         foreach ($groups as $group) {
@@ -121,7 +121,7 @@ class GroupExporter
 
             $row = array_map([self::class, 'sanitizeCsvField'], $row);
 
-            fputcsv($output, $row);
+            fputcsv($output, $row, ',', '"', '');
         }
 
         rewind($output);

@@ -84,7 +84,7 @@ class PositionExporter
             'Term Years',
             'Short Description',
             'Summary',
-        ]);
+        ], ',', '"', '');
 
         // Data rows
         foreach ($positions as $position) {
@@ -104,7 +104,7 @@ class PositionExporter
 
             $row = array_map([self::class, 'sanitizeCsvField'], $row);
 
-            fputcsv($output, $row);
+            fputcsv($output, $row, ',', '"', '');
         }
 
         rewind($output);
