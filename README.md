@@ -1,6 +1,7 @@
 # Reconcile
 
 [![CI](https://github.com/bleedingdeacons/reconcile/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/bleedingdeacons/reconcile/actions/workflows/ci.yml)
+![PHPStan](https://img.shields.io/badge/PHPStan-level%205-brightgreen)
 ![Version](https://img.shields.io/badge/version-1.13.18-blue)
 ![PHP](https://img.shields.io/badge/php-8.1%2B-777bb4)
 ![Licence](https://img.shields.io/badge/licence-MIT%20(Modified)-green)
