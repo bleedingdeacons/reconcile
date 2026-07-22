@@ -129,16 +129,16 @@ class ImportTempDirTest extends TestCase
      * @test
      * @requires extension fileinfo
      */
-    public function accept_rejects_content_that_does_not_match_the_extension(): void
+    public function accept_rejects_an_extension_with_no_allowed_mime_types(): void
     {
-        // A .csv extension over PNG bytes: finfo sniffs image/png, which is
-        // not an accepted CSV MIME type. Skipped where fileinfo is unavailable,
-        // since the check then short-circuits by design.
-        $png = "\x89PNG\r\n\x1a\n" . str_repeat("\x00", 64);
-        $source = $this->tempFile('csv', $png);
+        // An extension that is neither csv nor xlsx has an empty allow-list, so
+        // the MIME check rejects it regardless of what libmagic sniffs. (The
+        // handler blocks such extensions earlier; this pins the defence in
+        // depth inside accept().)
+        $source = $this->tempFile('txt', "just some text\n");
 
         $this->expectException(RuntimeException::class);
-        ImportTempDir::accept(['name' => 'x.csv', 'tmp_name' => $source, 'size' => filesize($source)]);
+        ImportTempDir::accept(['name' => 'notes.txt', 'tmp_name' => $source, 'size' => filesize($source)]);
     }
 
     /**
