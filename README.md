@@ -204,8 +204,11 @@ composer install
 | `composer test` | Run the PHPUnit test suite |
 | `composer phpstan` | Run PHPStan static analysis |
 
-The suite uses **PHPUnit** with **Mockery** for mocking. Line coverage is
-reported to [Coveralls](https://coveralls.io/github/bleedingdeacons/reconcile?branch=main)
+The suite uses **PHPUnit** with **Mockery** for mocking. It covers the
+spreadsheet reader (CSV and XLSX), the column mappers and name lookups, the
+CSV exporters, the AJAX import and admin-post export handlers, the
+temp-upload handling, and the member/group/position importers. Line coverage
+is reported to [Coveralls](https://coveralls.io/github/bleedingdeacons/reconcile?branch=main)
 on every CI run — see the coverage badge at the top of this file.
 
 ---
