@@ -116,3 +116,123 @@ if (!function_exists('do_action')) {
         }
     }
 }
+
+// ── AJAX / admin-post handler stubs ─────────────────────────────────
+//
+// The import and export handlers are thin WordPress AJAX/admin-post
+// endpoints. Their real terminal functions (wp_send_json_*, wp_die) end
+// the request; here they throw a catchable exception carrying the payload
+// so a test can assert on the response instead of the process exiting.
+//
+// current_user_can() and wp_verify_nonce() default to "allowed" so a happy
+// path runs without ceremony; tests flip the globals to exercise the
+// permission and nonce failure branches.
+
+if (!class_exists('Reconcile\Tests\HandlerHalt')) {
+    class ReconcileHandlerHalt extends \RuntimeException
+    {
+        /** @param array<string,mixed>|string $payload */
+        public function __construct(
+            public readonly string $kind,
+            public readonly mixed $payload = null,
+            public readonly int $statusCode = 0
+        ) {
+            parent::__construct($kind);
+        }
+    }
+}
+
+if (!function_exists('current_user_can')) {
+    function current_user_can(string $capability): bool
+    {
+        return (bool) ($GLOBALS['__reconcile_test_can'] ?? true);
+    }
+}
+
+if (!function_exists('wp_verify_nonce')) {
+    function wp_verify_nonce(string $nonce, string $action = ''): bool
+    {
+        return (bool) ($GLOBALS['__reconcile_test_nonce_valid'] ?? true);
+    }
+}
+
+if (!function_exists('wp_unslash')) {
+    function wp_unslash(mixed $value): mixed
+    {
+        return $value;
+    }
+}
+
+if (!function_exists('__')) {
+    function __(string $text, string $domain = 'default'): string
+    {
+        return $text;
+    }
+}
+
+if (!function_exists('esc_html')) {
+    function esc_html(string $text): string
+    {
+        return htmlspecialchars($text, ENT_QUOTES, 'UTF-8');
+    }
+}
+
+if (!function_exists('wp_send_json_success')) {
+    function wp_send_json_success(mixed $data = null, int $status = 0): void
+    {
+        throw new \ReconcileHandlerHalt('json_success', $data, $status);
+    }
+}
+
+if (!function_exists('wp_send_json_error')) {
+    function wp_send_json_error(mixed $data = null, int $status = 0): void
+    {
+        throw new \ReconcileHandlerHalt('json_error', $data, $status);
+    }
+}
+
+if (!function_exists('wp_die')) {
+    function wp_die(mixed $message = '', mixed $title = '', mixed $args = []): void
+    {
+        throw new \ReconcileHandlerHalt('wp_die', $message, is_int($title) ? $title : 0);
+    }
+}
+
+// ── Filesystem stubs for ImportTempDir ──────────────────────────────
+
+if (!function_exists('get_temp_dir')) {
+    function get_temp_dir(): string
+    {
+        return rtrim(sys_get_temp_dir(), '/\\') . '/';
+    }
+}
+
+if (!function_exists('wp_mkdir_p')) {
+    function wp_mkdir_p(string $dir): bool
+    {
+        return is_dir($dir) || mkdir($dir, 0777, true) || is_dir($dir);
+    }
+}
+
+if (!function_exists('sanitize_file_name')) {
+    function sanitize_file_name(string $filename): string
+    {
+        return preg_replace('/[^A-Za-z0-9._-]/', '-', $filename) ?? $filename;
+    }
+}
+
+if (!function_exists('wp_unique_filename')) {
+    function wp_unique_filename(string $dir, string $filename): string
+    {
+        $candidate = $filename;
+        $i = 1;
+        while (file_exists(rtrim($dir, '/\\') . '/' . $candidate)) {
+            $candidate = pathinfo($filename, PATHINFO_FILENAME) . "-{$i}." . pathinfo($filename, PATHINFO_EXTENSION);
+            $i++;
+        }
+        return $candidate;
+    }
+}
+
+// Namespace-local overrides of the upload builtins ImportTempDir uses.
+require_once __DIR__ . '/CoreFunctionOverrides.php';
