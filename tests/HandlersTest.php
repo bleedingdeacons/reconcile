@@ -266,6 +266,80 @@ class HandlersTest extends TestCase
         $this->assertSame(500, $halt->statusCode);
     }
 
+    /**
+     * @test
+     * @dataProvider importHappyCases
+     */
+    public function import_logs_result_warnings_and_still_succeeds(string $handlerClass, string $importerClass, string $nonceKey): void
+    {
+        $result = new OperationResult();
+        $result->setTotalRows(2);
+        $result->incrementCreated();
+        $result->addWarning('Row 2 skipped: duplicate anonymous name');
+
+        $importer = Mockery::mock($importerClass);
+        $importer->shouldReceive('import')->once()->andReturn($result);
+
+        $handler = new $handlerClass($importer);
+        $this->uploadCsv();
+
+        // A result with warnings but no errors still succeeds; the warnings
+        // loop runs on the way out.
+        $halt = $this->halt(fn () => $handler->handleImport());
+        $this->assertSame('json_success', $halt->kind);
+    }
+
+    /**
+     * @return array<string, array{object, int, string}>
+     */
+    public static function uploadErrorMessages(): array
+    {
+        $codes = [
+            [UPLOAD_ERR_INI_SIZE, 'server upload size limit'],
+            [UPLOAD_ERR_FORM_SIZE, 'form upload size limit'],
+            [UPLOAD_ERR_PARTIAL, 'partially uploaded'],
+            [UPLOAD_ERR_NO_TMP_DIR, 'temporary folder'],
+            [UPLOAD_ERR_CANT_WRITE, 'write file to disk'],
+            [UPLOAD_ERR_EXTENSION, 'extension stopped'],
+            [999, 'Unknown error'],
+        ];
+        $handlers = [
+            'member'   => new MemberImportHandler(Mockery::mock(MemberImporter::class)),
+            'group'    => new GroupImportHandler(Mockery::mock(GroupImporter::class)),
+            'position' => new PositionImportHandler(Mockery::mock(PositionImporter::class)),
+        ];
+
+        $cases = [];
+        foreach ($handlers as $hLabel => $handler) {
+            foreach ($codes as [$code, $fragment]) {
+                $cases["$hLabel: $fragment"] = [$handler, $code, $fragment];
+            }
+        }
+        return $cases;
+    }
+
+    /**
+     * @test
+     * @dataProvider uploadErrorMessages
+     */
+    public function import_reports_the_specific_upload_error_message(object $handler, int $code, string $fragment): void
+    {
+        // A non-OK upload error code is mapped to a human message before the
+        // 400 response — this pins every arm of uploadErrorMessage().
+        $_FILES['import_file'] = [
+            'name' => 'data.csv',
+            'error' => $code,
+            'size' => 0,
+            'tmp_name' => '',
+        ];
+
+        $halt = $this->halt(fn () => $handler->handleImport());
+
+        $this->assertSame('json_error', $halt->kind);
+        $this->assertSame(400, $halt->statusCode);
+        $this->assertStringContainsString($fragment, $halt->payload['message'] ?? '');
+    }
+
     // ─── export handler guards ──────────────────────────────────────
 
     /**

@@ -65,26 +65,48 @@ if (!function_exists('sanitize_text_field')) {
 // GroupImporter (unlike MemberImporter, which persists through a repository)
 // calls WordPress post functions directly. Stub the handful it uses so the
 // persisting-path tests can run without a WordPress runtime.
+if (!class_exists('WP_Error')) {
+    /**
+     * Minimal WP_Error stand-in: enough surface for the importers' error
+     * branches, which only ever call get_error_message(). A test triggers the
+     * wp_insert_post() failure path by setting
+     * $GLOBALS['__reconcile_test_wp_insert_post_error'] to a message string.
+     */
+    class WP_Error
+    {
+        public function __construct(private string $message = '') {}
+        public function get_error_message(): string
+        {
+            return $this->message;
+        }
+    }
+}
+
 if (!function_exists('is_wp_error')) {
     function is_wp_error(mixed $thing): bool
     {
-        // WP_Error is not loaded in the unit suite; instanceof against an
-        // undefined class is simply false, which is the behaviour we want.
         return $thing instanceof \WP_Error;
     }
 }
 
 if (!function_exists('wp_insert_post')) {
-    function wp_insert_post(array $postarr, bool $wp_error = false): int
+    function wp_insert_post(array $postarr, bool $wp_error = false): int|\WP_Error
     {
-        // The create-path test seeds the returned post ID via this global.
+        // A test can force the WP_Error branch by seeding a message.
+        if (isset($GLOBALS['__reconcile_test_wp_insert_post_error'])) {
+            return new \WP_Error((string) $GLOBALS['__reconcile_test_wp_insert_post_error']);
+        }
+        // Otherwise the create-path test seeds the returned post ID.
         return (int) ($GLOBALS['__reconcile_test_wp_insert_post_returns'] ?? 1);
     }
 }
 
 if (!function_exists('wp_update_post')) {
-    function wp_update_post(array $postarr, bool $wp_error = false): int
+    function wp_update_post(array $postarr, bool $wp_error = false): int|\WP_Error
     {
+        if (isset($GLOBALS['__reconcile_test_wp_update_post_error'])) {
+            return new \WP_Error((string) $GLOBALS['__reconcile_test_wp_update_post_error']);
+        }
         return (int) ($postarr['ID'] ?? 1);
     }
 }
@@ -92,6 +114,15 @@ if (!function_exists('wp_update_post')) {
 if (!function_exists('update_post_meta')) {
     function update_post_meta(int $postId, string $key, mixed $value): bool
     {
+        // A test can force the importers' meta-save failure/capture branches:
+        //   *_throws → a Throwable inside the save wrapper (caught → skip)
+        //   *_warns  → a PHP warning captured by the wrapper's error handler
+        if (!empty($GLOBALS['__reconcile_test_update_meta_throws'])) {
+            throw new \RuntimeException('meta write failed');
+        }
+        if (!empty($GLOBALS['__reconcile_test_update_meta_warns'])) {
+            trigger_error('meta write warning', E_USER_WARNING);
+        }
         return true;
     }
 }
@@ -114,6 +145,58 @@ if (!function_exists('do_action')) {
                 $args[1],
             ];
         }
+    }
+}
+
+// ── Admin bootstrap stubs (Plugin wiring) ──────────────────────────
+//
+// Plugin::registerMenus() / init() gate on is_admin() and wire hooks and
+// menu pages. These recorders let a test drive that wiring without a
+// WordPress runtime. is_admin() defaults to true so the wiring runs; a test
+// flips $GLOBALS['__reconcile_test_is_admin'] to exercise the non-admin bail.
+
+if (!function_exists('is_admin')) {
+    function is_admin(): bool
+    {
+        return (bool) ($GLOBALS['__reconcile_test_is_admin'] ?? true);
+    }
+}
+
+if (!function_exists('add_action')) {
+    function add_action(string $hook, callable $callback, int $priority = 10, int $accepted_args = 1): bool
+    {
+        $GLOBALS['__reconcile_test_actions'][] = ['hook' => $hook, 'callback' => $callback];
+        return true;
+    }
+}
+
+if (!function_exists('add_menu_page')) {
+    function add_menu_page(
+        string $pageTitle,
+        string $menuTitle,
+        string $capability,
+        string $menuSlug,
+        callable|string $callback = '',
+        string $icon = '',
+        int|float|null $position = null
+    ): string {
+        $GLOBALS['__reconcile_test_menu_pages'][] = $menuSlug;
+        return 'toplevel_page_' . $menuSlug;
+    }
+}
+
+if (!function_exists('add_submenu_page')) {
+    function add_submenu_page(
+        string $parentSlug,
+        string $pageTitle,
+        string $menuTitle,
+        string $capability,
+        string $menuSlug,
+        callable|string $callback = '',
+        int|float|null $position = null
+    ): string|false {
+        $GLOBALS['__reconcile_test_submenu_pages'][] = ['parent' => $parentSlug, 'slug' => $menuSlug];
+        return $parentSlug . '_page_' . $menuSlug;
     }
 }
 
@@ -167,6 +250,25 @@ if (!function_exists('__')) {
     function __(string $text, string $domain = 'default'): string
     {
         return $text;
+    }
+}
+
+// HasLogger derives a channel name via sanitize_key() and resolves the shared
+// Sentinel logger via wp_log(). wp_log() returns null here (no Sentinel in the
+// unit run), so every Plugin::logX() call is a safe no-op — but defining these
+// lets the trait's resolution path run instead of being skipped by
+// function_exists().
+if (!function_exists('sanitize_key')) {
+    function sanitize_key(string $key): string
+    {
+        return preg_replace('/[^a-z0-9_\-]/', '', strtolower($key)) ?? '';
+    }
+}
+
+if (!function_exists('wp_log')) {
+    function wp_log(string $channel): ?object
+    {
+        return null;
     }
 }
 
