@@ -17,5 +17,15 @@
         <include>
             <directory suffix=".php">src</directory>
         </include>
+        <exclude>
+            <!--
+                Admin screens are WordPress render/callback glue (list tables,
+                upload forms, notices, menu registration) exercised through
+                WordPress at runtime rather than in unit tests, so they are
+                excluded from the coverage denominator — the same call Reach
+                and Integrity make for their own src/Admin.
+            -->
+            <directory suffix=".php">src/Admin</directory>
+        </exclude>
     </source>
 </phpunit>
