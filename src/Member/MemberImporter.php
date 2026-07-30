@@ -64,6 +64,7 @@ class MemberImporter
     private PositionLookup $positionLookup;
     private MemberColumnMapper $columnMapper;
     private SpreadsheetReader $reader;
+    /** @var array<string, mixed> */
     private readonly array $memberConfig;
 
     public function __construct(

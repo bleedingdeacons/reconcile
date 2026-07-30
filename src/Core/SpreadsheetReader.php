@@ -72,6 +72,8 @@ class SpreadsheetReader
 
     /**
      * Read a CSV file.
+     *
+     * @return array{headers: string[], rows: array<int, string[]>}
      */
     private function readCsv(string $filePath): array
     {
@@ -128,6 +130,8 @@ class SpreadsheetReader
      * Read an XLSX file using a minimal ZIP + XML parser.
      *
      * This avoids requiring PhpSpreadsheet or similar large libraries.
+     *
+     * @return array{headers: string[], rows: array<int, string[]>}
      */
     private function readXlsx(string $filePath): array
     {
