@@ -7,8 +7,7 @@ namespace Reconcile\Tests\Unit\Import;
 use Reconcile\Group\GroupLookup;
 use Reconcile\Member\MemberImporter;
 use Mockery;
-use Mockery\Adapter\Phpunit\MockeryPHPUnitIntegration;
-use PHPUnit\Framework\TestCase;
+use BleedingDeacons\WpMocks\TestCase;
 use Reconcile\Position\PositionLookup;
 use Unity\Core\Interfaces\Configuration;
 use Unity\Members\Interfaces\Member;
@@ -20,8 +19,6 @@ use Unity\Members\Interfaces\MemberRepository;
  */
 class MemberImporterTest extends TestCase
 {
-    use MockeryPHPUnitIntegration;
-
     private Configuration|Mockery\MockInterface $configuration;
     private MemberRepository|Mockery\MockInterface $memberRepo;
     private MemberFactory|Mockery\MockInterface $memberFactory;

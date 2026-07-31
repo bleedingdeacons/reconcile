@@ -5,8 +5,9 @@ declare(strict_types=1);
 namespace Reconcile\Tests\Unit;
 
 use Mockery;
-use Mockery\Adapter\Phpunit\MockeryPHPUnitIntegration;
-use PHPUnit\Framework\TestCase;
+use BleedingDeacons\WpMocks\TestCase;
+use BleedingDeacons\WpMocks\WpState;
+use Brain\Monkey\Functions;
 use Reconcile\Group\GroupLookup;
 use Reconcile\Member\MemberImporter;
 use Reconcile\Position\PositionLookup;
@@ -24,8 +25,6 @@ use Unity\Members\Interfaces\MemberRepository;
  */
 class MemberImporterPersistTest extends TestCase
 {
-    use MockeryPHPUnitIntegration;
-
     /** @var MemberRepository&Mockery\MockInterface */
     private $memberRepo;
     /** @var MemberFactory&Mockery\MockInterface */
@@ -247,7 +246,7 @@ class MemberImporterPersistTest extends TestCase
     public function a_failed_post_insert_on_create_is_skipped(): void
     {
         // wp_insert_post returns 0 → the member post could not be created.
-        $GLOBALS['__reconcile_test_wp_insert_post_returns'] = 0;
+        Functions\when('wp_insert_post')->justReturn(0);
         $this->memberRepo->shouldReceive('findAll')->andReturn([]);
 
         $result = $this->importer->import($this->writeCsv([
@@ -257,6 +256,5 @@ class MemberImporterPersistTest extends TestCase
         $this->assertSame(0, $result->getCreated());
         $this->assertSame(1, $result->getSkipped());
 
-        unset($GLOBALS['__reconcile_test_wp_insert_post_returns']);
     }
 }

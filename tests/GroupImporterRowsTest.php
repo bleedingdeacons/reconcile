@@ -5,8 +5,9 @@ declare(strict_types=1);
 namespace Reconcile\Tests\Unit;
 
 use Mockery;
-use Mockery\Adapter\Phpunit\MockeryPHPUnitIntegration;
-use PHPUnit\Framework\TestCase;
+use BleedingDeacons\WpMocks\TestCase;
+use BleedingDeacons\WpMocks\WpState;
+use Brain\Monkey\Functions;
 use Reconcile\Group\GroupImporter;
 use Unity\Contacts\Interfaces\ContactFactory;
 use Unity\Groups\Interfaces\Group;
@@ -21,8 +22,6 @@ use Unity\Groups\Interfaces\GroupRepository;
  */
 class GroupImporterRowsTest extends TestCase
 {
-    use MockeryPHPUnitIntegration;
-
     /** @var GroupRepository&Mockery\MockInterface */
     private $repo;
     /** @var GroupFactory&Mockery\MockInterface */
@@ -210,7 +209,7 @@ class GroupImporterRowsTest extends TestCase
     {
         // A named group that does not resolve is created via wp_insert_post,
         // exercising contact building and the meta-field writes.
-        $GLOBALS['__reconcile_test_wp_insert_post_returns'] = 88;
+        WpState::$nextPostId = 88;
 
         $this->contactFactory->shouldReceive('create')
             ->andReturnUsing(function ($name, $email, $phone) {
@@ -230,7 +229,6 @@ class GroupImporterRowsTest extends TestCase
         $this->assertSame(1, $result->getCreated());
         $this->assertSame(0, $result->getSkipped());
 
-        unset($GLOBALS['__reconcile_test_wp_insert_post_returns']);
     }
 
     /**
@@ -238,7 +236,7 @@ class GroupImporterRowsTest extends TestCase
      */
     public function a_create_whose_post_insert_fails_is_skipped(): void
     {
-        $GLOBALS['__reconcile_test_wp_insert_post_returns'] = 0;
+        Functions\when('wp_insert_post')->justReturn(0);
         $this->contactFactory->shouldReceive('create')->andReturnUsing(
             fn () => Mockery::mock(\Unity\Contacts\Interfaces\Contact::class)->shouldIgnoreMissing()
         );
@@ -250,7 +248,6 @@ class GroupImporterRowsTest extends TestCase
         $this->assertSame(1, $result->getSkipped());
         $this->assertSame(0, $result->getCreated());
 
-        unset($GLOBALS['__reconcile_test_wp_insert_post_returns']);
     }
 
     /**
@@ -262,7 +259,7 @@ class GroupImporterRowsTest extends TestCase
         $existing->shouldReceive('getId')->andReturn(5);
         $existing->shouldReceive('isValid')->andReturn(true);
         $this->repo->shouldReceive('findById')->with(5)->andReturn($existing);
-        $GLOBALS['__reconcile_test_wp_insert_post_returns'] = 90;
+        WpState::$nextPostId = 90;
         $this->contactFactory->shouldReceive('create')->andReturnUsing(
             fn () => Mockery::mock(\Unity\Contacts\Interfaces\Contact::class)->shouldIgnoreMissing()
         );
@@ -278,7 +275,6 @@ class GroupImporterRowsTest extends TestCase
         $this->assertSame(1, $result->getCreated());
         $this->assertSame(1, $result->getSkipped());
 
-        unset($GLOBALS['__reconcile_test_wp_insert_post_returns']);
     }
 
     /**

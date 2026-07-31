@@ -5,8 +5,7 @@ declare(strict_types=1);
 namespace Reconcile\Tests\Unit;
 
 use Mockery;
-use Mockery\Adapter\Phpunit\MockeryPHPUnitIntegration;
-use PHPUnit\Framework\TestCase;
+use BleedingDeacons\WpMocks\TestCase;
 use Reconcile\Group\GroupLookup;
 use Reconcile\Position\PositionLookup;
 use Unity\Groups\Interfaces\GroupRepository;
@@ -22,8 +21,6 @@ use Unity\Positions\Interfaces\PositionRepository;
  */
 class LookupsUnresolvedTest extends TestCase
 {
-    use MockeryPHPUnitIntegration;
-
     /** @test */
     public function position_lookup_records_and_resets_unresolved_names(): void
     {

@@ -5,8 +5,7 @@ declare(strict_types=1);
 namespace Reconcile\Tests\Unit;
 
 use Mockery;
-use Mockery\Adapter\Phpunit\MockeryPHPUnitIntegration;
-use PHPUnit\Framework\TestCase;
+use BleedingDeacons\WpMocks\TestCase;
 use Reconcile\Group\GroupLookup;
 use Reconcile\Position\PositionLookup;
 use Unity\Groups\Interfaces\Group;
@@ -22,8 +21,6 @@ use Unity\Positions\Interfaces\PositionRepository;
  */
 class LookupsTest extends TestCase
 {
-    use MockeryPHPUnitIntegration;
-
     protected function tearDown(): void
     {
         Mockery::close();
