@@ -5,8 +5,9 @@ declare(strict_types=1);
 namespace Reconcile\Tests\Unit;
 
 use Mockery;
-use Mockery\Adapter\Phpunit\MockeryPHPUnitIntegration;
-use PHPUnit\Framework\TestCase;
+use BleedingDeacons\WpMocks\TestCase;
+use BleedingDeacons\WpMocks\WpState;
+use Brain\Monkey\Functions;
 use Reconcile\Group\GroupLookup;
 use Reconcile\Member\MemberImporter;
 use Reconcile\Position\PositionLookup;
@@ -25,8 +26,6 @@ use Unity\Members\Interfaces\MemberRevisor;
  */
 class MemberImporterFailureTest extends TestCase
 {
-    use MockeryPHPUnitIntegration;
-
     /** @var MemberRepository&Mockery\MockInterface */
     private $memberRepo;
     /** @var MemberFactory&Mockery\MockInterface */
@@ -137,16 +136,12 @@ class MemberImporterFailureTest extends TestCase
 
     protected function clearInsertGlobals(): void
     {
-        unset(
-            $GLOBALS['__reconcile_test_wp_insert_post_error'],
-            $GLOBALS['__reconcile_test_wp_insert_post_returns'],
-        );
     }
 
     /** @test */
     public function a_wp_error_from_post_insert_on_create_is_skipped(): void
     {
-        $GLOBALS['__reconcile_test_wp_insert_post_error'] = 'post insert refused';
+        Functions\when('wp_insert_post')->justReturn(new \WP_Error('insert_failed', 'post insert refused'));
         $this->memberRepo->shouldReceive('findAll')->andReturn([]);
 
         $result = $this->importer()->import($this->writeCsv([

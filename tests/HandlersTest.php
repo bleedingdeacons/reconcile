@@ -4,10 +4,11 @@ declare(strict_types=1);
 
 namespace Reconcile\Tests\Unit;
 
+use BleedingDeacons\WpMocks\Exceptions\JsonResponseException;
+use BleedingDeacons\WpMocks\Exceptions\WpDieException;
+use BleedingDeacons\WpMocks\TestCase;
+use BleedingDeacons\WpMocks\WpState;
 use Mockery;
-use Mockery\Adapter\Phpunit\MockeryPHPUnitIntegration;
-use PHPUnit\Framework\TestCase;
-use ReconcileHandlerHalt;
 use Reconcile\Core\OperationResult;
 use Reconcile\Group\GroupExporter;
 use Reconcile\Group\GroupExportHandler;
@@ -25,9 +26,9 @@ use Reconcile\Position\PositionImportHandler;
 /**
  * Tests for the AJAX import handlers and admin-post export handlers.
  *
- * The handlers' terminal WordPress calls (wp_send_json_*, wp_die) are stubbed
- * in the bootstrap to throw ReconcileHandlerHalt, so each guard branch can be
- * asserted on without the process exiting.
+ * The handlers' terminal WordPress calls (wp_send_json_*, wp_die) throw rather
+ * than exiting — JsonResponseException and WpDieException from wp-mocks — so
+ * each guard branch can be asserted on without taking the process down.
  *
  * @covers \Reconcile\Member\MemberImportHandler
  * @covers \Reconcile\Group\GroupImportHandler
@@ -38,20 +39,23 @@ use Reconcile\Position\PositionImportHandler;
  */
 class HandlersTest extends TestCase
 {
-    use MockeryPHPUnitIntegration;
-
     protected function setUp(): void
     {
         parent::setUp();
-        $GLOBALS['__reconcile_test_can'] = true;
-        $GLOBALS['__reconcile_test_nonce_valid'] = true;
+        // parent::setUp() clears WpState, where current_user_can() and
+        // wp_verify_nonce() both default to allowing, so the happy path runs
+        // without ceremony.
         // Each resource handler reads a differently-named nonce field; seed
         // all of them so the nonce guard passes unless a test flips the
         // validity global.
+        // Each resource handler reads a differently-named nonce field and
+        // verifies it against its own action; seed all of them with what
+        // wp_create_nonce() would have produced so the nonce guard passes
+        // unless a test deliberately supplies a bad one.
         $_POST = [
-            'reconcile_nonce' => 'good',
-            'reconcile_group_nonce' => 'good',
-            'reconcile_position_nonce' => 'good',
+            'reconcile_nonce' => wp_create_nonce('reconcile_import'),
+            'reconcile_group_nonce' => wp_create_nonce('reconcile_group_import'),
+            'reconcile_position_nonce' => wp_create_nonce('reconcile_position_import'),
         ];
         $_GET = [];
         $_FILES = [];
@@ -59,11 +63,6 @@ class HandlersTest extends TestCase
 
     protected function tearDown(): void
     {
-        Mockery::close();
-        unset(
-            $GLOBALS['__reconcile_test_can'],
-            $GLOBALS['__reconcile_test_nonce_valid']
-        );
         $_POST = [];
         $_GET = [];
         $_FILES = [];
@@ -71,14 +70,26 @@ class HandlersTest extends TestCase
     }
 
     /**
-     * Run a handler method and return the ReconcileHandlerHalt it throws.
+     * Run a handler method and describe how it terminated.
+     *
+     * wp-mocks throws two different exceptions here — JsonResponseException
+     * for the AJAX handlers, WpDieException for the admin-post ones — and each
+     * names its parts differently. Normalising them into one shape keeps every
+     * assertion below reading the same way, which is what the local
+     * ReconcileHandlerHalt used to do.
      */
-    private function halt(callable $run): ReconcileHandlerHalt
+    private function halt(callable $run): HandlerHalt
     {
         try {
             $run();
-        } catch (ReconcileHandlerHalt $halt) {
-            return $halt;
+        } catch (JsonResponseException $json) {
+            return new HandlerHalt(
+                $json->success ? 'json_success' : 'json_error',
+                $json->data,
+                $json->status ?? 0
+            );
+        } catch (WpDieException $die) {
+            return new HandlerHalt('wp_die', $die->getMessage(), $die->status ?? 0);
         }
 
         $this->fail('Expected the handler to halt, but it did not.');
@@ -104,7 +115,7 @@ class HandlersTest extends TestCase
      */
     public function import_denies_users_without_capability(object $handler): void
     {
-        $GLOBALS['__reconcile_test_can'] = false;
+        WpState::$userCan = false;
 
         $halt = $this->halt(fn () => $handler->handleImport());
 
@@ -118,8 +129,11 @@ class HandlersTest extends TestCase
      */
     public function import_rejects_a_bad_nonce(object $handler): void
     {
-        $GLOBALS['__reconcile_test_nonce_valid'] = false;
-        $_POST['reconcile_nonce'] = 'bad';
+        // The provider runs this for all three handlers, each reading its own
+        // nonce field, so all three have to be wrong.
+        $_POST['reconcile_nonce'] = 'not-the-right-nonce';
+        $_POST['reconcile_group_nonce'] = 'not-the-right-nonce';
+        $_POST['reconcile_position_nonce'] = 'not-the-right-nonce';
 
         $halt = $this->halt(fn () => $handler->handleImport());
 
@@ -132,7 +146,7 @@ class HandlersTest extends TestCase
      */
     public function import_rejects_a_missing_file(object $handler): void
     {
-        $_POST['reconcile_nonce'] = 'good';
+        $_POST['reconcile_nonce'] = wp_create_nonce('reconcile_import');
 
         $halt = $this->halt(fn () => $handler->handleImport());
 
@@ -146,7 +160,7 @@ class HandlersTest extends TestCase
      */
     public function import_rejects_an_unsupported_extension(object $handler): void
     {
-        $_POST['reconcile_nonce'] = 'good';
+        $_POST['reconcile_nonce'] = wp_create_nonce('reconcile_import');
         $_FILES['import_file'] = [
             'name' => 'data.txt',
             'error' => UPLOAD_ERR_OK,
@@ -167,7 +181,7 @@ class HandlersTest extends TestCase
     {
         // A .csv extension gets past the extension check, but ImportTempDir
         // rejects it because tmp_name is not a genuine uploaded file.
-        $_POST['reconcile_nonce'] = 'good';
+        $_POST['reconcile_nonce'] = wp_create_nonce('reconcile_import');
         $_FILES['import_file'] = [
             'name' => 'data.csv',
             'error' => UPLOAD_ERR_OK,
@@ -345,12 +359,17 @@ class HandlersTest extends TestCase
     /**
      * @return array<string, array{object}>
      */
+    /**
+     * Each export handler verifies _wpnonce against its own action, so the
+     * provider carries that action alongside the handler: one $_GET value
+     * cannot satisfy all three at once.
+     */
     public static function exportHandlers(): array
     {
         return [
-            'member'   => [new MemberExportHandler(new MemberExporter(null, null, null))],
-            'group'    => [new GroupExportHandler(new GroupExporter(null))],
-            'position' => [new PositionExportHandler(new PositionExporter(null))],
+            'member'   => [new MemberExportHandler(new MemberExporter(null, null, null)), 'reconcile_member_export'],
+            'group'    => [new GroupExportHandler(new GroupExporter(null)), 'reconcile_group_export'],
+            'position' => [new PositionExportHandler(new PositionExporter(null)), 'reconcile_position_export'],
         ];
     }
 
@@ -358,9 +377,10 @@ class HandlersTest extends TestCase
      * @test
      * @dataProvider exportHandlers
      */
-    public function export_denies_users_without_capability(object $handler): void
+    public function export_denies_users_without_capability(object $handler, string $nonceAction): void
     {
-        $GLOBALS['__reconcile_test_can'] = false;
+        WpState::$userCan = false;
+        $_GET['_wpnonce'] = wp_create_nonce($nonceAction);
 
         $halt = $this->halt(fn () => $handler->handleExport());
 
@@ -372,10 +392,9 @@ class HandlersTest extends TestCase
      * @test
      * @dataProvider exportHandlers
      */
-    public function export_rejects_a_bad_nonce(object $handler): void
+    public function export_rejects_a_bad_nonce(object $handler, string $nonceAction): void
     {
-        $GLOBALS['__reconcile_test_nonce_valid'] = false;
-        $_GET['_wpnonce'] = 'bad';
+        $_GET['_wpnonce'] = 'not-the-right-nonce';
 
         $halt = $this->halt(fn () => $handler->handleExport());
 
@@ -387,14 +406,32 @@ class HandlersTest extends TestCase
      * @test
      * @dataProvider exportHandlers
      */
-    public function export_wp_dies_when_the_exporter_throws(object $handler): void
+    public function export_wp_dies_when_the_exporter_throws(object $handler, string $nonceAction): void
     {
         // Nonce/permission pass; the exporter was built with null repositories
         // so export() throws, and the handler converts that to wp_die().
-        $_GET['_wpnonce'] = 'good';
+        $_GET['_wpnonce'] = wp_create_nonce($nonceAction);
 
         $halt = $this->halt(fn () => $handler->handleExport());
 
         $this->assertSame('wp_die', $halt->kind);
+    }
+}
+
+/**
+ * One shape for "the handler stopped, and here is how".
+ *
+ * wp-mocks throws JsonResponseException for the AJAX handlers and
+ * WpDieException for the admin-post ones. Both carry what they were called
+ * with, but under different names; this flattens the two so the assertions
+ * above do not have to care which kind of endpoint they are looking at.
+ */
+final class HandlerHalt
+{
+    public function __construct(
+        public readonly string $kind,
+        public readonly mixed $payload = null,
+        public readonly int $statusCode = 0
+    ) {
     }
 }

@@ -5,8 +5,9 @@ declare(strict_types=1);
 namespace Reconcile\Tests\Unit;
 
 use Mockery;
-use Mockery\Adapter\Phpunit\MockeryPHPUnitIntegration;
-use PHPUnit\Framework\TestCase;
+use BleedingDeacons\WpMocks\TestCase;
+use BleedingDeacons\WpMocks\WpState;
+use Brain\Monkey\Functions;
 use Reconcile\Position\PositionImporter;
 use Unity\Positions\Interfaces\Position;
 use Unity\Positions\Interfaces\PositionFactory;
@@ -21,8 +22,6 @@ use Unity\Positions\Interfaces\PositionRepository;
  */
 class PositionImporterFailureTest extends TestCase
 {
-    use MockeryPHPUnitIntegration;
-
     /** @var PositionRepository&Mockery\MockInterface */
     private $repo;
     /** @var PositionFactory&Mockery\MockInterface */
@@ -44,10 +43,6 @@ class PositionImporterFailureTest extends TestCase
     protected function tearDown(): void
     {
         Mockery::close();
-        unset(
-            $GLOBALS['__reconcile_test_wp_insert_post_error'],
-            $GLOBALS['__reconcile_test_wp_insert_post_returns'],
-        );
         parent::tearDown();
     }
 
@@ -117,7 +112,7 @@ class PositionImporterFailureTest extends TestCase
     /** @test */
     public function a_wp_error_from_post_insert_is_skipped(): void
     {
-        $GLOBALS['__reconcile_test_wp_insert_post_error'] = 'invalid post data';
+        Functions\when('wp_insert_post')->justReturn(new \WP_Error('insert_failed', 'invalid post data'));
 
         $result = $this->importer()->import($this->writeCsv([self::CREATE_ROW]));
 
@@ -128,7 +123,7 @@ class PositionImporterFailureTest extends TestCase
     /** @test */
     public function a_post_insert_returning_zero_is_skipped(): void
     {
-        $GLOBALS['__reconcile_test_wp_insert_post_returns'] = 0;
+        Functions\when('wp_insert_post')->justReturn(0);
         $this->factory->shouldReceive('createNew')->andReturn($this->validPosition(77));
 
         $result = $this->importer()->import($this->writeCsv([self::CREATE_ROW]));

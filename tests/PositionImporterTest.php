@@ -5,8 +5,9 @@ declare(strict_types=1);
 namespace Reconcile\Tests\Unit;
 
 use Mockery;
-use Mockery\Adapter\Phpunit\MockeryPHPUnitIntegration;
-use PHPUnit\Framework\TestCase;
+use BleedingDeacons\WpMocks\TestCase;
+use BleedingDeacons\WpMocks\WpState;
+use Brain\Monkey\Functions;
 use Reconcile\Position\PositionImporter;
 use Unity\Positions\Interfaces\Position;
 use Unity\Positions\Interfaces\PositionFactory;
@@ -19,8 +20,6 @@ use Unity\Positions\Interfaces\PositionRepository;
  */
 class PositionImporterTest extends TestCase
 {
-    use MockeryPHPUnitIntegration;
-
     /** @var PositionRepository&Mockery\MockInterface */
     private $repo;
     /** @var PositionFactory&Mockery\MockInterface */
@@ -207,7 +206,7 @@ class PositionImporterTest extends TestCase
      */
     public function creates_a_new_position_from_a_name(): void
     {
-        $GLOBALS['__reconcile_test_wp_insert_post_returns'] = 77;
+        WpState::$nextPostId = 77;
         $this->factory->shouldReceive('createNew')->andReturn($this->validPosition(77));
         $this->repo->shouldReceive('save')->once()->andReturn(true);
 
@@ -217,7 +216,6 @@ class PositionImporterTest extends TestCase
 
         $this->assertSame(1, $result->getCreated());
 
-        unset($GLOBALS['__reconcile_test_wp_insert_post_returns']);
     }
 
     /**
@@ -271,7 +269,7 @@ class PositionImporterTest extends TestCase
     public function a_create_whose_post_insert_fails_is_skipped(): void
     {
         // wp_insert_post returns 0 → the row cannot be created.
-        $GLOBALS['__reconcile_test_wp_insert_post_returns'] = 0;
+        Functions\when('wp_insert_post')->justReturn(0);
 
         $result = $this->importer()->import(
             $this->writeCsv(self::HEADERS, [['', 'Brand New', 'n@example.com', '12', '2', 'New', 'Summary']])
@@ -280,7 +278,6 @@ class PositionImporterTest extends TestCase
         $this->assertSame(1, $result->getSkipped());
         $this->assertSame(0, $result->getCreated());
 
-        unset($GLOBALS['__reconcile_test_wp_insert_post_returns']);
     }
 
     /**
@@ -289,7 +286,7 @@ class PositionImporterTest extends TestCase
     public function a_create_whose_field_save_fails_is_skipped(): void
     {
         // Post inserts, but the field save fails afterwards.
-        $GLOBALS['__reconcile_test_wp_insert_post_returns'] = 77;
+        WpState::$nextPostId = 77;
         $this->factory->shouldReceive('createNew')->andReturn($this->validPosition(77));
         $this->repo->shouldReceive('save')->once()->andReturn(false);
 
@@ -300,7 +297,6 @@ class PositionImporterTest extends TestCase
         $this->assertSame(1, $result->getSkipped());
         $this->assertSame(0, $result->getCreated());
 
-        unset($GLOBALS['__reconcile_test_wp_insert_post_returns']);
     }
 
     /**
@@ -377,7 +373,7 @@ class PositionImporterTest extends TestCase
         $this->repo->shouldReceive('findById')->with(5)->andReturn($this->validPosition(5));
         $this->factory->shouldReceive('createNew')->andReturn($this->validPosition(5));
         $this->repo->shouldReceive('save')->andReturn(true);
-        $GLOBALS['__reconcile_test_wp_insert_post_returns'] = 90;
+        WpState::$nextPostId = 90;
 
         $result = $this->importer()->import($this->writeCsv(self::HEADERS, [
             ['5', 'Chair', 'c@example.com', '24', '3', 'Chairs', 'Runs'],
@@ -390,6 +386,5 @@ class PositionImporterTest extends TestCase
         $this->assertSame(1, $result->getCreated());
         $this->assertSame(1, $result->getSkipped());
 
-        unset($GLOBALS['__reconcile_test_wp_insert_post_returns']);
     }
 }

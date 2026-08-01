@@ -5,8 +5,10 @@ declare(strict_types=1);
 namespace Reconcile\Tests\Unit\Import;
 
 use Mockery;
-use Mockery\Adapter\Phpunit\MockeryPHPUnitIntegration;
-use PHPUnit\Framework\TestCase;
+use BleedingDeacons\WpMocks\TestCase;
+use BleedingDeacons\WpMocks\WpState;
+use Brain\Monkey\Actions;
+use Brain\Monkey\Functions;
 use Reconcile\Group\GroupImporter;
 use Unity\Contacts\Interfaces\Contact;
 use Unity\Contacts\Interfaces\ContactFactory;
@@ -31,10 +33,8 @@ use Unity\Groups\Interfaces\GroupRepository;
  */
 class GroupImporterChangingEventTest extends TestCase
 {
-    use MockeryPHPUnitIntegration;
-
     /**
-     * Captured (updated, original) tuples from do_action calls.
+     * Captured (updated, original) tuples from unity/group_changing dispatches.
      *
      * @var array<int, array{0: mixed, 1: mixed}>
      */
@@ -56,6 +56,16 @@ class GroupImporterChangingEventTest extends TestCase
         parent::setUp();
 
         self::$dispatchedGroupChangingEvents = [];
+
+        // GroupImporter fires other actions too (unity/member_import and
+        // friends); this watches only the one under test, and lets any number
+        // of calls through so the "no event" cases are assertions about an
+        // empty capture rather than an unmet expectation.
+        Actions\expectDone('unity/group_changing')
+            ->zeroOrMoreTimes()
+            ->whenHappen(static function (mixed $updated = null, mixed $original = null): void {
+                self::$dispatchedGroupChangingEvents[] = [$updated, $original];
+            });
 
         $this->groupRepository = Mockery::mock(GroupRepository::class);
         $this->groupFactory    = Mockery::mock(GroupFactory::class);
@@ -157,7 +167,7 @@ class GroupImporterChangingEventTest extends TestCase
 
         $path = $this->writeCsvNoId(['', 'Brand New Group', '', 'Charlie', 'c@example.com', '555-1111', '', '', '', '', '', '']);
 
-        $GLOBALS['__reconcile_test_wp_insert_post_returns'] = 7300;
+        WpState::$nextPostId = 7300;
 
         $result = $this->importer->import($path, dryRun: false);
 

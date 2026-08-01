@@ -5,8 +5,9 @@ declare(strict_types=1);
 namespace Reconcile\Tests\Unit;
 
 use Mockery;
-use Mockery\Adapter\Phpunit\MockeryPHPUnitIntegration;
-use PHPUnit\Framework\TestCase;
+use BleedingDeacons\WpMocks\TestCase;
+use BleedingDeacons\WpMocks\WpState;
+use Brain\Monkey\Functions;
 use Reconcile\Group\GroupImporter;
 use Unity\Contacts\Interfaces\ContactFactory;
 use Unity\Groups\Interfaces\Group;
@@ -23,8 +24,6 @@ use Unity\Groups\Interfaces\GroupRepository;
  */
 class GroupImporterFailureTest extends TestCase
 {
-    use MockeryPHPUnitIntegration;
-
     /** @var GroupRepository&Mockery\MockInterface */
     private $repo;
     /** @var GroupFactory&Mockery\MockInterface */
@@ -49,13 +48,6 @@ class GroupImporterFailureTest extends TestCase
     protected function tearDown(): void
     {
         Mockery::close();
-        unset(
-            $GLOBALS['__reconcile_test_wp_insert_post_error'],
-            $GLOBALS['__reconcile_test_wp_update_post_error'],
-            $GLOBALS['__reconcile_test_wp_insert_post_returns'],
-            $GLOBALS['__reconcile_test_update_meta_throws'],
-            $GLOBALS['__reconcile_test_update_meta_warns'],
-        );
         parent::tearDown();
     }
 
@@ -101,7 +93,7 @@ class GroupImporterFailureTest extends TestCase
     /** @test */
     public function a_wp_error_from_post_insert_is_skipped(): void
     {
-        $GLOBALS['__reconcile_test_wp_insert_post_error'] = 'insert refused';
+        Functions\when('wp_insert_post')->justReturn(new \WP_Error('insert_failed', 'insert refused'));
         $this->factory->shouldReceive('createNew')->andReturn($this->group(0))->byDefault();
 
         $result = $this->importer()->import($this->writeCsv([self::CREATE_ROW]));
@@ -113,7 +105,7 @@ class GroupImporterFailureTest extends TestCase
     /** @test */
     public function a_post_insert_returning_zero_is_skipped(): void
     {
-        $GLOBALS['__reconcile_test_wp_insert_post_returns'] = 0;
+        Functions\when('wp_insert_post')->justReturn(0);
         $this->factory->shouldReceive('createNew')->andReturn($this->group(0))->byDefault();
 
         $result = $this->importer()->import($this->writeCsv([self::CREATE_ROW]));
@@ -139,7 +131,7 @@ class GroupImporterFailureTest extends TestCase
     /** @test */
     public function a_wp_error_from_post_update_is_skipped(): void
     {
-        $GLOBALS['__reconcile_test_wp_update_post_error'] = 'update refused';
+        Functions\when('wp_update_post')->justReturn(new \WP_Error('update_failed', 'update refused'));
         $this->repo->shouldReceive('findById')->with(5)->andReturn($this->group(5));
         $this->factory->shouldReceive('createNew')->andReturn($this->group(5))->byDefault();
 
@@ -154,7 +146,9 @@ class GroupImporterFailureTest extends TestCase
     /** @test */
     public function a_meta_write_that_throws_on_create_is_skipped(): void
     {
-        $GLOBALS['__reconcile_test_update_meta_throws'] = true;
+        Functions\when('update_post_meta')->alias(static function (): bool {
+            throw new \RuntimeException('meta write failed');
+        });
         $this->factory->shouldReceive('createNew')->andReturn($this->group(0))->byDefault();
 
         $result = $this->importer()->import($this->writeCsv([self::CREATE_ROW]));
@@ -166,7 +160,9 @@ class GroupImporterFailureTest extends TestCase
     /** @test */
     public function a_meta_write_that_throws_on_update_is_skipped(): void
     {
-        $GLOBALS['__reconcile_test_update_meta_throws'] = true;
+        Functions\when('update_post_meta')->alias(static function (): bool {
+            throw new \RuntimeException('meta write failed');
+        });
         $this->repo->shouldReceive('findById')->with(5)->andReturn($this->group(5));
         $this->factory->shouldReceive('createNew')->andReturn($this->group(5))->byDefault();
 
@@ -183,7 +179,11 @@ class GroupImporterFailureTest extends TestCase
     {
         // A PHP warning during the meta write is captured by the save wrapper's
         // error handler; the save still succeeds.
-        $GLOBALS['__reconcile_test_update_meta_warns'] = true;
+        Functions\when('update_post_meta')->alias(static function (): bool {
+            trigger_error('meta write warning', E_USER_WARNING);
+
+            return true;
+        });
         $this->factory->shouldReceive('createNew')->andReturn($this->group(1))->byDefault();
 
         $result = $this->importer()->import($this->writeCsv([self::CREATE_ROW]));
@@ -194,7 +194,11 @@ class GroupImporterFailureTest extends TestCase
     /** @test */
     public function a_meta_write_warning_is_captured_on_update(): void
     {
-        $GLOBALS['__reconcile_test_update_meta_warns'] = true;
+        Functions\when('update_post_meta')->alias(static function (): bool {
+            trigger_error('meta write warning', E_USER_WARNING);
+
+            return true;
+        });
         $this->repo->shouldReceive('findById')->with(5)->andReturn($this->group(5));
         $this->factory->shouldReceive('createNew')->andReturn($this->group(5))->byDefault();
 

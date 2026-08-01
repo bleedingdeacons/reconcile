@@ -4,7 +4,9 @@ declare(strict_types=1);
 
 namespace Reconcile\Tests\Unit;
 
-use PHPUnit\Framework\TestCase;
+use BleedingDeacons\WpMocks\TestCase;
+use BleedingDeacons\WpMocks\WpState;
+use Brain\Monkey\Actions;
 use Psr\Container\ContainerInterface;
 use Reconcile\Group\GroupExporter;
 use Reconcile\Group\GroupExportHandler;
@@ -47,16 +49,14 @@ class PluginTest extends TestCase
     {
         parent::setUp();
         $this->resetStatics();
-        $GLOBALS['__reconcile_test_is_admin'] = true;
-        $GLOBALS['__reconcile_test_actions'] = [];
-        $GLOBALS['__reconcile_test_menu_pages'] = [];
-        $GLOBALS['__reconcile_test_submenu_pages'] = [];
+        // parent::setUp() clears WpState (menus included) and starts a fresh
+        // Brain Monkey run, so the hook store is empty too. is_admin() defaults
+        // to true there, which is what most of these tests want.
     }
 
     protected function tearDown(): void
     {
         $this->resetStatics();
-        unset($GLOBALS['__reconcile_test_is_admin']);
         parent::tearDown();
     }
 
@@ -171,27 +171,33 @@ class PluginTest extends TestCase
     {
         Plugin::init($this->fullContainer());
 
-        $hooks = array_column($GLOBALS['__reconcile_test_actions'], 'hook');
+        $this->assertNotFalse(
+            Actions\has('wp_ajax_reconcile_import'),
+            'handler must wire wp_ajax_reconcile_import'
+        );
+        // Six handlers each register one AJAX action; spot-check the rest.
         foreach ([
-            'wp_ajax_reconcile_import',
-        ] as $ajaxHook) {
-            $this->assertContains($ajaxHook, $hooks, "handler must wire $ajaxHook");
+            'wp_ajax_reconcile_group_import',
+            'wp_ajax_reconcile_position_import',
+            'admin_post_reconcile_member_export',
+            'admin_post_reconcile_group_export',
+            'admin_post_reconcile_position_export',
+        ] as $hook) {
+            $this->assertNotFalse(Actions\has($hook), "handler must wire $hook");
         }
-        // Six handlers each register one AJAX action.
-        $this->assertGreaterThanOrEqual(6, count($GLOBALS['__reconcile_test_actions']));
     }
 
     /** @test */
     public function init_bails_out_when_not_in_admin(): void
     {
-        $GLOBALS['__reconcile_test_is_admin'] = false;
+        WpState::$isAdmin = false;
         $container = $this->fullContainer();
 
         Plugin::init($container);
 
         // Container is stored, but no services/handlers wired.
         $this->assertSame($container, Plugin::getContainer());
-        $this->assertSame([], $GLOBALS['__reconcile_test_actions']);
+        $this->assertFalse(Actions\has('wp_ajax_reconcile_import'));
     }
 
     // --- menu registration ------------------------------------------------
@@ -199,11 +205,11 @@ class PluginTest extends TestCase
     /** @test */
     public function register_menus_bails_out_when_not_in_admin(): void
     {
-        $GLOBALS['__reconcile_test_is_admin'] = false;
+        WpState::$isAdmin = false;
 
         Plugin::registerMenus();
 
-        $this->assertSame([], $GLOBALS['__reconcile_test_actions']);
+        $this->assertFalse(Actions\has('admin_menu'));
     }
 
     /** @test */
@@ -211,16 +217,45 @@ class PluginTest extends TestCase
     {
         Plugin::registerMenus();
 
-        $hooks = array_column($GLOBALS['__reconcile_test_actions'], 'hook');
-        $this->assertContains('admin_menu', $hooks);
+        $this->assertNotFalse(Actions\has('admin_menu'));
 
         // addMenuPages() then builds the top-level menu plus three submenus.
         Plugin::addMenuPages();
-        $this->assertContains('reconcile', $GLOBALS['__reconcile_test_menu_pages']);
-        $submenuSlugs = array_column($GLOBALS['__reconcile_test_submenu_pages'], 'slug');
+        $topLevel = array_column(
+            array_filter(WpState::$menus, static fn (array $m): bool => $m['type'] === 'menu'),
+            'slug'
+        );
+        $this->assertContains('reconcile', $topLevel);
+        $submenuSlugs = array_column(
+            array_filter(WpState::$menus, static fn (array $m): bool => $m['type'] === 'submenu'),
+            'slug'
+        );
         $this->assertContains('reconcile', $submenuSlugs);
         $this->assertContains('reconcile-groups', $submenuSlugs);
         $this->assertContains('reconcile-positions', $submenuSlugs);
+    }
+
+
+    /**
+     * Plugin overrides the trait's default channel derivation, and with a real
+     * wp_log() the resolution memoises after the first call — so the override
+     * runs once and needs asserting on directly rather than incidentally.
+     *
+     * @test
+     */
+    public function it_logs_through_its_own_channel(): void
+    {
+        // HasLogger memoises the channel in a static that nothing resets
+        // between tests, so whichever test logs first does the resolving.
+        // Clear it here so the resolution — and Plugin's own logChannel()
+        // override — actually runs where it is being asserted on.
+        $loggerChannel = (new ReflectionClass(Plugin::class))->getProperty('loggerChannel');
+        $loggerChannel->setValue(null, null);
+
+        $channel = Plugin::log();
+
+        $this->assertNotNull($channel);
+        $this->assertSame('reconcile', $channel->channel);
     }
 
     // --- helpers ----------------------------------------------------------

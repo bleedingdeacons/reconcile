@@ -5,8 +5,7 @@ declare(strict_types=1);
 namespace Reconcile\Tests\Unit;
 
 use Mockery;
-use Mockery\Adapter\Phpunit\MockeryPHPUnitIntegration;
-use PHPUnit\Framework\TestCase;
+use BleedingDeacons\WpMocks\TestCase;
 use Reconcile\Group\GroupExporter;
 use Reconcile\Member\MemberExporter;
 use Reconcile\Position\PositionExporter;
@@ -27,8 +26,6 @@ use Unity\Positions\Interfaces\PositionRepository;
  */
 class ExportersTest extends TestCase
 {
-    use MockeryPHPUnitIntegration;
-
     protected function tearDown(): void
     {
         Mockery::close();

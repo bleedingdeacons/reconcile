@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace Reconcile\Tests\Unit;
 
-use PHPUnit\Framework\TestCase;
+use BleedingDeacons\WpMocks\TestCase;
 use Reconcile\Core\ImportTempDir;
 use RuntimeException;
 

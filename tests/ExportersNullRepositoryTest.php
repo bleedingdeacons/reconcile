@@ -5,8 +5,7 @@ declare(strict_types=1);
 namespace Reconcile\Tests\Unit;
 
 use Mockery;
-use Mockery\Adapter\Phpunit\MockeryPHPUnitIntegration;
-use PHPUnit\Framework\TestCase;
+use BleedingDeacons\WpMocks\TestCase;
 use Reconcile\Group\GroupExporter;
 use Reconcile\Member\MemberExporter;
 use Reconcile\Position\PositionExporter;
@@ -25,8 +24,6 @@ use Unity\Positions\Interfaces\PositionRepository;
  */
 class ExportersNullRepositoryTest extends TestCase
 {
-    use MockeryPHPUnitIntegration;
-
     /** @test */
     public function member_exporter_throws_without_a_member_repository(): void
     {
