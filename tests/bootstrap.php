@@ -10,16 +10,22 @@ declare(strict_types=1);
 // namespace-local upload builtins — must stay after the Bootstrap::load()
 // call, not before it.
 //
-// Only the `wordpress` group is loaded. Reconcile does not use ACF, has no
-// REST surface, and its HasLogger is written to no-op when wp_log() is absent,
-// which is the branch these tests run.
+// Reconcile does not use ACF and has no REST surface, so neither of those
+// groups is loaded.
+//
+// The `sentinel` group is, because HasLogger resolves its channel through
+// wp_log() and skips the whole resolution when that function is absent. The
+// old bootstrap defined a wp_log() returning null for exactly this reason —
+// so the trait's resolution path runs rather than being stepped over — and
+// the shared stub does the same job, recording what was logged into
+// WpState::$logs where a test can assert on it.
 
 use BleedingDeacons\WpMocks\Bootstrap;
 use BleedingDeacons\WpMocks\WpState;
 
 require_once dirname(__DIR__) . '/vendor/autoload.php';
 
-Bootstrap::load(['wordpress']);
+Bootstrap::load(['wordpress', 'sentinel']);
 
 // Makes plugins_url()/plugin_dir_url() answer with Reconcile's own path.
 WpState::$pluginSlug = 'reconcile';

@@ -27,7 +27,7 @@ use Reconcile\Position\PositionImportHandler;
  * Tests for the AJAX import handlers and admin-post export handlers.
  *
  * The handlers' terminal WordPress calls (wp_send_json_*, wp_die) throw rather
- * than exiting — JsonResponseException and WpDieException from wp-mocks — so
+ * than exiting â€” JsonResponseException and WpDieException from wp-mocks â€” so
  * each guard branch can be asserted on without taking the process down.
  *
  * @covers \Reconcile\Member\MemberImportHandler
@@ -72,8 +72,8 @@ class HandlersTest extends TestCase
     /**
      * Run a handler method and describe how it terminated.
      *
-     * wp-mocks throws two different exceptions here — JsonResponseException
-     * for the AJAX handlers, WpDieException for the admin-post ones — and each
+     * wp-mocks throws two different exceptions here â€” JsonResponseException
+     * for the AJAX handlers, WpDieException for the admin-post ones â€” and each
      * names its parts differently. Normalising them into one shape keeps every
      * assertion below reading the same way, which is what the local
      * ReconcileHandlerHalt used to do.
@@ -359,12 +359,17 @@ class HandlersTest extends TestCase
     /**
      * @return array<string, array{object}>
      */
+    /**
+     * Each export handler verifies _wpnonce against its own action, so the
+     * provider carries that action alongside the handler: one $_GET value
+     * cannot satisfy all three at once.
+     */
     public static function exportHandlers(): array
     {
         return [
-            'member'   => [new MemberExportHandler(new MemberExporter(null, null, null))],
-            'group'    => [new GroupExportHandler(new GroupExporter(null))],
-            'position' => [new PositionExportHandler(new PositionExporter(null))],
+            'member'   => [new MemberExportHandler(new MemberExporter(null, null, null)), 'reconcile_member_export'],
+            'group'    => [new GroupExportHandler(new GroupExporter(null)), 'reconcile_group_export'],
+            'position' => [new PositionExportHandler(new PositionExporter(null)), 'reconcile_position_export'],
         ];
     }
 
@@ -372,9 +377,10 @@ class HandlersTest extends TestCase
      * @test
      * @dataProvider exportHandlers
      */
-    public function export_denies_users_without_capability(object $handler): void
+    public function export_denies_users_without_capability(object $handler, string $nonceAction): void
     {
         WpState::$userCan = false;
+        $_GET['_wpnonce'] = wp_create_nonce($nonceAction);
 
         $halt = $this->halt(fn () => $handler->handleExport());
 
@@ -386,7 +392,7 @@ class HandlersTest extends TestCase
      * @test
      * @dataProvider exportHandlers
      */
-    public function export_rejects_a_bad_nonce(object $handler): void
+    public function export_rejects_a_bad_nonce(object $handler, string $nonceAction): void
     {
         $_GET['_wpnonce'] = 'not-the-right-nonce';
 
@@ -400,11 +406,11 @@ class HandlersTest extends TestCase
      * @test
      * @dataProvider exportHandlers
      */
-    public function export_wp_dies_when_the_exporter_throws(object $handler): void
+    public function export_wp_dies_when_the_exporter_throws(object $handler, string $nonceAction): void
     {
         // Nonce/permission pass; the exporter was built with null repositories
         // so export() throws, and the handler converts that to wp_die().
-        $_GET['_wpnonce'] = wp_create_nonce('reconcile_member_export');
+        $_GET['_wpnonce'] = wp_create_nonce($nonceAction);
 
         $halt = $this->halt(fn () => $handler->handleExport());
 

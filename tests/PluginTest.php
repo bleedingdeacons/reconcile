@@ -235,6 +235,29 @@ class PluginTest extends TestCase
         $this->assertContains('reconcile-positions', $submenuSlugs);
     }
 
+
+    /**
+     * Plugin overrides the trait's default channel derivation, and with a real
+     * wp_log() the resolution memoises after the first call — so the override
+     * runs once and needs asserting on directly rather than incidentally.
+     *
+     * @test
+     */
+    public function it_logs_through_its_own_channel(): void
+    {
+        // HasLogger memoises the channel in a static that nothing resets
+        // between tests, so whichever test logs first does the resolving.
+        // Clear it here so the resolution — and Plugin's own logChannel()
+        // override — actually runs where it is being asserted on.
+        $loggerChannel = (new ReflectionClass(Plugin::class))->getProperty('loggerChannel');
+        $loggerChannel->setValue(null, null);
+
+        $channel = Plugin::log();
+
+        $this->assertNotNull($channel);
+        $this->assertSame('reconcile', $channel->channel);
+    }
+
     // --- helpers ----------------------------------------------------------
 
     /**
