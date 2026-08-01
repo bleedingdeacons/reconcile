@@ -3,8 +3,8 @@ Contributors: thebleedingdeacons
 Tags: import, export, spreadsheet, members, groups
 Requires at least: 6.0
 Tested up to: 6.9
-Stable tag: 1.13.24
-Build date: 2026/07/30 18:22:31
+Stable tag: 1.14.0
+Build date: 2026/08/01 11:31:43
 Requires PHP: 8.0
 License: GPL-2.0-or-later
 License URI: https://www.gnu.org/licenses/old-licenses/gpl-2.0.html
