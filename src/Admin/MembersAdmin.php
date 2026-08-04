@@ -66,7 +66,6 @@ class MembersAdmin
         $acceptedHeaders = MemberColumnMapper::getAcceptedHeaders();
         $labels = MemberColumnMapper::getPropertyLabels();
         $notes = self::getPropertyNotes();
-        $truthyValues = MemberImporter::getTruthyValues();
 
         ?>
         <div class="wrap reconcile-wrap">
