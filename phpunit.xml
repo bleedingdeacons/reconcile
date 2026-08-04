@@ -14,18 +14,25 @@
         </testsuite>
     </testsuites>
     <source>
+        <!--
+            There is deliberately no <exclude> here.
+
+            src/Admin used to be excluded, on the grounds that admin screens
+            are render/callback glue exercised through WordPress at runtime
+            rather than in unit tests. Amber covers its whole src/Admin on this
+            same tooling and Integrity has since followed, so the exclusion was
+            habit rather than necessity: the screens' enqueue guards and the
+            reference tables they build from the column mappers are ordinary
+            code, and the tests in tests/*AdminTest.php drive them for real —
+            renderPage() into an output buffer, enqueueAssets() against the
+            WpState the stubs record into.
+
+            Removing it lowered the headline line-coverage figure, because
+            those lines had not been in the denominator at all. That is the
+            exclusion being paid off, not a regression. Don't add it back.
+        -->
         <include>
             <directory suffix=".php">src</directory>
         </include>
-        <exclude>
-            <!--
-                Admin screens are WordPress render/callback glue (list tables,
-                upload forms, notices, menu registration) exercised through
-                WordPress at runtime rather than in unit tests, so they are
-                excluded from the coverage denominator — the same call Reach
-                and Integrity make for their own src/Admin.
-            -->
-            <directory suffix=".php">src/Admin</directory>
-        </exclude>
     </source>
 </phpunit>

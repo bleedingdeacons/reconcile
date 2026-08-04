@@ -34,6 +34,18 @@ if (!defined('ABSPATH')) {
     define('ABSPATH', '/var/www/html/');
 }
 
+// reconcile.php defines these from the plugin header at runtime; the Admin
+// screens read both when enqueueing their assets. They are defined here rather
+// than in a test because a define() only takes the first time it runs — set in
+// setUp(), the value would depend on which test happened to run first.
+if (!defined('RECONCILE_VERSION')) {
+    define('RECONCILE_VERSION', '0.0.0-test');
+}
+
+if (!defined('RECONCILE_PLUGIN_URL')) {
+    define('RECONCILE_PLUGIN_URL', 'https://example.test/wp-content/plugins/reconcile/');
+}
+
 // Unity's interfaces are loaded from the real plugin in the sibling directory,
 // which is exactly what WordPress loads at runtime. Reading the real files
 // rather than a hand-copy means a change to Unity's contract fails these tests
