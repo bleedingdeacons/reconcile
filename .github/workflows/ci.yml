@@ -167,6 +167,7 @@ jobs:
 
       # --- Advisory --------------------------------------------------------
       # Reported but not enforced.
+
       - name: Upload coverage to Coveralls (advisory)
         # Reports a coverage number; does not gate the build. The Clover report
         # is produced by the PHPUnit step above. This action runs from the repo
