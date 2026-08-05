@@ -37,18 +37,18 @@ class GroupsAdmin
         }
 
         wp_enqueue_style(
-                'reconcile-admin',
-                RECONCILE_PLUGIN_URL . 'assets/css/admin.css',
-                [],
-                RECONCILE_VERSION
+            'reconcile-admin',
+            RECONCILE_PLUGIN_URL . 'assets/css/admin.css',
+            [],
+            RECONCILE_VERSION
         );
 
         wp_enqueue_script(
-                'reconcile-group-admin',
-                RECONCILE_PLUGIN_URL . 'assets/js/group-admin.js',
-                ['jquery'],
-                RECONCILE_VERSION,
-                true
+            'reconcile-group-admin',
+            RECONCILE_PLUGIN_URL . 'assets/js/group-admin.js',
+            ['jquery'],
+            RECONCILE_VERSION,
+            true
         );
 
         wp_localize_script('reconcile-group-admin', 'reconcileGroupAdmin', [
@@ -74,14 +74,14 @@ class GroupsAdmin
                 <h2><?php esc_html_e('Import Groups from Spreadsheet', 'reconcile'); ?></h2>
                 <p class="description">
                     <?php esc_html_e(
-                            'Upload a .csv or .xlsx file with group data. The first row must contain column headers '
+                        'Upload a .csv or .xlsx file with group data. The first row must contain column headers '
                             . 'that match the expected property names. Each row must include either a Group ID or a '
                             . 'Group Name (or both) to identify the group to update. If both are provided, the group '
                             . 'is looked up by ID and its name is updated. If only a name is provided, it is used to '
                             . 'find the matching group. '
                             . 'Up to 3 contacts can be specified per group, each with a name, email address, and '
                             . 'telephone number.',
-                            'reconcile'
+                        'reconcile'
                     ); ?>
                 </p>
 
@@ -94,14 +94,14 @@ class GroupsAdmin
                     </tr>
                     </thead>
                     <tbody>
-                    <?php foreach ($acceptedHeaders as $property => $aliases): ?>
+                    <?php foreach ($acceptedHeaders as $property => $aliases) : ?>
                         <tr>
                             <td><strong><?php echo esc_html($labels[$property] ?? $property); ?></strong></td>
                             <td>
                                 <?php
                                 $escapedAliases = array_map(
-                                        fn($alias) => '<code>' . esc_html($alias) . '</code>',
-                                        $aliases
+                                    fn($alias) => '<code>' . esc_html($alias) . '</code>',
+                                    $aliases
                                 );
                                 echo implode(', ', $escapedAliases);
                                 ?>
@@ -163,17 +163,17 @@ class GroupsAdmin
                 <h2><?php esc_html_e('Export Groups to CSV', 'reconcile'); ?></h2>
                 <p class="description">
                     <?php esc_html_e(
-                            'Download all groups as a CSV file. The export uses the same column format as the import, '
+                        'Download all groups as a CSV file. The export uses the same column format as the import, '
                             . 'so the exported file can be edited and re-imported.',
-                            'reconcile'
+                        'reconcile'
                     ); ?>
                 </p>
 
                 <div class="reconcile-form-row">
                     <?php
                     $exportUrl = wp_nonce_url(
-                            admin_url('admin-post.php?action=reconcile_group_export'),
-                            'reconcile_group_export'
+                        admin_url('admin-post.php?action=reconcile_group_export'),
+                        'reconcile_group_export'
                     );
                     ?>
                     <a href="<?php echo esc_url($exportUrl); ?>" class="button button-secondary">

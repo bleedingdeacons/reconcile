@@ -93,7 +93,7 @@ class PositionsAdmin
                     </tr>
                     </thead>
                     <tbody>
-                    <?php foreach ($acceptedHeaders as $property => $aliases): ?>
+                    <?php foreach ($acceptedHeaders as $property => $aliases) : ?>
                         <tr>
                             <td><strong><?php echo esc_html($labels[$property] ?? $property); ?></strong></td>
                             <td>

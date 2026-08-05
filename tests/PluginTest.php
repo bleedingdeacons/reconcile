@@ -146,7 +146,8 @@ class PluginTest extends TestCase
 
         (new \ReflectionMethod(Plugin::class, 'registerServices'))->invoke(null, $container);
 
-        foreach ([
+        foreach (
+            [
             GroupLookup::class,
             PositionLookup::class,
             GroupImporter::class,
@@ -161,7 +162,8 @@ class PluginTest extends TestCase
             MemberExportHandler::class,
             PositionImportHandler::class,
             PositionExportHandler::class,
-        ] as $id) {
+            ] as $id
+        ) {
             $this->assertInstanceOf($id, $container->get($id), "$id should resolve");
         }
     }
@@ -176,13 +178,15 @@ class PluginTest extends TestCase
             'handler must wire wp_ajax_reconcile_import'
         );
         // Six handlers each register one AJAX action; spot-check the rest.
-        foreach ([
+        foreach (
+            [
             'wp_ajax_reconcile_group_import',
             'wp_ajax_reconcile_position_import',
             'admin_post_reconcile_member_export',
             'admin_post_reconcile_group_export',
             'admin_post_reconcile_position_export',
-        ] as $hook) {
+            ] as $hook
+        ) {
             $this->assertNotFalse(Actions\has($hook), "handler must wire $hook");
         }
     }
@@ -287,11 +291,13 @@ class PluginTest extends TestCase
     private function resetStatics(): void
     {
         $ref = new ReflectionClass(Plugin::class);
-        foreach ([
+        foreach (
+            [
             'container', 'memberAdminPage', 'groupAdminPage', 'positionAdminPage',
             'importHandler', 'groupImportHandler', 'groupExportHandler',
             'memberExportHandler', 'positionImportHandler', 'positionExportHandler',
-        ] as $prop) {
+            ] as $prop
+        ) {
             if ($ref->hasProperty($prop)) {
                 $ref->getProperty($prop)->setValue(null, null);
             }

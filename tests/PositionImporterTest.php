@@ -215,7 +215,6 @@ class PositionImporterTest extends TestCase
         );
 
         $this->assertSame(1, $result->getCreated());
-
     }
 
     /**
@@ -277,7 +276,6 @@ class PositionImporterTest extends TestCase
 
         $this->assertSame(1, $result->getSkipped());
         $this->assertSame(0, $result->getCreated());
-
     }
 
     /**
@@ -296,7 +294,6 @@ class PositionImporterTest extends TestCase
 
         $this->assertSame(1, $result->getSkipped());
         $this->assertSame(0, $result->getCreated());
-
     }
 
     /**
@@ -385,6 +382,5 @@ class PositionImporterTest extends TestCase
         $this->assertSame(1, $result->getUpdated());
         $this->assertSame(1, $result->getCreated());
         $this->assertSame(1, $result->getSkipped());
-
     }
 }
