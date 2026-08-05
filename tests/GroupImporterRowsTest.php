@@ -228,7 +228,6 @@ class GroupImporterRowsTest extends TestCase
 
         $this->assertSame(1, $result->getCreated());
         $this->assertSame(0, $result->getSkipped());
-
     }
 
     /**
@@ -247,7 +246,6 @@ class GroupImporterRowsTest extends TestCase
 
         $this->assertSame(1, $result->getSkipped());
         $this->assertSame(0, $result->getCreated());
-
     }
 
     /**
@@ -274,7 +272,6 @@ class GroupImporterRowsTest extends TestCase
         $this->assertSame(1, $result->getUpdated());
         $this->assertSame(1, $result->getCreated());
         $this->assertSame(1, $result->getSkipped());
-
     }
 
     /**

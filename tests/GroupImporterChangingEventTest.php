@@ -120,7 +120,7 @@ class GroupImporterChangingEventTest extends TestCase
 
         [$dispatchedUpdated, $dispatchedOriginal] = self::$dispatchedGroupChangingEvents[0];
 
-        $this->assertSame($reread,   $dispatchedUpdated, 'First arg is the post-write re-read.');
+        $this->assertSame($reread, $dispatchedUpdated, 'First arg is the post-write re-read.');
         $this->assertSame($existing, $dispatchedOriginal, 'Second arg is the pre-write snapshot.');
     }
 

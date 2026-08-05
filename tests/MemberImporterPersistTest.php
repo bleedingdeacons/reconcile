@@ -255,6 +255,5 @@ class MemberImporterPersistTest extends TestCase
 
         $this->assertSame(0, $result->getCreated());
         $this->assertSame(1, $result->getSkipped());
-
     }
 }
