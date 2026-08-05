@@ -1,7 +1,5 @@
 <?php
 
-declare(strict_types=1);
-
 /**
  * Plugin Name: Reconcile
  * Description: Import/Export of member, group and position data from spreadsheets using Unity framework.
@@ -16,6 +14,8 @@ declare(strict_types=1);
  * Contact: thebleedingdeacons@gmail.com
  * License: MIT (Modified)
  */
+
+declare(strict_types=1);
 
 if (!defined('ABSPATH')) {
     exit;
@@ -87,7 +87,6 @@ add_action('unity/loaded', function ($container) {
          * Fires after Reconcile is fully loaded.
          */
         do_action('reconcile_loaded');
-
     } catch (\Exception $e) {
         function_exists('wp_log')
             ? wp_log('reconcile')->error('Reconcile Plugin Initialization Error: ' . $e->getMessage(), ['exception' => $e->getMessage(), 'trace' => $e->getTraceAsString()])
