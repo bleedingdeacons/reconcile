@@ -87,6 +87,11 @@ class SpreadsheetReader
         $rows = [];
         $lineNumber = 0;
 
+        // fgetcsv yields null, not '', for an empty unquoted field. Passing
+        // that straight to trim() is deprecated on 8.1 and a TypeError on
+        // PHP 9, so coalesce before trimming.
+        $trimCell = static fn(?string $value): string => trim($value ?? '');
+
         // escape: '' disables PHP's legacy backslash escaping, which is not
         // part of RFC 4180 and is not what Excel or Google Sheets emit. With
         // the old default, a quoted field ending in a backslash escaped its
@@ -107,11 +112,11 @@ class SpreadsheetReader
                 if (isset($data[0]) && str_starts_with($data[0], "\xEF\xBB\xBF")) {
                     $data[0] = substr($data[0], 3);
                 }
-                $headers = array_map('trim', $data);
+                $headers = array_map($trimCell, $data);
                 continue;
             }
 
-            $rows[] = array_map('trim', $data);
+            $rows[] = array_map($trimCell, $data);
         }
 
         fclose($handle);
