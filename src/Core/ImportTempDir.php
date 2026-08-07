@@ -277,8 +277,9 @@ class ImportTempDir
             return;
         }
 
+        // No finfo_close(): deprecated as of PHP 8.5, and the object is
+        // freed when $finfo goes out of scope.
         $mime = finfo_file($finfo, $path);
-        finfo_close($finfo);
 
         if ($mime === false) {
             return;
