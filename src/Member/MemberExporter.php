@@ -109,10 +109,14 @@ class MemberExporter
             throw new \RuntimeException('Unity MemberRepository is not available. Is Unity fully configured?');
         }
 
+        // Held in a local across the cache builds below: they are $this method
+        // calls, which discard the narrowing the guard above established.
+        $repository = $this->memberRepository;
+
         $this->buildGroupCache();
         $this->buildPositionCache();
 
-        $members = $this->memberRepository->findAll();
+        $members = $repository->findAll();
 
         \Reconcile\Plugin::logInfo('Reconcile MemberExporter: Found ' . count($members) . ' member(s) to export.');
 

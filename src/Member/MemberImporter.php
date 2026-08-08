@@ -86,6 +86,36 @@ class MemberImporter
     }
 
     /**
+     * The Unity MemberRepository, proven non-null.
+     *
+     * import() rejects a null repository before any of the private helpers
+     * below can run, but PHPStan cannot carry that narrowing across a method
+     * boundary. This states the invariant in one place rather than repeating
+     * the entry guard in every helper; the throw is unreachable by
+     * construction.
+     */
+    private function memberRepository(): MemberRepository
+    {
+        if ($this->memberRepository === null) {
+            throw new RuntimeException('Unity MemberRepository is not available. Is Unity fully configured?');
+        }
+
+        return $this->memberRepository;
+    }
+
+    /**
+     * The Unity MemberFactory, proven non-null. See memberRepository().
+     */
+    private function memberFactory(): MemberFactory
+    {
+        if ($this->memberFactory === null) {
+            throw new RuntimeException('Unity MemberFactory is not available. Is Unity fully configured?');
+        }
+
+        return $this->memberFactory;
+    }
+
+    /**
      * Run the import from a file path.
      *
      * @param string $filePath Absolute path to the uploaded spreadsheet
@@ -812,7 +842,7 @@ class MemberImporter
         // Creating a member: there is no prior state, so createNew()'s
         // defaults are the correct starting values for everything the import
         // does not supply.
-        return $this->memberFactory->createNew(
+        return $this->memberFactory()->createNew(
             id: $id,
             anonymousName: $rowData['anonymous_name'],
             intergroupPosition: $intergroupPositionId,
@@ -852,7 +882,7 @@ class MemberImporter
         });
 
         try {
-            $saved = $this->memberRepository->save($member);
+            $saved = $this->memberRepository()->save($member);
         } catch (\Throwable $e) {
             $errorMessage = $e->getMessage();
             return false;

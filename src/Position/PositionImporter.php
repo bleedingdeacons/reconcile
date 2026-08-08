@@ -58,6 +58,36 @@ class PositionImporter
     }
 
     /**
+     * The Unity PositionRepository, proven non-null.
+     *
+     * import() rejects a null repository before any of the private helpers
+     * below can run, but PHPStan cannot carry that narrowing across a method
+     * boundary. This states the invariant in one place rather than repeating
+     * the entry guard in every helper; the throw is unreachable by
+     * construction.
+     */
+    private function positionRepository(): PositionRepository
+    {
+        if ($this->positionRepository === null) {
+            throw new RuntimeException('Unity PositionRepository is not available. Is Unity fully configured?');
+        }
+
+        return $this->positionRepository;
+    }
+
+    /**
+     * The Unity PositionFactory, proven non-null. See positionRepository().
+     */
+    private function positionFactory(): PositionFactory
+    {
+        if ($this->positionFactory === null) {
+            throw new RuntimeException('Unity PositionFactory is not available. Is Unity fully configured?');
+        }
+
+        return $this->positionFactory;
+    }
+
+    /**
      * Run the import from a file path.
      *
      * @param string $filePath Absolute path to the uploaded spreadsheet
@@ -488,7 +518,7 @@ class PositionImporter
             ? $rawSummary
             : ($existing ? $existing->getSummary() : '');
 
-        return $this->positionFactory->createNew(
+        return $this->positionFactory()->createNew(
             id: $id,
             minimumSobriety: $minimumSobriety,
             termYears: $termYears,
@@ -520,7 +550,7 @@ class PositionImporter
         });
 
         try {
-            $saved = $this->positionRepository->save($position);
+            $saved = $this->positionRepository()->save($position);
         } catch (\Throwable $e) {
             $errorMessage = $e->getMessage();
             return false;
