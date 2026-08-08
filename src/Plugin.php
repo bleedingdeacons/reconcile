@@ -59,12 +59,12 @@ class Plugin
     private static ?MembersAdmin $memberAdminPage = null;
     private static ?GroupsAdmin $groupAdminPage = null;
     private static ?PositionsAdmin $positionAdminPage = null;
-    private static ?MemberImportHandler $importHandler = null;
-    private static ?GroupImportHandler $groupImportHandler = null;
-    private static ?GroupExportHandler $groupExportHandler = null;
-    private static ?MemberExportHandler $memberExportHandler = null;
-    private static ?PositionImportHandler $positionImportHandler = null;
-    private static ?PositionExportHandler $positionExportHandler = null;
+
+    // The six AJAX handlers are deliberately not held in properties. Each
+    // registers its own WordPress hooks, and $wp_filter holds the callable —
+    // so the objects stay alive without a reference here, and nothing ever
+    // read these back. The admin page objects above are different: they are
+    // read again in addMenuPages().
 
     /**
      * Register the top-level Reconcile menu and submenu pages.
@@ -95,6 +95,17 @@ class Plugin
      */
     public static function addMenuPages(): void
     {
+        // The three page objects are constructed together in init(). If init()
+        // never ran there is nothing to render, so registering menu entries
+        // pointing at nothing would only produce blank screens.
+        if (
+            self::$memberAdminPage === null
+            || self::$groupAdminPage === null
+            || self::$positionAdminPage === null
+        ) {
+            return;
+        }
+
         // Top-level menu
         add_menu_page(
             __('Reconcile', 'reconcile'),
@@ -316,23 +327,12 @@ class Plugin
      */
     private static function registerHandlers(ContainerInterface $container): void
     {
-        self::$importHandler = $container->get(MemberImportHandler::class);
-        self::$importHandler->register();
-
-        self::$memberExportHandler = $container->get(MemberExportHandler::class);
-        self::$memberExportHandler->register();
-
-        self::$groupImportHandler = $container->get(GroupImportHandler::class);
-        self::$groupImportHandler->register();
-
-        self::$groupExportHandler = $container->get(GroupExportHandler::class);
-        self::$groupExportHandler->register();
-
-        self::$positionImportHandler = $container->get(PositionImportHandler::class);
-        self::$positionImportHandler->register();
-
-        self::$positionExportHandler = $container->get(PositionExportHandler::class);
-        self::$positionExportHandler->register();
+        $container->get(MemberImportHandler::class)->register();
+        $container->get(MemberExportHandler::class)->register();
+        $container->get(GroupImportHandler::class)->register();
+        $container->get(GroupExportHandler::class)->register();
+        $container->get(PositionImportHandler::class)->register();
+        $container->get(PositionExportHandler::class)->register();
     }
 
     /**

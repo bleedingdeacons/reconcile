@@ -206,9 +206,11 @@ class GroupColumnMapper
     private function normalise(string $value): string
     {
         $value = mb_strtolower(trim($value));
-        // Strip non-alphanumeric characters except spaces and underscores
-        $value = preg_replace('/[^a-z0-9 _]/', '', $value);
 
-        return $value;
+        // Strip non-alphanumeric characters except spaces and underscores.
+        // preg_replace() returns null on a PCRE failure; keep the lower-cased
+        // value rather than collapsing a column name to '', which would
+        // silently match nothing.
+        return preg_replace('/[^a-z0-9 _]/', '', $value) ?? $value;
     }
 }
