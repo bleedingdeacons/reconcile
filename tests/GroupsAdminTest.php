@@ -219,8 +219,14 @@ class GroupsAdminTest extends TestCase
     {
         $html = $this->render();
 
-        $expected = admin_url('admin-post.php?action=reconcile_group_export')
-            . '&_wpnonce=' . wp_create_nonce('reconcile_group_export');
+        // esc_url(), not the raw string: WordPress encodes the separator as
+        // &#038; in an href, so asserting on a bare & described output the
+        // plugin has never produced. It only passed while the test double
+        // returned its input untouched.
+        $expected = esc_url(
+            admin_url('admin-post.php?action=reconcile_group_export')
+            . '&_wpnonce=' . wp_create_nonce('reconcile_group_export')
+        );
 
         $this->assertStringContainsString('href="' . $expected . '"', $html);
     }
