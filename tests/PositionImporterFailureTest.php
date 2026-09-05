@@ -113,6 +113,14 @@ class PositionImporterFailureTest extends TestCase
     public function a_wp_error_from_post_insert_is_skipped(): void
     {
         Functions\when('wp_insert_post')->justReturn(new \WP_Error('insert_failed', 'invalid post data'));
+        // The importer builds the Position before it tries to insert the post,
+        // so createNew() is reached on this path and needs an expectation. It
+        // always was: without one Mockery threw, the importer's own error
+        // handling swallowed it, and the row was skipped for that reason
+        // rather than the WP_Error under test. The assertions passed either
+        // way, which is why it went unnoticed until Mockery 1.6.15 began
+        // reporting swallowed BadMethodCallExceptions as risky.
+        $this->factory->shouldReceive('createNew')->andReturn($this->validPosition(77))->byDefault();
 
         $result = $this->importer()->import($this->writeCsv([self::CREATE_ROW]));
 
