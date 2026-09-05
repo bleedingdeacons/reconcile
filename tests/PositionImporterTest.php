@@ -269,6 +269,11 @@ class PositionImporterTest extends TestCase
     {
         // wp_insert_post returns 0 → the row cannot be created.
         Functions\when('wp_insert_post')->justReturn(0);
+        // See PositionImporterFailureTest: createNew() is reached before the
+        // insert is attempted, so it needs an expectation. Without one the
+        // row was skipped because Mockery threw and the importer caught it,
+        // not because wp_insert_post returned 0.
+        $this->factory->shouldReceive('createNew')->andReturn($this->validPosition(77))->byDefault();
 
         $result = $this->importer()->import(
             $this->writeCsv(self::HEADERS, [['', 'Brand New', 'n@example.com', '12', '2', 'New', 'Summary']])
