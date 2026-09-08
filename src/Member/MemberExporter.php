@@ -24,7 +24,8 @@ use Unity\Positions\Interfaces\PositionRepository;
  * so the exported file matches the import format.
  *
  * Output columns:
- *  Member ID, Anonymous Name, Home Group, Personal Email, Mobile,
+ *  Member ID, Anonymous Name, Home Group, Personal Email, Mobile, Landline,
+ *  Preferred Contact,
  *  GSR Status, Intergroup Position, Intergroup Position Rotation,
  *  12th Stepper, Area, Accepts
  *
@@ -133,6 +134,8 @@ class MemberExporter
             'Home Group',
             'Personal Email',
             'Mobile Number',
+            'Landline Number',
+            'Preferred Contact',
             'GSR',
             'Intergroup Position',
             'Intergroup Position Rotation',
@@ -156,6 +159,8 @@ class MemberExporter
                 $this->resolveGroupName($homeGroupId),
                 $member->getPersonalEmail(),
                 $member->getMobileNumber(),
+                $member->getLandlineNumber(),
+                $member->getPreferredContact()->value,
                 $member->isGSR() ? 'Yes' : 'No',
                 $this->resolvePositionName($positionId),
                 $member->getIntergroupPositionRotation(),

@@ -16,6 +16,7 @@ use Unity\Members\Interfaces\Member;
 use Unity\Members\Interfaces\MemberFactory;
 use Unity\Members\Interfaces\MemberRepository;
 use Unity\Members\Interfaces\MemberRevisor;
+use Unity\Members\PreferredContact;
 
 /**
  * MemberImporter persist-path failure and revise() branches: an update whose
@@ -256,5 +257,43 @@ class MemberImporterFailureTest extends TestCase
         ]));
 
         $this->assertSame(1, $result->getUpdated());
+    }
+
+    /**
+     * The regression this guards: landline_number and preferred_contact are
+     * optional columns, so a spreadsheet written before they existed omits
+     * them entirely. Passing the blank through as a value would erase every
+     * member's landline on the next re-import — the same class of bug that
+     * cost the GDPR consent records. Blank means "leave it alone", so
+     * revise() is handed null for both.
+     *
+     * @test
+     */
+    public function a_spreadsheet_without_the_contact_columns_leaves_both_fields_alone(): void
+    {
+        $existing = $this->member();
+        $this->memberRepo->shouldReceive('findById')->with(42)->andReturn($existing);
+
+        $captured = [];
+        $revisor = Mockery::mock(MemberRevisor::class);
+        $revisor->shouldReceive('revise')->once()->andReturnUsing(
+            function (Member $base, ...$args) use (&$captured) {
+                $captured = $args;
+                return $base;
+            }
+        );
+
+        $this->memberRepo->shouldReceive('save')->once()->andReturn(true);
+
+        $this->importer($revisor)->import($this->writeCsv([
+            ['42', 'Existing', '', 'e@example.com', '555', 'no', '', ''],
+        ]));
+
+        // Positional, because that is how the named arguments bind: the two
+        // fields sit immediately after the mobile number, and null is what
+        // revise() reads as "carry the stored value over".
+        $this->assertSame('555', $captured[9], 'the mobile is at the expected position');
+        $this->assertNull($captured[10], 'landline left alone');
+        $this->assertNull($captured[11], 'preferred contact left alone');
     }
 }

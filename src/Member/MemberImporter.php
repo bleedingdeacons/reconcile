@@ -19,6 +19,7 @@ use Unity\Members\Interfaces\Member;
 use Unity\Members\Interfaces\MemberFactory;
 use Unity\Members\Interfaces\MemberRepository;
 use Unity\Members\Interfaces\MemberRevisor;
+use Unity\Members\PreferredContact;
 
 /**
  * Member Importer
@@ -454,6 +455,8 @@ class MemberImporter
             'home_group'                    => '',
             'personal_email'                => '',
             'mobile_number'                 => '',
+            'landline_number'               => '',
+            'preferred_contact'             => '',
             'is_gsr'                        => '',
             'intergroup_position'           => '',
             'intergroup_position_rotation'  => '',
@@ -564,6 +567,30 @@ class MemberImporter
         $normalised = mb_strtolower(trim($value));
 
         return in_array($normalised, self::TRUTHY_VALUES, true);
+    }
+
+    /**
+     * Parse the "Preferred Contact" column.
+     *
+     * Null for a blank cell — the column is optional, so blank means "leave
+     * it alone" rather than "set to Mobile". Matching is case-insensitive
+     * because a spreadsheet author writing "landline" is plainly asking for
+     * the same thing as "Landline"; anything else unrecognised is also null,
+     * so a typo leaves the stored preference alone rather than silently
+     * moving the member onto their mobile.
+     *
+     * Unity has the final say either way: a member with no landline is
+     * Mobile whatever this column says.
+     */
+    private static function parsePreferredContact(string $value): ?PreferredContact
+    {
+        $normalised = mb_strtolower(trim($value));
+
+        return match ($normalised) {
+            'mobile' => PreferredContact::Mobile,
+            'landline' => PreferredContact::Landline,
+            default => null,
+        };
     }
 
     /**
@@ -833,6 +860,15 @@ class MemberImporter
                 isGSR: $isGSR,
                 personalEmail: $rowData['personal_email'],
                 mobileNumber: $rowData['mobile_number'],
+                // Blank means "leave it alone", as it does for the rotation
+                // date above. These two columns are optional, so a blank is
+                // far more often a spreadsheet that never had the column than
+                // an intent to erase — and the mobile can afford the opposite
+                // reading only because its column is required.
+                landlineNumber: $rowData['landline_number'] !== ''
+                    ? $rowData['landline_number']
+                    : null,
+                preferredContact: self::parsePreferredContact($rowData['preferred_contact']),
                 twelfthStepper: $isTwelfthStepper,
                 area: $area,
                 accepts: $accepts
@@ -851,6 +887,11 @@ class MemberImporter
             isGSR: $isGSR,
             personalEmail: $rowData['personal_email'],
             mobileNumber: $rowData['mobile_number'],
+            landlineNumber: $rowData['landline_number'],
+            // A blank column leaves this at Mobile, which is also what Unity
+            // would settle on for a member with no landline.
+            preferredContact: self::parsePreferredContact($rowData['preferred_contact'])
+                ?? PreferredContact::Mobile,
             twelfthStepper: $isTwelfthStepper,
             area: $area,
             accepts: $accepts

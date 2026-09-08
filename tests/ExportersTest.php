@@ -14,6 +14,7 @@ use Unity\Groups\Interfaces\Group;
 use Unity\Groups\Interfaces\GroupRepository;
 use Unity\Members\Interfaces\Member;
 use Unity\Members\Interfaces\MemberRepository;
+use Unity\Members\PreferredContact;
 use Unity\Positions\Interfaces\Position;
 use Unity\Positions\Interfaces\PositionRepository;
 
@@ -45,6 +46,8 @@ class ExportersTest extends TestCase
         $member->shouldReceive('getHomeGroup')->andReturn(10);
         $member->shouldReceive('getPersonalEmail')->andReturn('jane@example.com');
         $member->shouldReceive('getMobileNumber')->andReturn('07700 900000');
+        $member->shouldReceive('getLandlineNumber')->andReturn('0117 496 0000');
+        $member->shouldReceive('getPreferredContact')->andReturn(PreferredContact::Landline);
         $member->shouldReceive('isGSR')->andReturn(true);
         $member->shouldReceive('getIntergroupPosition')->andReturn(5);
         $member->shouldReceive('getIntergroupPositionRotation')->andReturn('2026-01-01');
@@ -71,6 +74,12 @@ class ExportersTest extends TestCase
 
         $this->assertStringContainsString('Anonymous Name', $csv);
         $this->assertStringContainsString('Jane D.', $csv);
+        // The export is the import's own column set, so both new columns
+        // appear in the header and carry a value.
+        $this->assertStringContainsString('Landline Number', $csv);
+        $this->assertStringContainsString('Preferred Contact', $csv);
+        $this->assertStringContainsString('0117 496 0000', $csv);
+        $this->assertStringContainsString('Landline', $csv);
         // IDs resolved to names.
         $this->assertStringContainsString('Tuesday Group', $csv);
         $this->assertStringContainsString('Chair', $csv);
@@ -92,6 +101,8 @@ class ExportersTest extends TestCase
         $member->shouldReceive('getHomeGroup')->andReturn(0);
         $member->shouldReceive('getPersonalEmail')->andReturn('x@example.com');
         $member->shouldReceive('getMobileNumber')->andReturn('555');
+        $member->shouldReceive('getLandlineNumber')->andReturn('');
+        $member->shouldReceive('getPreferredContact')->andReturn(PreferredContact::Mobile);
         $member->shouldReceive('isGSR')->andReturn(false);
         $member->shouldReceive('getIntergroupPosition')->andReturn(0);
         $member->shouldReceive('getIntergroupPositionRotation')->andReturn('');
