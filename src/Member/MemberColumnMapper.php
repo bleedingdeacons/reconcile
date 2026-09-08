@@ -23,6 +23,10 @@ if (!defined('ABSPATH')) {
  *  - home_group  (string – resolved to post ID via GroupLookup)
  *  - personal_email
  *  - mobile_number
+ *  - landline_number     (optional – see the note on REQUIRED below)
+ *  - preferred_contact   (optional – "Mobile" or "Landline"; which number the
+ *                          helpline rings. Ignored for a member with no landline,
+ *                          where Unity settles it as Mobile regardless.)
  *  - is_gsr
  *  - intergroup_position  (string – resolved to post ID via PositionLookup)
  *  - intergroup_position_rotation  (conditionally required when intergroup_position has a value)
@@ -64,6 +68,16 @@ class MemberColumnMapper
             'mobile_number',
             'mobile',
         ],
+        'landline_number' => [
+            'landline number',
+            'landline_number',
+            'landline',
+        ],
+        'preferred_contact' => [
+            'preferred contact',
+            'preferred_contact',
+            'preferredcontact',
+        ],
         'is_gsr' => [
             'gsr',
             'is_gsr',
@@ -97,6 +111,12 @@ class MemberColumnMapper
      * Note: intergroup_position_rotation is conditionally required (when
      * intergroup_position has a value) — that validation is handled by
      * the MemberImporter at row level.
+     *
+     * landline_number and preferred_contact are deliberately absent, and
+     * must stay absent: adding either would reject every spreadsheet
+     * written before they existed. They are optional columns, and a file
+     * that omits them leaves both fields untouched on the members it
+     * updates.
      *
      * @var string[]
      */
@@ -166,6 +186,8 @@ class MemberColumnMapper
             'home_group'                    => 'Home Group',
             'personal_email'                => 'Personal Email',
             'mobile_number'                 => 'Mobile',
+            'landline_number'               => 'Landline',
+            'preferred_contact'             => 'Preferred Contact',
             'is_gsr'                        => 'GSR Status',
             'intergroup_position'           => 'Intergroup Position',
             'intergroup_position_rotation'  => 'Intergroup Position Rotation',

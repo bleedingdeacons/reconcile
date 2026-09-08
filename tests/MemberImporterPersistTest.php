@@ -15,6 +15,7 @@ use Unity\Core\Interfaces\Configuration;
 use Unity\Members\Interfaces\Member;
 use Unity\Members\Interfaces\MemberFactory;
 use Unity\Members\Interfaces\MemberRepository;
+use Unity\Members\PreferredContact;
 
 /**
  * Exercises MemberImporter's real (non-dry-run) persist path: create, update
@@ -80,6 +81,12 @@ class MemberImporterPersistTest extends TestCase
         'Mobile', 'GSR', 'Intergroup Position', 'Intergroup Position Rotation',
     ];
 
+    private const CONTACT_HEADERS = [
+        'Member ID', 'Anonymous Name', 'Home Group', 'Personal Email',
+        'Mobile', 'Landline', 'Preferred Contact', 'GSR',
+        'Intergroup Position', 'Intergroup Position Rotation',
+    ];
+
     private const FULL_HEADERS = [
         'Member ID', 'Anonymous Name', 'Home Group', 'Personal Email',
         'Mobile', 'GSR', 'Intergroup Position', 'Intergroup Position Rotation',
@@ -142,6 +149,115 @@ class MemberImporterPersistTest extends TestCase
         ], self::FULL_HEADERS));
 
         $this->assertSame(1, $result->getCreated());
+    }
+
+    // ─── landline and preferred contact ─────────────────────────────
+
+    /**
+     * @test
+     */
+    public function a_landline_and_preference_reach_the_factory(): void
+    {
+        $this->memberRepo->shouldReceive('findAll')->andReturn([]);
+        $this->memberRepo->shouldReceive('save')->once()->andReturn(true);
+
+        $captured = [];
+        $this->memberFactory->shouldReceive('createNew')->andReturnUsing(
+            function (...$args) use (&$captured) {
+                $captured = $args;
+                return $this->member();
+            }
+        );
+
+        $result = $this->importer->import($this->writeCsv([
+            ['', 'New Member', '', 'new@example.com', '555', '0117 496 0000', 'Landline', 'no', '', ''],
+        ], self::CONTACT_HEADERS));
+
+        $this->assertSame(1, $result->getCreated());
+        $this->assertContains('0117 496 0000', $captured);
+        $this->assertContains(PreferredContact::Landline, $captured);
+    }
+
+    /**
+     * A typo is not an instruction. Anything the column does not recognise
+     * falls back to Mobile on a create, rather than guessing.
+     *
+     * @test
+     */
+    public function an_unrecognised_preference_falls_back_to_mobile(): void
+    {
+        $this->memberRepo->shouldReceive('findAll')->andReturn([]);
+        $this->memberRepo->shouldReceive('save')->once()->andReturn(true);
+
+        $captured = [];
+        $this->memberFactory->shouldReceive('createNew')->andReturnUsing(
+            function (...$args) use (&$captured) {
+                $captured = $args;
+                return $this->member();
+            }
+        );
+
+        $this->importer->import($this->writeCsv([
+            ['', 'New Member', '', 'new@example.com', '555', '0117 496 0000', 'Home Phone', 'no', '', ''],
+        ], self::CONTACT_HEADERS));
+
+        $this->assertContains(PreferredContact::Mobile, $captured);
+        $this->assertNotContains(PreferredContact::Landline, $captured);
+    }
+
+    /**
+     * Matching is case-insensitive: "landline" is plainly asking for the
+     * same thing as "Landline".
+     *
+     * @test
+     */
+    public function the_preference_column_is_case_insensitive(): void
+    {
+        $this->memberRepo->shouldReceive('findAll')->andReturn([]);
+        $this->memberRepo->shouldReceive('save')->once()->andReturn(true);
+
+        $captured = [];
+        $this->memberFactory->shouldReceive('createNew')->andReturnUsing(
+            function (...$args) use (&$captured) {
+                $captured = $args;
+                return $this->member();
+            }
+        );
+
+        $this->importer->import($this->writeCsv([
+            ['', 'New Member', '', 'new@example.com', '555', '0117 496 0000', ' landline ', 'no', '', ''],
+        ], self::CONTACT_HEADERS));
+
+        $this->assertContains(PreferredContact::Landline, $captured);
+    }
+
+    /**
+     * A spreadsheet written before these columns existed must not erase
+     * either field. On the create path that means the type defaults; the
+     * update path is covered in MemberImporterTest, where a revisor is
+     * wired and null means "carry over".
+     *
+     * @test
+     */
+    public function a_spreadsheet_without_the_columns_creates_with_the_defaults(): void
+    {
+        $this->memberRepo->shouldReceive('findAll')->andReturn([]);
+        $this->memberRepo->shouldReceive('save')->once()->andReturn(true);
+
+        $captured = [];
+        $this->memberFactory->shouldReceive('createNew')->andReturnUsing(
+            function (...$args) use (&$captured) {
+                $captured = $args;
+                return $this->member();
+            }
+        );
+
+        $this->importer->import($this->writeCsv([
+            ['', 'New Member', '', 'new@example.com', '555', 'no', '', ''],
+        ]));
+
+        $this->assertContains(PreferredContact::Mobile, $captured);
+        $this->assertNotContains(PreferredContact::Landline, $captured);
     }
 
     /**

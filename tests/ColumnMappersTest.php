@@ -71,10 +71,47 @@ class ColumnMappersTest extends TestCase
     /**
      * @test
      */
+    public function member_maps_the_landline_and_preferred_contact_columns(): void
+    {
+        $mapper = new MemberColumnMapper();
+
+        $mapping = $mapper->mapHeaders([
+            'Landline Number', 'landline', 'Preferred Contact', 'preferred_contact',
+        ]);
+
+        $this->assertSame('landline_number', $mapping[0]);
+        $this->assertSame('landline_number', $mapping[1]);
+        $this->assertSame('preferred_contact', $mapping[2]);
+        $this->assertSame('preferred_contact', $mapping[3]);
+    }
+
+    /**
+     * Both columns must stay optional. Requiring either would reject every
+     * spreadsheet written before they existed.
+     *
+     * @test
+     */
+    public function the_landline_and_preferred_contact_columns_are_not_required(): void
+    {
+        $mapper = new MemberColumnMapper();
+        $withoutThem = ['anonymous_name', 'home_group', 'personal_email', 'mobile_number', 'is_gsr', 'intergroup_position'];
+
+        $missing = $mapper->validateMapping($withoutThem);
+
+        $this->assertNotContains('landline_number', $missing);
+        $this->assertNotContains('preferred_contact', $missing);
+        $this->assertSame([], $missing);
+    }
+
+    /**
+     * @test
+     */
     public function member_exposes_labels_and_aliases(): void
     {
         $this->assertSame('Anonymous Name', MemberColumnMapper::getPropertyLabels()['anonymous_name']);
         $this->assertArrayHasKey('member_id', MemberColumnMapper::getAcceptedHeaders());
+        $this->assertSame('Landline', MemberColumnMapper::getPropertyLabels()['landline_number']);
+        $this->assertSame('Preferred Contact', MemberColumnMapper::getPropertyLabels()['preferred_contact']);
     }
 
     // ─── GroupColumnMapper ──────────────────────────────────────────
