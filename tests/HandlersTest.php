@@ -4,6 +4,9 @@ declare(strict_types=1);
 
 namespace Reconcile\Tests\Unit;
 
+use PHPUnit\Framework\Attributes\CoversClass;
+use PHPUnit\Framework\Attributes\DataProvider;
+use PHPUnit\Framework\Attributes\Test;
 use BleedingDeacons\WpMocks\Exceptions\JsonResponseException;
 use BleedingDeacons\WpMocks\Exceptions\WpDieException;
 use BleedingDeacons\WpMocks\TestCase;
@@ -29,14 +32,13 @@ use Reconcile\Position\PositionImportHandler;
  * The handlers' terminal WordPress calls (wp_send_json_*, wp_die) throw rather
  * than exiting — JsonResponseException and WpDieException from wp-mocks — so
  * each guard branch can be asserted on without taking the process down.
- *
- * @covers \Reconcile\Member\MemberImportHandler
- * @covers \Reconcile\Group\GroupImportHandler
- * @covers \Reconcile\Position\PositionImportHandler
- * @covers \Reconcile\Member\MemberExportHandler
- * @covers \Reconcile\Group\GroupExportHandler
- * @covers \Reconcile\Position\PositionExportHandler
  */
+#[CoversClass(\Reconcile\Member\MemberImportHandler::class)]
+#[CoversClass(\Reconcile\Group\GroupImportHandler::class)]
+#[CoversClass(\Reconcile\Position\PositionImportHandler::class)]
+#[CoversClass(\Reconcile\Member\MemberExportHandler::class)]
+#[CoversClass(\Reconcile\Group\GroupExportHandler::class)]
+#[CoversClass(\Reconcile\Position\PositionExportHandler::class)]
 class HandlersTest extends TestCase
 {
     protected function setUp(): void
@@ -108,11 +110,8 @@ class HandlersTest extends TestCase
     }
 
     // ─── import handler guards ──────────────────────────────────────
-
-    /**
-     * @test
-     * @dataProvider importHandlers
-     */
+    #[DataProvider('importHandlers')]
+    #[Test]
     public function import_denies_users_without_capability(object $handler): void
     {
         WpState::$userCan = false;
@@ -123,10 +122,8 @@ class HandlersTest extends TestCase
         $this->assertSame(403, $halt->statusCode);
     }
 
-    /**
-     * @test
-     * @dataProvider importHandlers
-     */
+    #[DataProvider('importHandlers')]
+    #[Test]
     public function import_rejects_a_bad_nonce(object $handler): void
     {
         // The provider runs this for all three handlers, each reading its own
@@ -140,10 +137,8 @@ class HandlersTest extends TestCase
         $this->assertSame(403, $halt->statusCode);
     }
 
-    /**
-     * @test
-     * @dataProvider importHandlers
-     */
+    #[DataProvider('importHandlers')]
+    #[Test]
     public function import_rejects_a_missing_file(object $handler): void
     {
         $_POST['reconcile_nonce'] = wp_create_nonce('reconcile_import');
@@ -154,10 +149,8 @@ class HandlersTest extends TestCase
         $this->assertSame(400, $halt->statusCode);
     }
 
-    /**
-     * @test
-     * @dataProvider importHandlers
-     */
+    #[DataProvider('importHandlers')]
+    #[Test]
     public function import_rejects_an_unsupported_extension(object $handler): void
     {
         $_POST['reconcile_nonce'] = wp_create_nonce('reconcile_import');
@@ -173,10 +166,8 @@ class HandlersTest extends TestCase
         $this->assertSame(400, $halt->statusCode);
     }
 
-    /**
-     * @test
-     * @dataProvider importHandlers
-     */
+    #[DataProvider('importHandlers')]
+    #[Test]
     public function import_rejects_a_file_that_was_not_actually_uploaded(object $handler): void
     {
         // A .csv extension gets past the extension check, but ImportTempDir
@@ -220,10 +211,8 @@ class HandlersTest extends TestCase
         ];
     }
 
-    /**
-     * @test
-     * @dataProvider importHappyCases
-     */
+    #[DataProvider('importHappyCases')]
+    #[Test]
     public function import_reports_success_for_a_clean_run(string $handlerClass, string $importerClass, string $nonceKey): void
     {
         $result = new OperationResult();
@@ -241,10 +230,8 @@ class HandlersTest extends TestCase
         $this->assertSame('json_success', $halt->kind);
     }
 
-    /**
-     * @test
-     * @dataProvider importHappyCases
-     */
+    #[DataProvider('importHappyCases')]
+    #[Test]
     public function import_reports_422_when_the_result_has_errors(string $handlerClass, string $importerClass, string $nonceKey): void
     {
         $result = new OperationResult();
@@ -262,10 +249,8 @@ class HandlersTest extends TestCase
         $this->assertSame(422, $halt->statusCode);
     }
 
-    /**
-     * @test
-     * @dataProvider importHappyCases
-     */
+    #[DataProvider('importHappyCases')]
+    #[Test]
     public function import_reports_500_when_the_importer_throws(string $handlerClass, string $importerClass, string $nonceKey): void
     {
         $importer = Mockery::mock($importerClass);
@@ -280,10 +265,8 @@ class HandlersTest extends TestCase
         $this->assertSame(500, $halt->statusCode);
     }
 
-    /**
-     * @test
-     * @dataProvider importHappyCases
-     */
+    #[DataProvider('importHappyCases')]
+    #[Test]
     public function import_logs_result_warnings_and_still_succeeds(string $handlerClass, string $importerClass, string $nonceKey): void
     {
         $result = new OperationResult();
@@ -332,10 +315,8 @@ class HandlersTest extends TestCase
         return $cases;
     }
 
-    /**
-     * @test
-     * @dataProvider uploadErrorMessages
-     */
+    #[DataProvider('uploadErrorMessages')]
+    #[Test]
     public function import_reports_the_specific_upload_error_message(object $handler, int $code, string $fragment): void
     {
         // A non-OK upload error code is mapped to a human message before the
@@ -373,10 +354,8 @@ class HandlersTest extends TestCase
         ];
     }
 
-    /**
-     * @test
-     * @dataProvider exportHandlers
-     */
+    #[DataProvider('exportHandlers')]
+    #[Test]
     public function export_denies_users_without_capability(object $handler, string $nonceAction): void
     {
         WpState::$userCan = false;
@@ -388,10 +367,8 @@ class HandlersTest extends TestCase
         $this->assertSame(403, $halt->statusCode);
     }
 
-    /**
-     * @test
-     * @dataProvider exportHandlers
-     */
+    #[DataProvider('exportHandlers')]
+    #[Test]
     public function export_rejects_a_bad_nonce(object $handler, string $nonceAction): void
     {
         $_GET['_wpnonce'] = 'not-the-right-nonce';
@@ -402,10 +379,8 @@ class HandlersTest extends TestCase
         $this->assertSame(403, $halt->statusCode);
     }
 
-    /**
-     * @test
-     * @dataProvider exportHandlers
-     */
+    #[DataProvider('exportHandlers')]
+    #[Test]
     public function export_wp_dies_when_the_exporter_throws(object $handler, string $nonceAction): void
     {
         // Nonce/permission pass; the exporter was built with null repositories

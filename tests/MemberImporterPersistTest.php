@@ -4,10 +4,11 @@ declare(strict_types=1);
 
 namespace Reconcile\Tests\Unit;
 
+use PHPUnit\Framework\Attributes\CoversClass;
+use PHPUnit\Framework\Attributes\Test;
+use function Brain\Monkey\Functions\when;
 use Mockery;
 use BleedingDeacons\WpMocks\TestCase;
-use BleedingDeacons\WpMocks\WpState;
-use Brain\Monkey\Functions;
 use Reconcile\Group\GroupLookup;
 use Reconcile\Member\MemberImporter;
 use Reconcile\Position\PositionLookup;
@@ -21,9 +22,8 @@ use Unity\Members\PreferredContact;
  * Exercises MemberImporter's real (non-dry-run) persist path: create, update
  * and save-failure. The dry-run and validation branches are covered by
  * MemberImporterTest.
- *
- * @covers \Reconcile\Member\MemberImporter
  */
+#[CoversClass(\Reconcile\Member\MemberImporter::class)]
 class MemberImporterPersistTest extends TestCase
 {
     /** @var MemberRepository&Mockery\MockInterface */
@@ -115,9 +115,7 @@ class MemberImporterPersistTest extends TestCase
         return Mockery::mock(Member::class)->shouldIgnoreMissing();
     }
 
-    /**
-     * @test
-     */
+    #[Test]
     public function creates_a_new_member_when_the_name_is_unknown(): void
     {
         // No Member ID, name not found → create path.
@@ -133,9 +131,7 @@ class MemberImporterPersistTest extends TestCase
         $this->assertSame(0, $result->getSkipped());
     }
 
-    /**
-     * @test
-     */
+    #[Test]
     public function creates_a_member_with_twelfth_stepper_area_and_accepts(): void
     {
         // Exercises the optional-column parsing (12th-stepper flag, area text,
@@ -152,10 +148,7 @@ class MemberImporterPersistTest extends TestCase
     }
 
     // ─── landline and preferred contact ─────────────────────────────
-
-    /**
-     * @test
-     */
+    #[Test]
     public function a_landline_and_preference_reach_the_factory(): void
     {
         $this->memberRepo->shouldReceive('findAll')->andReturn([]);
@@ -181,9 +174,8 @@ class MemberImporterPersistTest extends TestCase
     /**
      * A typo is not an instruction. Anything the column does not recognise
      * falls back to Mobile on a create, rather than guessing.
-     *
-     * @test
      */
+    #[Test]
     public function an_unrecognised_preference_falls_back_to_mobile(): void
     {
         $this->memberRepo->shouldReceive('findAll')->andReturn([]);
@@ -208,9 +200,8 @@ class MemberImporterPersistTest extends TestCase
     /**
      * Matching is case-insensitive: "landline" is plainly asking for the
      * same thing as "Landline".
-     *
-     * @test
      */
+    #[Test]
     public function the_preference_column_is_case_insensitive(): void
     {
         $this->memberRepo->shouldReceive('findAll')->andReturn([]);
@@ -236,9 +227,8 @@ class MemberImporterPersistTest extends TestCase
      * either field. On the create path that means the type defaults; the
      * update path is covered in MemberImporterTest, where a revisor is
      * wired and null means "carry over".
-     *
-     * @test
      */
+    #[Test]
     public function a_spreadsheet_without_the_columns_creates_with_the_defaults(): void
     {
         $this->memberRepo->shouldReceive('findAll')->andReturn([]);
@@ -260,9 +250,7 @@ class MemberImporterPersistTest extends TestCase
         $this->assertNotContains(PreferredContact::Landline, $captured);
     }
 
-    /**
-     * @test
-     */
+    #[Test]
     public function updates_a_member_found_by_id(): void
     {
         $this->memberRepo->shouldReceive('findById')->with(42)->andReturn($this->member());
@@ -276,9 +264,7 @@ class MemberImporterPersistTest extends TestCase
         $this->assertSame(1, $result->getUpdated());
     }
 
-    /**
-     * @test
-     */
+    #[Test]
     public function a_member_id_that_does_not_exist_is_skipped(): void
     {
         $this->memberRepo->shouldReceive('findById')->with(99)->andReturn(null);
@@ -290,9 +276,7 @@ class MemberImporterPersistTest extends TestCase
         $this->assertSame(1, $result->getSkipped());
     }
 
-    /**
-     * @test
-     */
+    #[Test]
     public function a_non_numeric_member_id_is_skipped(): void
     {
         $result = $this->importer->import($this->writeCsv([
@@ -302,9 +286,7 @@ class MemberImporterPersistTest extends TestCase
         $this->assertSame(1, $result->getSkipped());
     }
 
-    /**
-     * @test
-     */
+    #[Test]
     public function creates_a_member_with_a_resolved_position_and_rotation(): void
     {
         // A position name that resolves plus a valid rotation exercises the
@@ -321,9 +303,7 @@ class MemberImporterPersistTest extends TestCase
         $this->assertSame(1, $result->getCreated());
     }
 
-    /**
-     * @test
-     */
+    #[Test]
     public function a_position_without_a_rotation_is_skipped(): void
     {
         // A resolved position with no rotation date is a validation failure.
@@ -339,9 +319,7 @@ class MemberImporterPersistTest extends TestCase
         $this->assertSame(0, $result->getCreated());
     }
 
-    /**
-     * @test
-     */
+    #[Test]
     public function a_save_failure_on_create_is_skipped(): void
     {
         $this->memberRepo->shouldReceive('findAll')->andReturn([]);
@@ -356,13 +334,11 @@ class MemberImporterPersistTest extends TestCase
         $this->assertSame(1, $result->getSkipped());
     }
 
-    /**
-     * @test
-     */
+    #[Test]
     public function a_failed_post_insert_on_create_is_skipped(): void
     {
         // wp_insert_post returns 0 → the member post could not be created.
-        Functions\when('wp_insert_post')->justReturn(0);
+        when('wp_insert_post')->justReturn(0);
         $this->memberRepo->shouldReceive('findAll')->andReturn([]);
 
         $result = $this->importer->import($this->writeCsv([

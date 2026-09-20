@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace Reconcile\Tests\Unit;
 
+use PHPUnit\Framework\Attributes\CoversClass;
+use PHPUnit\Framework\Attributes\Test;
 use Mockery;
 use BleedingDeacons\WpMocks\TestCase;
 use Reconcile\Group\GroupExporter;
@@ -20,11 +22,10 @@ use Unity\Positions\Interfaces\PositionRepository;
 
 /**
  * Tests for the three CSV exporters.
- *
- * @covers \Reconcile\Member\MemberExporter
- * @covers \Reconcile\Group\GroupExporter
- * @covers \Reconcile\Position\PositionExporter
  */
+#[CoversClass(\Reconcile\Member\MemberExporter::class)]
+#[CoversClass(\Reconcile\Group\GroupExporter::class)]
+#[CoversClass(\Reconcile\Position\PositionExporter::class)]
 class ExportersTest extends TestCase
 {
     protected function tearDown(): void
@@ -34,10 +35,7 @@ class ExportersTest extends TestCase
     }
 
     // ─── MemberExporter ─────────────────────────────────────────────
-
-    /**
-     * @test
-     */
+    #[Test]
     public function member_export_writes_a_header_and_resolves_related_names(): void
     {
         $member = Mockery::mock(Member::class);
@@ -89,9 +87,7 @@ class ExportersTest extends TestCase
         $this->assertStringContainsString('Yes', $csv);
     }
 
-    /**
-     * @test
-     */
+    #[Test]
     public function member_export_sanitises_formula_injection_and_passes_unknown_accepts_through(): void
     {
         $member = Mockery::mock(Member::class);
@@ -121,9 +117,7 @@ class ExportersTest extends TestCase
         $this->assertStringContainsString('accepts-mystery', $csv);
     }
 
-    /**
-     * @test
-     */
+    #[Test]
     public function member_export_throws_without_a_repository(): void
     {
         $this->expectException(\RuntimeException::class);
@@ -131,10 +125,7 @@ class ExportersTest extends TestCase
     }
 
     // ─── GroupExporter ──────────────────────────────────────────────
-
-    /**
-     * @test
-     */
+    #[Test]
     public function group_export_writes_contacts(): void
     {
         $contact = Mockery::mock(Contact::class);
@@ -158,9 +149,7 @@ class ExportersTest extends TestCase
         $this->assertStringContainsString('Alice', $csv);
     }
 
-    /**
-     * @test
-     */
+    #[Test]
     public function group_export_throws_without_a_repository(): void
     {
         $this->expectException(\RuntimeException::class);
@@ -168,10 +157,7 @@ class ExportersTest extends TestCase
     }
 
     // ─── PositionExporter ───────────────────────────────────────────
-
-    /**
-     * @test
-     */
+    #[Test]
     public function position_export_writes_position_rows(): void
     {
         $position = Mockery::mock(Position::class);
@@ -193,9 +179,7 @@ class ExportersTest extends TestCase
         $this->assertStringContainsString('Runs intergroup', $csv);
     }
 
-    /**
-     * @test
-     */
+    #[Test]
     public function position_export_throws_without_a_repository(): void
     {
         $this->expectException(\RuntimeException::class);

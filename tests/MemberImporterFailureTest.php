@@ -4,10 +4,11 @@ declare(strict_types=1);
 
 namespace Reconcile\Tests\Unit;
 
+use PHPUnit\Framework\Attributes\CoversClass;
+use PHPUnit\Framework\Attributes\Test;
+use function Brain\Monkey\Functions\when;
 use Mockery;
 use BleedingDeacons\WpMocks\TestCase;
-use BleedingDeacons\WpMocks\WpState;
-use Brain\Monkey\Functions;
 use Reconcile\Group\GroupLookup;
 use Reconcile\Member\MemberImporter;
 use Reconcile\Position\PositionLookup;
@@ -16,15 +17,13 @@ use Unity\Members\Interfaces\Member;
 use Unity\Members\Interfaces\MemberFactory;
 use Unity\Members\Interfaces\MemberRepository;
 use Unity\Members\Interfaces\MemberRevisor;
-use Unity\Members\PreferredContact;
 
 /**
  * MemberImporter persist-path failure and revise() branches: an update whose
  * save fails, a save that throws, and the MemberRevisor path used when an
  * existing member is updated through a bound revisor.
- *
- * @covers \Reconcile\Member\MemberImporter
  */
+#[CoversClass(\Reconcile\Member\MemberImporter::class)]
 class MemberImporterFailureTest extends TestCase
 {
     /** @var MemberRepository&Mockery\MockInterface */
@@ -105,7 +104,7 @@ class MemberImporterFailureTest extends TestCase
         return $path;
     }
 
-    /** @test */
+    #[Test]
     public function an_update_whose_save_returns_false_is_skipped(): void
     {
         $this->memberRepo->shouldReceive('findById')->with(42)->andReturn($this->member());
@@ -120,7 +119,7 @@ class MemberImporterFailureTest extends TestCase
         $this->assertSame(1, $result->getSkipped());
     }
 
-    /** @test */
+    #[Test]
     public function a_save_that_throws_is_captured_as_a_skip(): void
     {
         $this->memberRepo->shouldReceive('findAll')->andReturn([]);
@@ -139,10 +138,10 @@ class MemberImporterFailureTest extends TestCase
     {
     }
 
-    /** @test */
+    #[Test]
     public function a_wp_error_from_post_insert_on_create_is_skipped(): void
     {
-        Functions\when('wp_insert_post')->justReturn(new \WP_Error('insert_failed', 'post insert refused'));
+        when('wp_insert_post')->justReturn(new \WP_Error('insert_failed', 'post insert refused'));
         $this->memberRepo->shouldReceive('findAll')->andReturn([]);
 
         $result = $this->importer()->import($this->writeCsv([
@@ -154,7 +153,7 @@ class MemberImporterFailureTest extends TestCase
         $this->clearInsertGlobals();
     }
 
-    /** @test */
+    #[Test]
     public function a_save_that_emits_a_php_warning_records_the_captured_text(): void
     {
         $this->memberRepo->shouldReceive('findAll')->andReturn([]);
@@ -173,7 +172,7 @@ class MemberImporterFailureTest extends TestCase
         $this->assertSame(1, $result->getSkipped());
     }
 
-    /** @test */
+    #[Test]
     public function a_name_lookup_swallows_a_repository_exception(): void
     {
         // findAll() throwing during the name-based existence check must degrade
@@ -189,7 +188,7 @@ class MemberImporterFailureTest extends TestCase
         $this->assertSame(1, $result->getCreated());
     }
 
-    /** @test */
+    #[Test]
     public function an_id_lookup_swallows_a_repository_exception_and_skips(): void
     {
         // findById() throwing is caught and returns null, so the row is treated
@@ -203,7 +202,7 @@ class MemberImporterFailureTest extends TestCase
         $this->assertSame(1, $result->getSkipped());
     }
 
-    /** @test */
+    #[Test]
     public function an_impossible_rotation_date_is_skipped(): void
     {
         // 31 February is not a real date; checkdate() rejects it, so the
@@ -219,7 +218,7 @@ class MemberImporterFailureTest extends TestCase
         $this->assertSame(1, $result->getSkipped());
     }
 
-    /** @test */
+    #[Test]
     public function a_two_digit_year_rotation_date_is_accepted(): void
     {
         // dd/MM/yy is one of the accepted rotation formats.
@@ -235,7 +234,7 @@ class MemberImporterFailureTest extends TestCase
         $this->assertSame(1, $result->getCreated());
     }
 
-    /** @test */
+    #[Test]
     public function an_update_goes_through_the_revisor_when_one_is_bound(): void
     {
         $existing = $this->member();
@@ -266,9 +265,8 @@ class MemberImporterFailureTest extends TestCase
      * member's landline on the next re-import — the same class of bug that
      * cost the GDPR consent records. Blank means "leave it alone", so
      * revise() is handed null for both.
-     *
-     * @test
      */
+    #[Test]
     public function a_spreadsheet_without_the_contact_columns_leaves_both_fields_alone(): void
     {
         $existing = $this->member();

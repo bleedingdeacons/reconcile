@@ -4,9 +4,12 @@ declare(strict_types=1);
 
 namespace Reconcile\Tests\Unit;
 
+use PHPUnit\Framework\Attributes\CoversClass;
+use PHPUnit\Framework\Attributes\Test;
+use PHPUnit\Framework\Attributes\DataProvider;
+use function Brain\Monkey\Functions\when;
 use BleedingDeacons\WpMocks\TestCase;
 use BleedingDeacons\WpMocks\WpState;
-use Brain\Monkey\Functions;
 use Reconcile\Admin\PositionsAdmin;
 use Reconcile\Position\PositionColumnMapper;
 
@@ -18,9 +21,8 @@ use Reconcile\Position\PositionColumnMapper;
  * from the other two in one respect worth pinning down: it is the only import
  * that will *create* a record when the name matches nothing, so the screen has
  * to say so before anyone uploads a file.
- *
- * @covers \Reconcile\Admin\PositionsAdmin
  */
+#[CoversClass(\Reconcile\Admin\PositionsAdmin::class)]
 class PositionsAdminTest extends TestCase
 {
     /** The admin_enqueue_scripts suffix WordPress gives this screen. */
@@ -36,15 +38,14 @@ class PositionsAdminTest extends TestCase
 
         // wp_nonce_url() is the one WordPress function these screens call that
         // wp-mocks does not stub. See GroupsAdminTest for the reasoning.
-        Functions\when('wp_nonce_url')->alias(
+        when('wp_nonce_url')->alias(
             static fn(string $url, string $action = '-1', string $name = '_wpnonce'): string
                 => $url . '&' . $name . '=' . wp_create_nonce($action)
         );
     }
 
     // --- registration -----------------------------------------------------
-
-    /** @test */
+    #[Test]
     public function register_hooks_asset_enqueuing(): void
     {
         $this->admin->register();
@@ -56,7 +57,7 @@ class PositionsAdminTest extends TestCase
         );
     }
 
-    /** @test */
+    #[Test]
     public function enqueue_assets_registers_the_screen_style_and_script(): void
     {
         $this->admin->enqueueAssets(self::HOOK_SUFFIX);
@@ -70,7 +71,7 @@ class PositionsAdminTest extends TestCase
         );
     }
 
-    /** @test */
+    #[Test]
     public function enqueue_assets_localises_the_ajax_endpoint_and_nonce(): void
     {
         $this->admin->enqueueAssets(self::HOOK_SUFFIX);
@@ -84,10 +85,8 @@ class PositionsAdminTest extends TestCase
         );
     }
 
-    /**
-     * @test
-     * @dataProvider otherScreenProvider
-     */
+    #[DataProvider('otherScreenProvider')]
+    #[Test]
     public function enqueue_assets_does_nothing_on_any_other_screen(string $hookSuffix): void
     {
         $this->admin->enqueueAssets($hookSuffix);
@@ -109,8 +108,7 @@ class PositionsAdminTest extends TestCase
     }
 
     // --- rendering --------------------------------------------------------
-
-    /** @test */
+    #[Test]
     public function render_page_heads_the_screen_and_both_cards(): void
     {
         $html = $this->render();
@@ -120,7 +118,7 @@ class PositionsAdminTest extends TestCase
         $this->assertStringContainsString('Export Positions to CSV', $html);
     }
 
-    /** @test */
+    #[Test]
     public function render_page_gives_every_accepted_header_a_row_of_its_own(): void
     {
         $html = $this->render();
@@ -131,7 +129,7 @@ class PositionsAdminTest extends TestCase
         $this->assertSame(count($properties) + 1, substr_count($html, '<tr>'));
     }
 
-    /** @test */
+    #[Test]
     public function render_page_documents_every_property_label_and_alias(): void
     {
         $html = $this->render();
@@ -155,9 +153,8 @@ class PositionsAdminTest extends TestCase
     /**
      * Every position property carries a note, so the placeholder branch never
      * runs here — as on the group screen, and unlike the member one.
-     *
-     * @test
      */
+    #[Test]
     public function render_page_notes_every_property_so_no_placeholder_is_shown(): void
     {
         $html = $this->render();
@@ -169,9 +166,8 @@ class PositionsAdminTest extends TestCase
      * Positions are the only import that creates records, so the screen says
      * so twice: once in the card's description and once against the name
      * column.
-     *
-     * @test
      */
+    #[Test]
     public function render_page_warns_that_an_unmatched_name_creates_a_position(): void
     {
         $html = $this->render();
@@ -180,7 +176,7 @@ class PositionsAdminTest extends TestCase
         $this->assertStringContainsString('If no existing position matches the name, a new position is created', $html);
     }
 
-    /** @test */
+    #[Test]
     public function render_page_emits_the_upload_form_with_its_nonce(): void
     {
         $html = $this->render();
@@ -198,7 +194,7 @@ class PositionsAdminTest extends TestCase
         $this->assertStringContainsString('accept=".csv,.xlsx"', $html);
     }
 
-    /** @test */
+    #[Test]
     public function render_page_defaults_the_import_to_a_dry_run(): void
     {
         $html = $this->render();
@@ -209,7 +205,7 @@ class PositionsAdminTest extends TestCase
         );
     }
 
-    /** @test */
+    #[Test]
     public function render_page_links_the_export_endpoint_with_a_nonce(): void
     {
         $html = $this->render();

@@ -4,10 +4,11 @@ declare(strict_types=1);
 
 namespace Reconcile\Tests\Unit;
 
+use PHPUnit\Framework\Attributes\CoversClass;
+use PHPUnit\Framework\Attributes\Test;
+use function Brain\Monkey\Functions\when;
 use Mockery;
 use BleedingDeacons\WpMocks\TestCase;
-use BleedingDeacons\WpMocks\WpState;
-use Brain\Monkey\Functions;
 use Reconcile\Group\GroupImporter;
 use Unity\Contacts\Interfaces\ContactFactory;
 use Unity\Groups\Interfaces\Group;
@@ -19,9 +20,8 @@ use Unity\Groups\Interfaces\GroupRepository;
  * post insert/update returning a WP_Error. GroupImporter persists through
  * wp_insert_post/wp_update_post directly (rather than a repository), so the
  * error stubs are driven via the bootstrap globals.
- *
- * @covers \Reconcile\Group\GroupImporter
  */
+#[CoversClass(\Reconcile\Group\GroupImporter::class)]
 class GroupImporterFailureTest extends TestCase
 {
     /** @var GroupRepository&Mockery\MockInterface */
@@ -81,7 +81,7 @@ class GroupImporterFailureTest extends TestCase
 
     private const CREATE_ROW = ['', 'New Group', 'g@example.com', 'Sam', 's@example.com', '555'];
 
-    /** @test */
+    #[Test]
     public function an_unreadable_file_is_reported_as_an_error(): void
     {
         $result = $this->importer()->import(sys_get_temp_dir() . '/missing-' . uniqid() . '.csv');
@@ -90,10 +90,10 @@ class GroupImporterFailureTest extends TestCase
         $this->assertSame(0, $result->getCreated());
     }
 
-    /** @test */
+    #[Test]
     public function a_wp_error_from_post_insert_is_skipped(): void
     {
-        Functions\when('wp_insert_post')->justReturn(new \WP_Error('insert_failed', 'insert refused'));
+        when('wp_insert_post')->justReturn(new \WP_Error('insert_failed', 'insert refused'));
         $this->factory->shouldReceive('createNew')->andReturn($this->group(0))->byDefault();
 
         $result = $this->importer()->import($this->writeCsv([self::CREATE_ROW]));
@@ -102,10 +102,10 @@ class GroupImporterFailureTest extends TestCase
         $this->assertSame(1, $result->getSkipped());
     }
 
-    /** @test */
+    #[Test]
     public function a_post_insert_returning_zero_is_skipped(): void
     {
-        Functions\when('wp_insert_post')->justReturn(0);
+        when('wp_insert_post')->justReturn(0);
         $this->factory->shouldReceive('createNew')->andReturn($this->group(0))->byDefault();
 
         $result = $this->importer()->import($this->writeCsv([self::CREATE_ROW]));
@@ -114,7 +114,7 @@ class GroupImporterFailureTest extends TestCase
         $this->assertSame(1, $result->getSkipped());
     }
 
-    /** @test */
+    #[Test]
     public function an_id_lookup_swallows_a_repository_exception_and_skips(): void
     {
         // findById() throwing is caught and returns null, so the ID row is
@@ -128,10 +128,10 @@ class GroupImporterFailureTest extends TestCase
         $this->assertSame(1, $result->getSkipped());
     }
 
-    /** @test */
+    #[Test]
     public function a_wp_error_from_post_update_is_skipped(): void
     {
-        Functions\when('wp_update_post')->justReturn(new \WP_Error('update_failed', 'update refused'));
+        when('wp_update_post')->justReturn(new \WP_Error('update_failed', 'update refused'));
         $this->repo->shouldReceive('findById')->with(5)->andReturn($this->group(5));
         $this->factory->shouldReceive('createNew')->andReturn($this->group(5))->byDefault();
 
@@ -143,10 +143,10 @@ class GroupImporterFailureTest extends TestCase
         $this->assertSame(1, $result->getSkipped());
     }
 
-    /** @test */
+    #[Test]
     public function a_meta_write_that_throws_on_create_is_skipped(): void
     {
-        Functions\when('update_post_meta')->alias(static function (): bool {
+        when('update_post_meta')->alias(static function (): bool {
             throw new \RuntimeException('meta write failed');
         });
         $this->factory->shouldReceive('createNew')->andReturn($this->group(0))->byDefault();
@@ -157,10 +157,10 @@ class GroupImporterFailureTest extends TestCase
         $this->assertSame(1, $result->getSkipped());
     }
 
-    /** @test */
+    #[Test]
     public function a_meta_write_that_throws_on_update_is_skipped(): void
     {
-        Functions\when('update_post_meta')->alias(static function (): bool {
+        when('update_post_meta')->alias(static function (): bool {
             throw new \RuntimeException('meta write failed');
         });
         $this->repo->shouldReceive('findById')->with(5)->andReturn($this->group(5));
@@ -174,12 +174,12 @@ class GroupImporterFailureTest extends TestCase
         $this->assertSame(1, $result->getSkipped());
     }
 
-    /** @test */
+    #[Test]
     public function a_meta_write_warning_is_captured_on_create(): void
     {
         // A PHP warning during the meta write is captured by the save wrapper's
         // error handler; the save still succeeds.
-        Functions\when('update_post_meta')->alias(static function (): bool {
+        when('update_post_meta')->alias(static function (): bool {
             trigger_error('meta write warning', E_USER_WARNING);
 
             return true;
@@ -191,10 +191,10 @@ class GroupImporterFailureTest extends TestCase
         $this->assertSame(1, $result->getCreated());
     }
 
-    /** @test */
+    #[Test]
     public function a_meta_write_warning_is_captured_on_update(): void
     {
-        Functions\when('update_post_meta')->alias(static function (): bool {
+        when('update_post_meta')->alias(static function (): bool {
             trigger_error('meta write warning', E_USER_WARNING);
 
             return true;

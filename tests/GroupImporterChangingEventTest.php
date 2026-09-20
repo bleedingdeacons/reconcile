@@ -4,11 +4,12 @@ declare(strict_types=1);
 
 namespace Reconcile\Tests\Unit\Import;
 
+use PHPUnit\Framework\Attributes\CoversClass;
+use PHPUnit\Framework\Attributes\Test;
+use function Brain\Monkey\Actions\expectDone;
 use Mockery;
 use BleedingDeacons\WpMocks\TestCase;
 use BleedingDeacons\WpMocks\WpState;
-use Brain\Monkey\Actions;
-use Brain\Monkey\Functions;
 use Reconcile\Group\GroupImporter;
 use Unity\Contacts\Interfaces\Contact;
 use Unity\Contacts\Interfaces\ContactFactory;
@@ -28,9 +29,8 @@ use Unity\Groups\Interfaces\GroupRepository;
  * stub at the bottom of this file (under `namespace { ... }`) is loaded
  * once on first test run and captures unity/group_changing dispatches
  * into the static $dispatchedGroupChangingEvents array.
- *
- * @covers \Reconcile\Group\GroupImporter
  */
+#[CoversClass(\Reconcile\Group\GroupImporter::class)]
 class GroupImporterChangingEventTest extends TestCase
 {
     /**
@@ -61,7 +61,7 @@ class GroupImporterChangingEventTest extends TestCase
         // friends); this watches only the one under test, and lets any number
         // of calls through so the "no event" cases are assertions about an
         // empty capture rather than an unmet expectation.
-        Actions\expectDone('unity/group_changing')
+        expectDone('unity/group_changing')
             ->zeroOrMoreTimes()
             ->whenHappen(static function (mixed $updated = null, mixed $original = null): void {
                 self::$dispatchedGroupChangingEvents[] = [$updated, $original];
@@ -84,9 +84,7 @@ class GroupImporterChangingEventTest extends TestCase
             ->byDefault();
     }
 
-    /**
-     * @test
-     */
+    #[Test]
     public function update_dispatches_group_changing_with_pre_and_post_write_state(): void
     {
         $postId = 7100;
@@ -124,9 +122,7 @@ class GroupImporterChangingEventTest extends TestCase
         $this->assertSame($existing, $dispatchedOriginal, 'Second arg is the pre-write snapshot.');
     }
 
-    /**
-     * @test
-     */
+    #[Test]
     public function dry_run_does_not_dispatch_group_changing(): void
     {
         $postId = 7200;
@@ -151,9 +147,7 @@ class GroupImporterChangingEventTest extends TestCase
         $this->assertSame([], self::$dispatchedGroupChangingEvents, 'No event on dry runs.');
     }
 
-    /**
-     * @test
-     */
+    #[Test]
     public function create_path_does_not_dispatch_group_changing(): void
     {
         // Group ID column omitted entirely — the importer takes the

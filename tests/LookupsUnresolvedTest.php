@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace Reconcile\Tests\Unit;
 
+use PHPUnit\Framework\Attributes\CoversClass;
+use PHPUnit\Framework\Attributes\Test;
 use Mockery;
 use BleedingDeacons\WpMocks\TestCase;
 use Reconcile\Group\GroupLookup;
@@ -15,13 +17,12 @@ use Unity\Positions\Interfaces\PositionRepository;
  * The name → ID lookups' unresolved-name bookkeeping: a name that isn't in the
  * cache resolves to 0, is recorded for reporting, and the record can be reset.
  * A blank name short-circuits to 0 without touching the cache.
- *
- * @covers \Reconcile\Position\PositionLookup
- * @covers \Reconcile\Group\GroupLookup
  */
+#[CoversClass(\Reconcile\Position\PositionLookup::class)]
+#[CoversClass(\Reconcile\Group\GroupLookup::class)]
 class LookupsUnresolvedTest extends TestCase
 {
-    /** @test */
+    #[Test]
     public function position_lookup_records_and_resets_unresolved_names(): void
     {
         $repo = Mockery::mock(PositionRepository::class);
@@ -36,7 +37,7 @@ class LookupsUnresolvedTest extends TestCase
         $this->assertSame([], $lookup->getUnresolvedNames());
     }
 
-    /** @test */
+    #[Test]
     public function group_lookup_records_and_resets_unresolved_names(): void
     {
         $repo = Mockery::mock(GroupRepository::class);

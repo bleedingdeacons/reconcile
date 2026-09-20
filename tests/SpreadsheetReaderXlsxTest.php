@@ -4,6 +4,9 @@ declare(strict_types=1);
 
 namespace Reconcile\Tests\Unit;
 
+use PHPUnit\Framework\Attributes\CoversClass;
+use PHPUnit\Framework\Attributes\RequiresPhpExtension;
+use PHPUnit\Framework\Attributes\Test;
 use BleedingDeacons\WpMocks\TestCase;
 use Reconcile\Core\SpreadsheetReader;
 use RuntimeException;
@@ -12,10 +15,9 @@ use RuntimeException;
  * Tests for SpreadsheetReader's XLSX path (the CSV path is covered by
  * SpreadsheetReaderTest). A minimal .xlsx is assembled with ZipArchive so no
  * fixture files or PhpSpreadsheet are required.
- *
- * @covers \Reconcile\Core\SpreadsheetReader
- * @requires extension zip
  */
+#[CoversClass(\Reconcile\Core\SpreadsheetReader::class)]
+#[RequiresPhpExtension('zip')]
 class SpreadsheetReaderXlsxTest extends TestCase
 {
     /** @var string[] */
@@ -81,9 +83,7 @@ class SpreadsheetReaderXlsxTest extends TestCase
             . $rows . '</sheetData></worksheet>';
     }
 
-    /**
-     * @test
-     */
+    #[Test]
     public function it_reads_shared_string_cells(): void
     {
         $path = $this->writeXlsx(
@@ -100,9 +100,7 @@ class SpreadsheetReaderXlsxTest extends TestCase
         $this->assertSame([['Alice', 'alice@example.com']], $data['rows']);
     }
 
-    /**
-     * @test
-     */
+    #[Test]
     public function it_reads_inline_strings_and_fills_sparse_columns(): void
     {
         // Row 2 omits column A, so a value in column B must land in index 1.
@@ -122,9 +120,7 @@ class SpreadsheetReaderXlsxTest extends TestCase
         $this->assertSame([['', 'only B']], $data['rows']);
     }
 
-    /**
-     * @test
-     */
+    #[Test]
     public function it_concatenates_rich_text_shared_strings(): void
     {
         $sst = '<?xml version="1.0"?><sst xmlns="' . self::NS . '">'
@@ -146,9 +142,7 @@ class SpreadsheetReaderXlsxTest extends TestCase
         $this->assertSame(['RichText', 'Plain'], $data['headers']);
     }
 
-    /**
-     * @test
-     */
+    #[Test]
     public function an_empty_worksheet_is_an_error(): void
     {
         $path = $this->writeXlsx(null, $this->sheet(''));
@@ -158,9 +152,7 @@ class SpreadsheetReaderXlsxTest extends TestCase
         $this->reader->read($path);
     }
 
-    /**
-     * @test
-     */
+    #[Test]
     public function a_missing_worksheet_is_an_error(): void
     {
         // sharedStrings present but no sheet1.xml.
@@ -170,9 +162,7 @@ class SpreadsheetReaderXlsxTest extends TestCase
         $this->reader->read($path);
     }
 
-    /**
-     * @test
-     */
+    #[Test]
     public function an_unreadable_file_is_an_error(): void
     {
         $this->expectException(RuntimeException::class);

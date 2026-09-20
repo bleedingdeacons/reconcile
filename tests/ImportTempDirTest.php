@@ -4,6 +4,9 @@ declare(strict_types=1);
 
 namespace Reconcile\Tests\Unit;
 
+use PHPUnit\Framework\Attributes\CoversClass;
+use PHPUnit\Framework\Attributes\Test;
+use PHPUnit\Framework\Attributes\RequiresPhpExtension;
 use BleedingDeacons\WpMocks\TestCase;
 use Reconcile\Core\ImportTempDir;
 use RuntimeException;
@@ -14,9 +17,8 @@ use RuntimeException;
  * The upload builtins are overridden in the Reconcile\Core namespace (see
  * tests/CoreFunctionOverrides.php) so the accept() path runs against ordinary
  * temp files.
- *
- * @covers \Reconcile\Core\ImportTempDir
  */
+#[CoversClass(\Reconcile\Core\ImportTempDir::class)]
 class ImportTempDirTest extends TestCase
 {
     /** @var string[] Paths to clean up after each test. */
@@ -42,9 +44,7 @@ class ImportTempDirTest extends TestCase
         return $path;
     }
 
-    /**
-     * @test
-     */
+    #[Test]
     public function path_returns_a_writable_directory(): void
     {
         $dir = ImportTempDir::path();
@@ -53,9 +53,7 @@ class ImportTempDirTest extends TestCase
         $this->assertDirectoryIsWritable($dir);
     }
 
-    /**
-     * @test
-     */
+    #[Test]
     public function accept_moves_a_valid_csv_upload(): void
     {
         $source = $this->tempFile('csv', "a,b,c\n1,2,3\n");
@@ -76,18 +74,14 @@ class ImportTempDirTest extends TestCase
         $this->assertFileDoesNotExist($target);
     }
 
-    /**
-     * @test
-     */
+    #[Test]
     public function accept_rejects_an_empty_tmp_name(): void
     {
         $this->expectException(RuntimeException::class);
         ImportTempDir::accept(['name' => 'x.csv', 'tmp_name' => '']);
     }
 
-    /**
-     * @test
-     */
+    #[Test]
     public function accept_rejects_a_file_that_was_not_uploaded(): void
     {
         $GLOBALS['__reconcile_test_is_uploaded'] = false;
@@ -97,9 +91,7 @@ class ImportTempDirTest extends TestCase
         ImportTempDir::accept(['name' => 'x.csv', 'tmp_name' => $source, 'size' => 10]);
     }
 
-    /**
-     * @test
-     */
+    #[Test]
     public function accept_rejects_an_empty_file(): void
     {
         $source = $this->tempFile('csv', '');
@@ -109,9 +101,7 @@ class ImportTempDirTest extends TestCase
         ImportTempDir::accept(['name' => 'x.csv', 'tmp_name' => $source, 'size' => 0]);
     }
 
-    /**
-     * @test
-     */
+    #[Test]
     public function accept_rejects_an_oversized_file(): void
     {
         $source = $this->tempFile('csv', "a,b\n1,2\n");
@@ -125,10 +115,8 @@ class ImportTempDirTest extends TestCase
         ]);
     }
 
-    /**
-     * @test
-     * @requires extension fileinfo
-     */
+    #[RequiresPhpExtension('fileinfo')]
+    #[Test]
     public function accept_rejects_an_extension_with_no_allowed_mime_types(): void
     {
         // An extension that is neither csv nor xlsx has an empty allow-list, so
@@ -141,9 +129,7 @@ class ImportTempDirTest extends TestCase
         ImportTempDir::accept(['name' => 'notes.txt', 'tmp_name' => $source, 'size' => filesize($source)]);
     }
 
-    /**
-     * @test
-     */
+    #[Test]
     public function cleanup_is_safe_to_call_on_a_missing_path(): void
     {
         // Should not error.
@@ -151,10 +137,8 @@ class ImportTempDirTest extends TestCase
         $this->assertTrue(true);
     }
 
-    /**
-     * @test
-     * @requires extension fileinfo
-     */
+    #[RequiresPhpExtension('fileinfo')]
+    #[Test]
     public function accept_rejects_content_that_does_not_match_the_extension(): void
     {
         // GIF bytes wearing a .csv extension. finfo sniffs image/gif, which is
@@ -167,10 +151,8 @@ class ImportTempDirTest extends TestCase
         ImportTempDir::accept(['name' => 'evil.csv', 'tmp_name' => $source, 'size' => filesize($source)]);
     }
 
-    /**
-     * @test
-     * @requires extension fileinfo
-     */
+    #[RequiresPhpExtension('fileinfo')]
+    #[Test]
     public function accept_moves_a_valid_xlsx_upload(): void
     {
         // XLSX is a ZIP archive; "PK\x03\x04" is the ZIP local-file header, so
@@ -189,9 +171,7 @@ class ImportTempDirTest extends TestCase
         ImportTempDir::cleanup($target);
     }
 
-    /**
-     * @test
-     */
+    #[Test]
     public function harden_writes_the_deny_and_index_files(): void
     {
         $dir = sys_get_temp_dir() . '/reconcile-harden-' . uniqid() . '/';

@@ -4,9 +4,12 @@ declare(strict_types=1);
 
 namespace Reconcile\Tests\Unit;
 
+use PHPUnit\Framework\Attributes\CoversClass;
+use PHPUnit\Framework\Attributes\Test;
+use PHPUnit\Framework\Attributes\DataProvider;
+use function Brain\Monkey\Actions\has;
 use BleedingDeacons\WpMocks\TestCase;
 use BleedingDeacons\WpMocks\WpState;
-use Brain\Monkey\Actions;
 use Psr\Container\ContainerInterface;
 use Reconcile\Group\GroupExporter;
 use Reconcile\Group\GroupExportHandler;
@@ -40,9 +43,8 @@ use Unity\Positions\Interfaces\PositionRepository;
  * probes, and the admin menu registration. No production code is exercised
  * through a real WordPress or Unity runtime — a fake PSR-11 container stands
  * in, and the bootstrap's hand-rolled WP stubs record the hooks/menus wired.
- *
- * @covers \Reconcile\Plugin
  */
+#[CoversClass(\Reconcile\Plugin::class)]
 class PluginTest extends TestCase
 {
     protected function setUp(): void
@@ -61,8 +63,7 @@ class PluginTest extends TestCase
     }
 
     // --- container accessor ----------------------------------------------
-
-    /** @test */
+    #[Test]
     public function get_container_is_null_before_init_and_set_after(): void
     {
         $this->assertNull(Plugin::getContainer());
@@ -74,21 +75,16 @@ class PluginTest extends TestCase
     }
 
     // --- typed accessors: null / resolve / exception paths ---------------
-
-    /**
-     * @test
-     * @dataProvider accessorProvider
-     */
+    #[DataProvider('accessorMethodProvider')]
+    #[Test]
     public function accessor_returns_null_when_no_container(string $method): void
     {
         $this->setContainer(null);
         $this->assertNull(Plugin::$method());
     }
 
-    /**
-     * @test
-     * @dataProvider accessorProvider
-     */
+    #[DataProvider('accessorProvider')]
+    #[Test]
     public function accessor_resolves_from_the_container(string $method, string $interface): void
     {
         $service = $this->createMock($interface);
@@ -97,10 +93,8 @@ class PluginTest extends TestCase
         $this->assertSame($service, Plugin::$method());
     }
 
-    /**
-     * @test
-     * @dataProvider accessorProvider
-     */
+    #[DataProvider('accessorMethodProvider')]
+    #[Test]
     public function accessor_returns_null_and_logs_when_resolution_throws(string $method): void
     {
         $this->setContainer(new ThrowingContainer());
@@ -123,9 +117,23 @@ class PluginTest extends TestCase
         ];
     }
 
-    // --- availability probes ---------------------------------------------
+    /**
+     * The same cases with the interface dropped, for the tests that take only
+     * the method name. PHPUnit 13 warns when a provider hands a test more
+     * arguments than it accepts, and failOnWarning turns that into a failure.
+     *
+     * @return array<string, array{string}>
+     */
+    public static function accessorMethodProvider(): array
+    {
+        return array_map(
+            static fn (array $case): array => [$case[0]],
+            self::accessorProvider()
+        );
+    }
 
-    /** @test */
+    // --- availability probes ---------------------------------------------
+    #[Test]
     public function availability_probes_are_true_when_unity_is_on_the_classpath(): void
     {
         // The bootstrap loads Unity's real interfaces as a sibling, so every
@@ -138,8 +146,7 @@ class PluginTest extends TestCase
     }
 
     // --- registerServices / registerHandlers -----------------------------
-
-    /** @test */
+    #[Test]
     public function register_services_binds_and_resolves_every_reconcile_service(): void
     {
         $container = $this->fullContainer();
@@ -168,13 +175,13 @@ class PluginTest extends TestCase
         }
     }
 
-    /** @test */
+    #[Test]
     public function init_registers_handler_hooks_when_in_admin(): void
     {
         Plugin::init($this->fullContainer());
 
         $this->assertNotFalse(
-            Actions\has('wp_ajax_reconcile_import'),
+            has('wp_ajax_reconcile_import'),
             'handler must wire wp_ajax_reconcile_import'
         );
         // Six handlers each register one AJAX action; spot-check the rest.
@@ -187,11 +194,11 @@ class PluginTest extends TestCase
             'admin_post_reconcile_position_export',
             ] as $hook
         ) {
-            $this->assertNotFalse(Actions\has($hook), "handler must wire $hook");
+            $this->assertNotFalse(has($hook), "handler must wire $hook");
         }
     }
 
-    /** @test */
+    #[Test]
     public function init_bails_out_when_not_in_admin(): void
     {
         WpState::$isAdmin = false;
@@ -201,27 +208,26 @@ class PluginTest extends TestCase
 
         // Container is stored, but no services/handlers wired.
         $this->assertSame($container, Plugin::getContainer());
-        $this->assertFalse(Actions\has('wp_ajax_reconcile_import'));
+        $this->assertFalse(has('wp_ajax_reconcile_import'));
     }
 
     // --- menu registration ------------------------------------------------
-
-    /** @test */
+    #[Test]
     public function register_menus_bails_out_when_not_in_admin(): void
     {
         WpState::$isAdmin = false;
 
         Plugin::registerMenus();
 
-        $this->assertFalse(Actions\has('admin_menu'));
+        $this->assertFalse(has('admin_menu'));
     }
 
-    /** @test */
+    #[Test]
     public function register_menus_wires_the_admin_pages_and_menu_hook(): void
     {
         Plugin::registerMenus();
 
-        $this->assertNotFalse(Actions\has('admin_menu'));
+        $this->assertNotFalse(has('admin_menu'));
 
         // addMenuPages() then builds the top-level menu plus three submenus.
         Plugin::addMenuPages();
@@ -244,9 +250,8 @@ class PluginTest extends TestCase
      * Plugin overrides the trait's default channel derivation, and with a real
      * wp_log() the resolution memoises after the first call — so the override
      * runs once and needs asserting on directly rather than incidentally.
-     *
-     * @test
      */
+    #[Test]
     public function it_logs_through_its_own_channel(): void
     {
         // HasLogger memoises the channel in a static that nothing resets

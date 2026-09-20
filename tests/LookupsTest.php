@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace Reconcile\Tests\Unit;
 
+use PHPUnit\Framework\Attributes\CoversClass;
+use PHPUnit\Framework\Attributes\Test;
 use Mockery;
 use BleedingDeacons\WpMocks\TestCase;
 use Reconcile\Group\GroupLookup;
@@ -15,10 +17,9 @@ use Unity\Positions\Interfaces\PositionRepository;
 
 /**
  * Tests for the group and position name→ID lookups.
- *
- * @covers \Reconcile\Group\GroupLookup
- * @covers \Reconcile\Position\PositionLookup
  */
+#[CoversClass(\Reconcile\Group\GroupLookup::class)]
+#[CoversClass(\Reconcile\Position\PositionLookup::class)]
 class LookupsTest extends TestCase
 {
     protected function tearDown(): void
@@ -44,10 +45,7 @@ class LookupsTest extends TestCase
     }
 
     // ─── GroupLookup ────────────────────────────────────────────────
-
-    /**
-     * @test
-     */
+    #[Test]
     public function group_resolve_matches_case_insensitively_and_caches(): void
     {
         $repo = Mockery::mock(GroupRepository::class);
@@ -65,9 +63,7 @@ class LookupsTest extends TestCase
         $this->assertSame(10, $lookup->resolve('Tuesday Group'));
     }
 
-    /**
-     * @test
-     */
+    #[Test]
     public function group_resolve_returns_zero_for_empty_or_unknown_and_records_unresolved(): void
     {
         $repo = Mockery::mock(GroupRepository::class);
@@ -83,9 +79,7 @@ class LookupsTest extends TestCase
         $this->assertSame([], $lookup->getUnresolvedNames());
     }
 
-    /**
-     * @test
-     */
+    #[Test]
     public function group_lookup_tolerates_a_null_repository(): void
     {
         $lookup = new GroupLookup(null);
@@ -93,9 +87,7 @@ class LookupsTest extends TestCase
         $this->assertSame(0, $lookup->resolve('Anything'));
     }
 
-    /**
-     * @test
-     */
+    #[Test]
     public function group_lookup_survives_a_repository_exception(): void
     {
         $repo = Mockery::mock(GroupRepository::class);
@@ -106,9 +98,7 @@ class LookupsTest extends TestCase
         $this->assertSame(0, $lookup->resolve('Anything'));
     }
 
-    /**
-     * @test
-     */
+    #[Test]
     public function group_invalidate_cache_forces_a_rebuild(): void
     {
         $repo = Mockery::mock(GroupRepository::class);
@@ -123,10 +113,7 @@ class LookupsTest extends TestCase
     }
 
     // ─── PositionLookup ─────────────────────────────────────────────
-
-    /**
-     * @test
-     */
+    #[Test]
     public function position_resolve_matches_by_long_name(): void
     {
         $repo = Mockery::mock(PositionRepository::class);
@@ -141,17 +128,13 @@ class LookupsTest extends TestCase
         $this->assertSame(['Nonexistent'], $lookup->getUnresolvedNames());
     }
 
-    /**
-     * @test
-     */
+    #[Test]
     public function position_lookup_tolerates_a_null_repository(): void
     {
         $this->assertSame(0, (new PositionLookup(null))->resolve('Chair'));
     }
 
-    /**
-     * @test
-     */
+    #[Test]
     public function position_lookup_survives_a_repository_exception(): void
     {
         $repo = Mockery::mock(PositionRepository::class);
@@ -160,9 +143,7 @@ class LookupsTest extends TestCase
         $this->assertSame(0, (new PositionLookup($repo))->resolve('Chair'));
     }
 
-    /**
-     * @test
-     */
+    #[Test]
     public function position_lookup_reset_and_invalidate_behave(): void
     {
         $repo = Mockery::mock(PositionRepository::class);
