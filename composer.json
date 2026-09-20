@@ -15,7 +15,12 @@
         }
     ],
     "require": {
-        "php": ">=8.4"
+        "php": ">=8.4",
+        "ext-mbstring": "*",
+        "ext-json": "*",
+        "ext-libxml": "*",
+        "ext-simplexml": "*",
+        "ext-zip": "*"
     },
     "require-dev": {
         "bleedingdeacons/wp-mocks": "^3.0",
