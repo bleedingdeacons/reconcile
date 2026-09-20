@@ -4,19 +4,18 @@ declare(strict_types=1);
 
 namespace Reconcile\Tests\Unit;
 
+use PHPUnit\Framework\Attributes\CoversClass;
+use PHPUnit\Framework\Attributes\Test;
 use BleedingDeacons\WpMocks\TestCase;
 use Reconcile\Core\OperationResult;
 
 /**
  * Tests for OperationResult.
- *
- * @covers \Reconcile\Core\OperationResult
  */
+#[CoversClass(\Reconcile\Core\OperationResult::class)]
 class OperationResultTest extends TestCase
 {
-    /**
-     * @test
-     */
+    #[Test]
     public function counters_and_getters_track_state(): void
     {
         $result = new OperationResult();
@@ -32,9 +31,7 @@ class OperationResultTest extends TestCase
         $this->assertSame(1, $result->getSkipped());
     }
 
-    /**
-     * @test
-     */
+    #[Test]
     public function a_clean_run_is_a_success_with_a_readable_summary(): void
     {
         $result = new OperationResult();
@@ -47,9 +44,7 @@ class OperationResultTest extends TestCase
         $this->assertSame('3 row(s) processed, 1 created, 1 updated.', $result->getSummary());
     }
 
-    /**
-     * @test
-     */
+    #[Test]
     public function skipped_rows_appear_in_the_summary_and_structured_list(): void
     {
         $result = new OperationResult();
@@ -64,9 +59,7 @@ class OperationResultTest extends TestCase
         );
     }
 
-    /**
-     * @test
-     */
+    #[Test]
     public function errors_make_the_run_a_failure(): void
     {
         $result = new OperationResult();
@@ -78,9 +71,7 @@ class OperationResultTest extends TestCase
         $this->assertStringContainsString('Import failed', $result->getSummary());
     }
 
-    /**
-     * @test
-     */
+    #[Test]
     public function warnings_are_tracked_independently_of_errors(): void
     {
         $result = new OperationResult();
@@ -92,9 +83,7 @@ class OperationResultTest extends TestCase
         $this->assertTrue($result->isSuccess());
     }
 
-    /**
-     * @test
-     */
+    #[Test]
     public function to_array_serialises_every_field(): void
     {
         $result = new OperationResult();

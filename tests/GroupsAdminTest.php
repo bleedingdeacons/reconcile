@@ -4,9 +4,12 @@ declare(strict_types=1);
 
 namespace Reconcile\Tests\Unit;
 
+use PHPUnit\Framework\Attributes\CoversClass;
+use PHPUnit\Framework\Attributes\Test;
+use PHPUnit\Framework\Attributes\DataProvider;
+use function Brain\Monkey\Functions\when;
 use BleedingDeacons\WpMocks\TestCase;
 use BleedingDeacons\WpMocks\WpState;
-use Brain\Monkey\Functions;
 use Reconcile\Admin\GroupsAdmin;
 use Reconcile\Group\GroupColumnMapper;
 
@@ -36,9 +39,8 @@ use Reconcile\Group\GroupColumnMapper;
  *
  * Nothing here calls wp_die(), wp_redirect() or wp_send_json_*, so none of the
  * exception/exit handling those need applies.
- *
- * @covers \Reconcile\Admin\GroupsAdmin
  */
+#[CoversClass(\Reconcile\Admin\GroupsAdmin::class)]
 class GroupsAdminTest extends TestCase
 {
     /** The admin_enqueue_scripts suffix WordPress gives this screen. */
@@ -56,15 +58,14 @@ class GroupsAdminTest extends TestCase
         // wp-mocks does not stub. Stand in for it here, appending the nonce
         // the shared wp_create_nonce() stub would have produced so the
         // assertions below can name the same value.
-        Functions\when('wp_nonce_url')->alias(
+        when('wp_nonce_url')->alias(
             static fn(string $url, string $action = '-1', string $name = '_wpnonce'): string
                 => $url . '&' . $name . '=' . wp_create_nonce($action)
         );
     }
 
     // --- registration -----------------------------------------------------
-
-    /** @test */
+    #[Test]
     public function register_hooks_asset_enqueuing(): void
     {
         $this->admin->register();
@@ -76,7 +77,7 @@ class GroupsAdminTest extends TestCase
         );
     }
 
-    /** @test */
+    #[Test]
     public function enqueue_assets_registers_the_screen_style_and_script(): void
     {
         $this->admin->enqueueAssets(self::HOOK_SUFFIX);
@@ -90,7 +91,7 @@ class GroupsAdminTest extends TestCase
         );
     }
 
-    /** @test */
+    #[Test]
     public function enqueue_assets_localises_the_ajax_endpoint_and_nonce(): void
     {
         $this->admin->enqueueAssets(self::HOOK_SUFFIX);
@@ -107,10 +108,9 @@ class GroupsAdminTest extends TestCase
     /**
      * The suffix guard is what keeps each import screen's JavaScript off the
      * other two — and off the rest of wp-admin.
-     *
-     * @test
-     * @dataProvider otherScreenProvider
      */
+    #[DataProvider('otherScreenProvider')]
+    #[Test]
     public function enqueue_assets_does_nothing_on_any_other_screen(string $hookSuffix): void
     {
         $this->admin->enqueueAssets($hookSuffix);
@@ -132,8 +132,7 @@ class GroupsAdminTest extends TestCase
     }
 
     // --- rendering --------------------------------------------------------
-
-    /** @test */
+    #[Test]
     public function render_page_heads_the_screen_and_both_cards(): void
     {
         $html = $this->render();
@@ -143,7 +142,7 @@ class GroupsAdminTest extends TestCase
         $this->assertStringContainsString('Export Groups to CSV', $html);
     }
 
-    /** @test */
+    #[Test]
     public function render_page_gives_every_accepted_header_a_row_of_its_own(): void
     {
         $html = $this->render();
@@ -154,7 +153,7 @@ class GroupsAdminTest extends TestCase
         $this->assertSame(count($properties) + 1, substr_count($html, '<tr>'));
     }
 
-    /** @test */
+    #[Test]
     public function render_page_documents_every_property_label_and_alias(): void
     {
         $html = $this->render();
@@ -178,9 +177,8 @@ class GroupsAdminTest extends TestCase
     /**
      * Unlike the member screen, every group property carries a note, so the
      * placeholder branch never runs here.
-     *
-     * @test
      */
+    #[Test]
     public function render_page_notes_every_property_so_no_placeholder_is_shown(): void
     {
         $html = $this->render();
@@ -189,7 +187,7 @@ class GroupsAdminTest extends TestCase
         $this->assertStringContainsString('Either <strong>Group ID</strong> or <strong>Group Name</strong>', $html);
     }
 
-    /** @test */
+    #[Test]
     public function render_page_emits_the_upload_form_with_its_nonce(): void
     {
         $html = $this->render();
@@ -203,7 +201,7 @@ class GroupsAdminTest extends TestCase
         $this->assertStringContainsString('accept=".csv,.xlsx"', $html);
     }
 
-    /** @test */
+    #[Test]
     public function render_page_defaults_the_import_to_a_dry_run(): void
     {
         $html = $this->render();
@@ -214,7 +212,7 @@ class GroupsAdminTest extends TestCase
         );
     }
 
-    /** @test */
+    #[Test]
     public function render_page_links_the_export_endpoint_with_a_nonce(): void
     {
         $html = $this->render();

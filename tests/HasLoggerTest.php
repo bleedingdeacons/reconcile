@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace Reconcile\Tests\Unit;
 
+use PHPUnit\Framework\Attributes\CoversTrait;
+use PHPUnit\Framework\Attributes\Test;
 use BleedingDeacons\WpMocks\TestCase;
 use BleedingDeacons\WpMocks\WpState;
 use Reconcile\Logger\HasLogger;
@@ -17,12 +19,11 @@ use Reconcile\Logger\HasLogger;
  * class that uses the trait unchanged drives those paths. wp-mocks' `sentinel`
  * group supplies wp_log(), so the forwarders resolve a real channel and what
  * they emit lands in WpState::$logs where it can be asserted on.
- *
- * @covers \Reconcile\Logger\HasLogger
  */
+#[CoversTrait(\Reconcile\Logger\HasLogger::class)]
 class HasLoggerTest extends TestCase
 {
-    /** @test */
+    #[Test]
     public function log_resolves_through_the_default_channel_name(): void
     {
         // The trait's default logChannel() is sanitize_key() of the class
@@ -35,7 +36,7 @@ class HasLoggerTest extends TestCase
         $this->assertSame($channel, ReconcileLoggerHost::log());
     }
 
-    /** @test */
+    #[Test]
     public function every_level_forwarder_runs_without_error(): void
     {
         ReconcileLoggerHost::logEmergency('m', ['k' => 'v']);

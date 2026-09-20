@@ -4,6 +4,9 @@ declare(strict_types=1);
 
 namespace Reconcile\Tests\Unit\Import;
 
+use Mockery\MockInterface;
+use PHPUnit\Framework\Attributes\Test;
+use PHPUnit\Framework\Attributes\DataProvider;
 use Reconcile\Group\GroupLookup;
 use Reconcile\Member\MemberImporter;
 use Mockery;
@@ -19,11 +22,11 @@ use Unity\Members\Interfaces\MemberRepository;
  */
 class MemberImporterTest extends TestCase
 {
-    private Configuration|Mockery\MockInterface $configuration;
-    private MemberRepository|Mockery\MockInterface $memberRepo;
-    private MemberFactory|Mockery\MockInterface $memberFactory;
-    private GroupLookup|Mockery\MockInterface $groupLookup;
-    private PositionLookup|Mockery\MockInterface $positionLookup;
+    private Configuration|MockInterface $configuration;
+    private MemberRepository|MockInterface $memberRepo;
+    private MemberFactory|MockInterface $memberFactory;
+    private GroupLookup|MockInterface $groupLookup;
+    private PositionLookup|MockInterface $positionLookup;
     private MemberImporter $importer;
 
     protected function setUp(): void
@@ -77,10 +80,7 @@ class MemberImporterTest extends TestCase
     }
 
     // ── Null dependency handling ────────────────────────────────────────
-
-    /**
-     * @test
-     */
+    #[Test]
     public function import_returns_error_when_member_repository_is_null(): void
     {
         $importer = new MemberImporter(
@@ -97,9 +97,7 @@ class MemberImporterTest extends TestCase
         $this->assertStringContainsString('MemberRepository', $result->getErrors()[0]);
     }
 
-    /**
-     * @test
-     */
+    #[Test]
     public function import_returns_error_when_member_factory_is_null(): void
     {
         $importer = new MemberImporter(
@@ -117,10 +115,7 @@ class MemberImporterTest extends TestCase
     }
 
     // ── Missing / invalid columns ──────────────────────────────────────
-
-    /**
-     * @test
-     */
+    #[Test]
     public function import_returns_error_when_required_columns_missing(): void
     {
         $path = $this->writeCsv(['Anonymous Name', 'Random Column'], [
@@ -136,10 +131,7 @@ class MemberImporterTest extends TestCase
     }
 
     // ── Dry run ────────────────────────────────────────────────────────
-
-    /**
-     * @test
-     */
+    #[Test]
     public function dry_run_counts_without_persisting(): void
     {
         $path = $this->writeCsv(
@@ -173,10 +165,7 @@ class MemberImporterTest extends TestCase
     }
 
     // ── Row skipping ───────────────────────────────────────────────────
-
-    /**
-     * @test
-     */
+    #[Test]
     public function import_skips_row_with_empty_anonymous_name(): void
     {
         $path = $this->writeCsv(
@@ -199,9 +188,7 @@ class MemberImporterTest extends TestCase
         unlink($path);
     }
 
-    /**
-     * @test
-     */
+    #[Test]
     public function import_skips_row_with_position_but_no_rotation(): void
     {
         $path = $this->writeCsv(
@@ -223,9 +210,7 @@ class MemberImporterTest extends TestCase
         unlink($path);
     }
 
-    /**
-     * @test
-     */
+    #[Test]
     public function import_skips_row_with_invalid_date_format(): void
     {
         $path = $this->writeCsv(
@@ -248,11 +233,8 @@ class MemberImporterTest extends TestCase
     }
 
     // ── Date parsing ───────────────────────────────────────────────────
-
-    /**
-     * @test
-     * @dataProvider validDateProvider
-     */
+    #[DataProvider('validDateProvider')]
+    #[Test]
     public function import_accepts_valid_date_formats(string $input): void
     {
         $path = $this->writeCsv(
@@ -287,11 +269,8 @@ class MemberImporterTest extends TestCase
     }
 
     // ── GSR parsing ────────────────────────────────────────────────────
-
-    /**
-     * @test
-     * @dataProvider gsrTruthyProvider
-     */
+    #[DataProvider('gsrTruthyProvider')]
+    #[Test]
     public function import_parses_gsr_truthy_values(string $input): void
     {
         // Verify the static method recognises these values
@@ -311,10 +290,7 @@ class MemberImporterTest extends TestCase
     }
 
     // ── Unresolved group/position warnings ─────────────────────────────
-
-    /**
-     * @test
-     */
+    #[Test]
     public function import_warns_on_unresolved_group_names(): void
     {
         $path = $this->writeCsv(
@@ -338,9 +314,7 @@ class MemberImporterTest extends TestCase
         unlink($path);
     }
 
-    /**
-     * @test
-     */
+    #[Test]
     public function import_warns_on_unresolved_position_names(): void
     {
         $path = $this->writeCsv(
@@ -365,10 +339,7 @@ class MemberImporterTest extends TestCase
     }
 
     // ── Create vs update ───────────────────────────────────────────────
-
-    /**
-     * @test
-     */
+    #[Test]
     public function dry_run_detects_existing_members_as_updates(): void
     {
         $path = $this->writeCsv(
@@ -401,10 +372,7 @@ class MemberImporterTest extends TestCase
     }
 
     // ── Accepted date format labels ────────────────────────────────────
-
-    /**
-     * @test
-     */
+    #[Test]
     public function getAcceptedDateFormats_returns_non_empty_array(): void
     {
         $formats = MemberImporter::getAcceptedDateFormats();
@@ -415,10 +383,7 @@ class MemberImporterTest extends TestCase
     }
 
     // ── File read errors ───────────────────────────────────────────────
-
-    /**
-     * @test
-     */
+    #[Test]
     public function import_returns_error_for_nonexistent_file(): void
     {
         $result = $this->importer->import('/tmp/nonexistent_file_abc123.csv');
@@ -427,10 +392,7 @@ class MemberImporterTest extends TestCase
     }
 
     // ── Member ID lookup ──────────────────────────────────────────────
-
-    /**
-     * @test
-     */
+    #[Test]
     public function import_uses_member_id_to_find_existing_member(): void
     {
         $path = $this->writeCsv(
@@ -466,9 +428,7 @@ class MemberImporterTest extends TestCase
         unlink($path);
     }
 
-    /**
-     * @test
-     */
+    #[Test]
     public function import_skips_row_with_non_numeric_member_id(): void
     {
         $path = $this->writeCsv(
@@ -489,9 +449,7 @@ class MemberImporterTest extends TestCase
         unlink($path);
     }
 
-    /**
-     * @test
-     */
+    #[Test]
     public function import_skips_row_when_member_id_does_not_match(): void
     {
         $path = $this->writeCsv(
@@ -514,9 +472,7 @@ class MemberImporterTest extends TestCase
         unlink($path);
     }
 
-    /**
-     * @test
-     */
+    #[Test]
     public function import_falls_back_to_anonymous_name_when_member_id_empty(): void
     {
         $path = $this->writeCsv(
@@ -544,10 +500,7 @@ class MemberImporterTest extends TestCase
     }
 
     // ── 12th Stepper / Area / Accepts ──────────────────────────────────
-
-    /**
-     * @test
-     */
+    #[Test]
     public function import_works_when_new_optional_columns_are_absent(): void
     {
         // The existing column set must keep working unchanged — the three new
@@ -573,9 +526,7 @@ class MemberImporterTest extends TestCase
         unlink($path);
     }
 
-    /**
-     * @test
-     */
+    #[Test]
     public function import_parses_twelfth_stepper_with_area_and_accepts(): void
     {
         $path = $this->writeCsv(
@@ -629,9 +580,7 @@ class MemberImporterTest extends TestCase
         unlink($path);
     }
 
-    /**
-     * @test
-     */
+    #[Test]
     public function import_clears_area_and_accepts_with_warning_when_not_twelfth_stepper(): void
     {
         $path = $this->writeCsv(
@@ -663,9 +612,7 @@ class MemberImporterTest extends TestCase
         unlink($path);
     }
 
-    /**
-     * @test
-     */
+    #[Test]
     public function import_does_not_warn_when_not_twelfth_stepper_and_area_accepts_are_empty(): void
     {
         $path = $this->writeCsv(
@@ -690,9 +637,7 @@ class MemberImporterTest extends TestCase
         unlink($path);
     }
 
-    /**
-     * @test
-     */
+    #[Test]
     public function import_skips_row_with_unrecognised_accepts_value(): void
     {
         $path = $this->writeCsv(
@@ -716,9 +661,7 @@ class MemberImporterTest extends TestCase
         unlink($path);
     }
 
-    /**
-     * @test
-     */
+    #[Test]
     public function import_accepts_labels_case_insensitively(): void
     {
         $path = $this->writeCsv(
@@ -741,9 +684,7 @@ class MemberImporterTest extends TestCase
         unlink($path);
     }
 
-    /**
-     * @test
-     */
+    #[Test]
     public function import_expands_accepts_all_to_every_concrete_value(): void
     {
         $path = $this->writeCsv(
@@ -785,9 +726,7 @@ class MemberImporterTest extends TestCase
         unlink($path);
     }
 
-    /**
-     * @test
-     */
+    #[Test]
     public function import_dedupes_when_all_is_combined_with_concrete_values(): void
     {
         $path = $this->writeCsv(

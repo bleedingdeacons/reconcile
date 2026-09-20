@@ -4,9 +4,12 @@ declare(strict_types=1);
 
 namespace Reconcile\Tests\Unit;
 
+use PHPUnit\Framework\Attributes\CoversClass;
+use PHPUnit\Framework\Attributes\Test;
+use PHPUnit\Framework\Attributes\DataProvider;
+use function Brain\Monkey\Functions\when;
 use BleedingDeacons\WpMocks\TestCase;
 use BleedingDeacons\WpMocks\WpState;
-use Brain\Monkey\Functions;
 use Reconcile\Admin\MembersAdmin;
 use Reconcile\Member\MemberColumnMapper;
 use Reconcile\Member\MemberImporter;
@@ -29,9 +32,8 @@ use ReflectionMethod;
  *     rotation date formats. Asserting the rendered HTML against those
  *     constants is what stops the on-screen documentation drifting away from
  *     what the importer actually accepts.
- *
- * @covers \Reconcile\Admin\MembersAdmin
  */
+#[CoversClass(\Reconcile\Admin\MembersAdmin::class)]
 class MembersAdminTest extends TestCase
 {
     /** The admin_enqueue_scripts suffix WordPress gives this screen. */
@@ -47,15 +49,14 @@ class MembersAdminTest extends TestCase
 
         // wp_nonce_url() is the one WordPress function these screens call that
         // wp-mocks does not stub. See GroupsAdminTest for the reasoning.
-        Functions\when('wp_nonce_url')->alias(
+        when('wp_nonce_url')->alias(
             static fn(string $url, string $action = '-1', string $name = '_wpnonce'): string
                 => $url . '&' . $name . '=' . wp_create_nonce($action)
         );
     }
 
     // --- registration -----------------------------------------------------
-
-    /** @test */
+    #[Test]
     public function register_hooks_asset_enqueuing(): void
     {
         $this->admin->register();
@@ -67,7 +68,7 @@ class MembersAdminTest extends TestCase
         );
     }
 
-    /** @test */
+    #[Test]
     public function enqueue_assets_registers_the_screen_style_and_script(): void
     {
         $this->admin->enqueueAssets(self::HOOK_SUFFIX);
@@ -83,7 +84,7 @@ class MembersAdminTest extends TestCase
         );
     }
 
-    /** @test */
+    #[Test]
     public function enqueue_assets_localises_the_ajax_endpoint_and_nonce(): void
     {
         $this->admin->enqueueAssets(self::HOOK_SUFFIX);
@@ -97,10 +98,8 @@ class MembersAdminTest extends TestCase
         );
     }
 
-    /**
-     * @test
-     * @dataProvider otherScreenProvider
-     */
+    #[DataProvider('otherScreenProvider')]
+    #[Test]
     public function enqueue_assets_does_nothing_on_any_other_screen(string $hookSuffix): void
     {
         $this->admin->enqueueAssets($hookSuffix);
@@ -122,8 +121,7 @@ class MembersAdminTest extends TestCase
     }
 
     // --- rendering --------------------------------------------------------
-
-    /** @test */
+    #[Test]
     public function render_page_heads_the_screen_and_both_cards(): void
     {
         $html = $this->render();
@@ -133,7 +131,7 @@ class MembersAdminTest extends TestCase
         $this->assertStringContainsString('Export Members to CSV', $html);
     }
 
-    /** @test */
+    #[Test]
     public function render_page_gives_every_accepted_header_a_row_of_its_own(): void
     {
         $html = $this->render();
@@ -144,7 +142,7 @@ class MembersAdminTest extends TestCase
         $this->assertSame(count($properties) + 1, substr_count($html, '<tr>'));
     }
 
-    /** @test */
+    #[Test]
     public function render_page_documents_every_property_label_and_alias(): void
     {
         $html = $this->render();
@@ -168,9 +166,8 @@ class MembersAdminTest extends TestCase
     /**
      * The properties with nothing to say get an em-dash rather than an empty
      * cell — one per unannotated property, and no more.
-     *
-     * @test
      */
+    #[Test]
     public function render_page_places_a_dash_against_every_unannotated_property(): void
     {
         $html = $this->render();
@@ -191,9 +188,8 @@ class MembersAdminTest extends TestCase
      * The GSR note is generated from the importer's truthy list, so the screen
      * cannot document a value the importer does not accept, or miss one it
      * does.
-     *
-     * @test
      */
+    #[Test]
     public function render_page_documents_the_truthy_values_the_importer_recognises(): void
     {
         $html = $this->render();
@@ -209,9 +205,8 @@ class MembersAdminTest extends TestCase
 
     /**
      * Likewise the rotation note and the accepted date formats.
-     *
-     * @test
      */
+    #[Test]
     public function render_page_documents_the_date_formats_the_importer_accepts(): void
     {
         $html = $this->render();
@@ -227,7 +222,7 @@ class MembersAdminTest extends TestCase
         }
     }
 
-    /** @test */
+    #[Test]
     public function render_page_emits_the_upload_form_with_its_nonce(): void
     {
         $html = $this->render();
@@ -241,7 +236,7 @@ class MembersAdminTest extends TestCase
         $this->assertStringContainsString('accept=".csv,.xlsx"', $html);
     }
 
-    /** @test */
+    #[Test]
     public function render_page_defaults_the_import_to_a_dry_run(): void
     {
         $html = $this->render();
@@ -252,7 +247,7 @@ class MembersAdminTest extends TestCase
         );
     }
 
-    /** @test */
+    #[Test]
     public function render_page_links_the_export_endpoint_with_a_nonce(): void
     {
         $html = $this->render();

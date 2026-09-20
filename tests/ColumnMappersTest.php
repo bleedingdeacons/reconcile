@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace Reconcile\Tests\Unit;
 
+use PHPUnit\Framework\Attributes\CoversClass;
+use PHPUnit\Framework\Attributes\Test;
 use BleedingDeacons\WpMocks\TestCase;
 use Reconcile\Group\GroupColumnMapper;
 use Reconcile\Member\MemberColumnMapper;
@@ -11,18 +13,14 @@ use Reconcile\Position\PositionColumnMapper;
 
 /**
  * Tests for the three spreadsheet column mappers.
- *
- * @covers \Reconcile\Member\MemberColumnMapper
- * @covers \Reconcile\Group\GroupColumnMapper
- * @covers \Reconcile\Position\PositionColumnMapper
  */
+#[CoversClass(\Reconcile\Member\MemberColumnMapper::class)]
+#[CoversClass(\Reconcile\Group\GroupColumnMapper::class)]
+#[CoversClass(\Reconcile\Position\PositionColumnMapper::class)]
 class ColumnMappersTest extends TestCase
 {
     // ─── MemberColumnMapper ─────────────────────────────────────────
-
-    /**
-     * @test
-     */
+    #[Test]
     public function member_maps_normalised_aliases_to_canonical_properties(): void
     {
         $mapper = new MemberColumnMapper();
@@ -43,9 +41,7 @@ class ColumnMappersTest extends TestCase
         $this->assertSame('is_twelfth_stepper', $mapping[7]);
     }
 
-    /**
-     * @test
-     */
+    #[Test]
     public function member_validate_reports_missing_required_columns(): void
     {
         $mapper = new MemberColumnMapper();
@@ -57,9 +53,7 @@ class ColumnMappersTest extends TestCase
         $this->assertNotContains('anonymous_name', $missing);
     }
 
-    /**
-     * @test
-     */
+    #[Test]
     public function member_validate_passes_when_all_required_present(): void
     {
         $mapper = new MemberColumnMapper();
@@ -68,9 +62,7 @@ class ColumnMappersTest extends TestCase
         $this->assertSame([], $mapper->validateMapping(array_values($full)));
     }
 
-    /**
-     * @test
-     */
+    #[Test]
     public function member_maps_the_landline_and_preferred_contact_columns(): void
     {
         $mapper = new MemberColumnMapper();
@@ -88,9 +80,8 @@ class ColumnMappersTest extends TestCase
     /**
      * Both columns must stay optional. Requiring either would reject every
      * spreadsheet written before they existed.
-     *
-     * @test
      */
+    #[Test]
     public function the_landline_and_preferred_contact_columns_are_not_required(): void
     {
         $mapper = new MemberColumnMapper();
@@ -103,9 +94,7 @@ class ColumnMappersTest extends TestCase
         $this->assertSame([], $missing);
     }
 
-    /**
-     * @test
-     */
+    #[Test]
     public function member_exposes_labels_and_aliases(): void
     {
         $this->assertSame('Anonymous Name', MemberColumnMapper::getPropertyLabels()['anonymous_name']);
@@ -115,10 +104,7 @@ class ColumnMappersTest extends TestCase
     }
 
     // ─── GroupColumnMapper ──────────────────────────────────────────
-
-    /**
-     * @test
-     */
+    #[Test]
     public function group_maps_contact_and_identity_columns(): void
     {
         $mapper = new GroupColumnMapper();
@@ -131,9 +117,7 @@ class ColumnMappersTest extends TestCase
         $this->assertSame('contact_1_name', $mapping[3]);
     }
 
-    /**
-     * @test
-     */
+    #[Test]
     public function group_validate_requires_email_and_one_identifier(): void
     {
         $mapper = new GroupColumnMapper();
@@ -148,9 +132,7 @@ class ColumnMappersTest extends TestCase
         $this->assertSame([], $mapper->validateMapping([0 => 'email', 1 => 'group_id']));
     }
 
-    /**
-     * @test
-     */
+    #[Test]
     public function group_exposes_labels_and_aliases(): void
     {
         $this->assertSame('Group Email', GroupColumnMapper::getPropertyLabels()['email']);
@@ -158,10 +140,7 @@ class ColumnMappersTest extends TestCase
     }
 
     // ─── PositionColumnMapper ───────────────────────────────────────
-
-    /**
-     * @test
-     */
+    #[Test]
     public function position_maps_its_aliases(): void
     {
         $mapper = new PositionColumnMapper();
@@ -174,9 +153,7 @@ class ColumnMappersTest extends TestCase
         $this->assertSame('summary', $mapping[3]);
     }
 
-    /**
-     * @test
-     */
+    #[Test]
     public function position_validate_requires_one_identifier_only(): void
     {
         $mapper = new PositionColumnMapper();
@@ -190,9 +167,7 @@ class ColumnMappersTest extends TestCase
         $this->assertSame([], $mapper->validateMapping([0 => 'position_name']));
     }
 
-    /**
-     * @test
-     */
+    #[Test]
     public function position_exposes_labels_and_aliases(): void
     {
         $this->assertSame('Minimum Sobriety', PositionColumnMapper::getPropertyLabels()['minimum_sobriety']);

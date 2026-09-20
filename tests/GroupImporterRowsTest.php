@@ -4,10 +4,13 @@ declare(strict_types=1);
 
 namespace Reconcile\Tests\Unit;
 
+use PHPUnit\Framework\Attributes\CoversClass;
+use PHPUnit\Framework\Attributes\Test;
+use Unity\Contacts\Interfaces\Contact;
+use function Brain\Monkey\Functions\when;
 use Mockery;
 use BleedingDeacons\WpMocks\TestCase;
 use BleedingDeacons\WpMocks\WpState;
-use Brain\Monkey\Functions;
 use Reconcile\Group\GroupImporter;
 use Unity\Contacts\Interfaces\ContactFactory;
 use Unity\Groups\Interfaces\Group;
@@ -17,9 +20,8 @@ use Unity\Groups\Interfaces\GroupRepository;
 /**
  * Row-level and dependency tests for GroupImporter (the changing-event
  * behaviour is covered separately in GroupImporterChangingEventTest).
- *
- * @covers \Reconcile\Group\GroupImporter
  */
+#[CoversClass(\Reconcile\Group\GroupImporter::class)]
 class GroupImporterRowsTest extends TestCase
 {
     /** @var GroupRepository&Mockery\MockInterface */
@@ -79,9 +81,7 @@ class GroupImporterRowsTest extends TestCase
         return $g;
     }
 
-    /**
-     * @test
-     */
+    #[Test]
     public function null_repository_is_an_error(): void
     {
         $result = (new GroupImporter(null, $this->factory, $this->contactFactory))
@@ -89,9 +89,7 @@ class GroupImporterRowsTest extends TestCase
         $this->assertTrue($result->hasErrors());
     }
 
-    /**
-     * @test
-     */
+    #[Test]
     public function null_factory_is_an_error(): void
     {
         $result = (new GroupImporter($this->repo, null, $this->contactFactory))
@@ -99,9 +97,7 @@ class GroupImporterRowsTest extends TestCase
         $this->assertTrue($result->hasErrors());
     }
 
-    /**
-     * @test
-     */
+    #[Test]
     public function missing_email_column_is_an_error(): void
     {
         // Group ID present but no Group Email column.
@@ -109,9 +105,7 @@ class GroupImporterRowsTest extends TestCase
         $this->assertTrue($result->hasErrors());
     }
 
-    /**
-     * @test
-     */
+    #[Test]
     public function missing_identifier_columns_is_an_error(): void
     {
         // Email present, but neither Group ID nor Group Name.
@@ -119,9 +113,7 @@ class GroupImporterRowsTest extends TestCase
         $this->assertTrue($result->hasErrors());
     }
 
-    /**
-     * @test
-     */
+    #[Test]
     public function empty_id_and_name_row_is_skipped(): void
     {
         $result = $this->importer()->import(
@@ -130,9 +122,7 @@ class GroupImporterRowsTest extends TestCase
         $this->assertSame(1, $result->getSkipped());
     }
 
-    /**
-     * @test
-     */
+    #[Test]
     public function non_numeric_id_is_skipped(): void
     {
         $result = $this->importer()->import(
@@ -141,9 +131,7 @@ class GroupImporterRowsTest extends TestCase
         $this->assertSame(1, $result->getSkipped());
     }
 
-    /**
-     * @test
-     */
+    #[Test]
     public function id_that_does_not_exist_is_skipped(): void
     {
         $this->repo->shouldReceive('findById')->with(99)->andReturn(null);
@@ -154,9 +142,7 @@ class GroupImporterRowsTest extends TestCase
         $this->assertSame(1, $result->getSkipped());
     }
 
-    /**
-     * @test
-     */
+    #[Test]
     public function a_name_resolving_to_an_unloadable_group_is_skipped(): void
     {
         // The lookup resolves "Tuesday" to id 5, but findById(5) returns null,
@@ -174,9 +160,7 @@ class GroupImporterRowsTest extends TestCase
         $this->assertSame(1, $result->getSkipped());
     }
 
-    /**
-     * @test
-     */
+    #[Test]
     public function dry_run_counts_an_existing_group_as_an_update(): void
     {
         $this->repo->shouldReceive('findById')->with(5)->andReturn($this->group(5));
@@ -189,9 +173,7 @@ class GroupImporterRowsTest extends TestCase
         $this->assertSame(1, $result->getUpdated());
     }
 
-    /**
-     * @test
-     */
+    #[Test]
     public function dry_run_counts_an_unresolved_name_as_a_create(): void
     {
         $result = $this->importer()->import(
@@ -202,9 +184,7 @@ class GroupImporterRowsTest extends TestCase
         $this->assertSame(1, $result->getCreated());
     }
 
-    /**
-     * @test
-     */
+    #[Test]
     public function creates_a_new_group_with_contacts(): void
     {
         // A named group that does not resolve is created via wp_insert_post,
@@ -213,7 +193,7 @@ class GroupImporterRowsTest extends TestCase
 
         $this->contactFactory->shouldReceive('create')
             ->andReturnUsing(function ($name, $email, $phone) {
-                $c = Mockery::mock(\Unity\Contacts\Interfaces\Contact::class);
+                $c = Mockery::mock(Contact::class);
                 $c->shouldReceive('getName')->andReturn($name);
                 $c->shouldReceive('getEmail')->andReturn($email);
                 $c->shouldReceive('getPhone')->andReturn($phone);
@@ -230,14 +210,12 @@ class GroupImporterRowsTest extends TestCase
         $this->assertSame(0, $result->getSkipped());
     }
 
-    /**
-     * @test
-     */
+    #[Test]
     public function a_create_whose_post_insert_fails_is_skipped(): void
     {
-        Functions\when('wp_insert_post')->justReturn(0);
+        when('wp_insert_post')->justReturn(0);
         $this->contactFactory->shouldReceive('create')->andReturnUsing(
-            fn () => Mockery::mock(\Unity\Contacts\Interfaces\Contact::class)->shouldIgnoreMissing()
+            fn () => Mockery::mock(Contact::class)->shouldIgnoreMissing()
         );
 
         $result = $this->importer()->import(
@@ -248,9 +226,7 @@ class GroupImporterRowsTest extends TestCase
         $this->assertSame(0, $result->getCreated());
     }
 
-    /**
-     * @test
-     */
+    #[Test]
     public function processes_multiple_rows_in_one_file(): void
     {
         $existing = Mockery::mock(Group::class)->shouldIgnoreMissing();
@@ -259,7 +235,7 @@ class GroupImporterRowsTest extends TestCase
         $this->repo->shouldReceive('findById')->with(5)->andReturn($existing);
         WpState::$nextPostId = 90;
         $this->contactFactory->shouldReceive('create')->andReturnUsing(
-            fn () => Mockery::mock(\Unity\Contacts\Interfaces\Contact::class)->shouldIgnoreMissing()
+            fn () => Mockery::mock(Contact::class)->shouldIgnoreMissing()
         );
 
         $result = $this->importer()->import($this->writeCsv(self::HEADERS, [
@@ -274,9 +250,7 @@ class GroupImporterRowsTest extends TestCase
         $this->assertSame(1, $result->getSkipped());
     }
 
-    /**
-     * @test
-     */
+    #[Test]
     public function updates_an_existing_group(): void
     {
         $existing = Mockery::mock(Group::class)->shouldIgnoreMissing();
@@ -285,7 +259,7 @@ class GroupImporterRowsTest extends TestCase
         $this->repo->shouldReceive('findById')->with(5)->andReturn($existing);
 
         $this->contactFactory->shouldReceive('create')->andReturnUsing(function ($name, $email, $phone) {
-            return Mockery::mock(\Unity\Contacts\Interfaces\Contact::class)->shouldIgnoreMissing();
+            return Mockery::mock(Contact::class)->shouldIgnoreMissing();
         });
 
         $result = $this->importer()->import(

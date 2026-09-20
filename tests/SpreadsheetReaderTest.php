@@ -4,15 +4,16 @@ declare(strict_types=1);
 
 namespace Reconcile\Tests\Unit\Core;
 
+use PHPUnit\Framework\Attributes\CoversClass;
+use PHPUnit\Framework\Attributes\Test;
 use BleedingDeacons\WpMocks\TestCase;
 use Reconcile\Core\SpreadsheetReader;
 use RuntimeException;
 
 /**
  * Unit tests for SpreadsheetReader.
- *
- * @covers \Reconcile\Core\SpreadsheetReader
  */
+#[CoversClass(\Reconcile\Core\SpreadsheetReader::class)]
 class SpreadsheetReaderTest extends TestCase
 {
     private SpreadsheetReader $reader;
@@ -45,9 +46,8 @@ class SpreadsheetReaderTest extends TestCase
      * own closing quote: the parser ran on past the end of the row and merged
      * the following record into the same field. Two spreadsheet rows became
      * one mangled row, silently losing a member on import.
-     *
-     * @test
      */
+    #[Test]
     public function a_field_ending_in_a_backslash_does_not_swallow_the_next_row(): void
     {
         $path = $this->writeRawCsv(
@@ -67,9 +67,8 @@ class SpreadsheetReaderTest extends TestCase
 
     /**
      * A backslash mid-field is data, not an escape character.
-     *
-     * @test
      */
+    #[Test]
     public function a_backslash_inside_a_field_is_preserved_verbatim(): void
     {
         $path = $this->writeRawCsv(
@@ -85,9 +84,8 @@ class SpreadsheetReaderTest extends TestCase
     /**
      * The standard RFC 4180 escape — a doubled quote inside a quoted field —
      * must still work.
-     *
-     * @test
      */
+    #[Test]
     public function a_doubled_quote_inside_a_quoted_field_is_unescaped(): void
     {
         $path = $this->writeRawCsv(
@@ -101,9 +99,7 @@ class SpreadsheetReaderTest extends TestCase
         $this->assertSame('North', $data['rows'][0][1]);
     }
 
-    /**
-     * @test
-     */
+    #[Test]
     public function it_strips_a_utf8_bom_from_the_first_header(): void
     {
         $path = $this->writeRawCsv("\xEF\xBB\xBFAnonymous Name,Area\n\"Alice A.\",\"North\"\n");
@@ -113,9 +109,7 @@ class SpreadsheetReaderTest extends TestCase
         $this->assertSame('Anonymous Name', $data['headers'][0]);
     }
 
-    /**
-     * @test
-     */
+    #[Test]
     public function it_skips_completely_empty_lines(): void
     {
         $path = $this->writeRawCsv("Anonymous Name,Area\n\"Alice A.\",\"North\"\n\n\"Bob B.\",\"South\"\n");
@@ -125,9 +119,7 @@ class SpreadsheetReaderTest extends TestCase
         $this->assertCount(2, $data['rows']);
     }
 
-    /**
-     * @test
-     */
+    #[Test]
     public function it_rejects_a_file_with_no_header_row(): void
     {
         $path = $this->writeRawCsv('');
@@ -138,9 +130,7 @@ class SpreadsheetReaderTest extends TestCase
         $this->reader->read($path);
     }
 
-    /**
-     * @test
-     */
+    #[Test]
     public function it_rejects_an_unsupported_extension(): void
     {
         $path = tempnam(sys_get_temp_dir(), 'reader_test_') . '.txt';
@@ -153,9 +143,7 @@ class SpreadsheetReaderTest extends TestCase
         $this->reader->read($path);
     }
 
-    /**
-     * @test
-     */
+    #[Test]
     public function it_rejects_a_missing_file(): void
     {
         $this->expectException(RuntimeException::class);

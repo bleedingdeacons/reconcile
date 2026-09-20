@@ -4,10 +4,11 @@ declare(strict_types=1);
 
 namespace Reconcile\Tests\Unit;
 
+use PHPUnit\Framework\Attributes\CoversClass;
+use PHPUnit\Framework\Attributes\Test;
+use function Brain\Monkey\Functions\when;
 use Mockery;
 use BleedingDeacons\WpMocks\TestCase;
-use BleedingDeacons\WpMocks\WpState;
-use Brain\Monkey\Functions;
 use Reconcile\Position\PositionImporter;
 use Unity\Positions\Interfaces\Position;
 use Unity\Positions\Interfaces\PositionFactory;
@@ -17,9 +18,8 @@ use Unity\Positions\Interfaces\PositionRepository;
  * PositionImporter persist-path failure branches: a save that throws, a save
  * that emits a captured PHP warning, and a WordPress post insert that returns
  * a WP_Error.
- *
- * @covers \Reconcile\Position\PositionImporter
  */
+#[CoversClass(\Reconcile\Position\PositionImporter::class)]
 class PositionImporterFailureTest extends TestCase
 {
     /** @var PositionRepository&Mockery\MockInterface */
@@ -81,7 +81,7 @@ class PositionImporterFailureTest extends TestCase
 
     private const CREATE_ROW = ['', 'New Chair', 'c@example.com', '24', '3', 'Desc', 'Summary'];
 
-    /** @test */
+    #[Test]
     public function a_save_that_throws_is_captured_as_a_skip(): void
     {
         $this->factory->shouldReceive('createNew')->andReturn($this->validPosition(77));
@@ -93,7 +93,7 @@ class PositionImporterFailureTest extends TestCase
         $this->assertSame(1, $result->getSkipped());
     }
 
-    /** @test */
+    #[Test]
     public function a_save_that_emits_a_php_warning_records_the_captured_text(): void
     {
         $this->factory->shouldReceive('createNew')->andReturn($this->validPosition(77));
@@ -109,10 +109,10 @@ class PositionImporterFailureTest extends TestCase
         $this->assertSame(1, $result->getSkipped());
     }
 
-    /** @test */
+    #[Test]
     public function a_wp_error_from_post_insert_is_skipped(): void
     {
-        Functions\when('wp_insert_post')->justReturn(new \WP_Error('insert_failed', 'invalid post data'));
+        when('wp_insert_post')->justReturn(new \WP_Error('insert_failed', 'invalid post data'));
         // The importer builds the Position before it tries to insert the post,
         // so createNew() is reached on this path and needs an expectation. It
         // always was: without one Mockery threw, the importer's own error
@@ -128,10 +128,10 @@ class PositionImporterFailureTest extends TestCase
         $this->assertSame(1, $result->getSkipped());
     }
 
-    /** @test */
+    #[Test]
     public function a_post_insert_returning_zero_is_skipped(): void
     {
-        Functions\when('wp_insert_post')->justReturn(0);
+        when('wp_insert_post')->justReturn(0);
         $this->factory->shouldReceive('createNew')->andReturn($this->validPosition(77));
 
         $result = $this->importer()->import($this->writeCsv([self::CREATE_ROW]));
@@ -140,7 +140,7 @@ class PositionImporterFailureTest extends TestCase
         $this->assertSame(1, $result->getSkipped());
     }
 
-    /** @test */
+    #[Test]
     public function an_update_by_id_whose_save_throws_records_the_error(): void
     {
         // Blank name + ID → the skip reason uses the "ID:" label, and the save
@@ -157,7 +157,7 @@ class PositionImporterFailureTest extends TestCase
         $this->assertSame(1, $result->getSkipped());
     }
 
-    /** @test */
+    #[Test]
     public function an_unreadable_file_is_reported_as_an_error(): void
     {
         // SpreadsheetReader throws for a missing file; the importer catches it,
@@ -168,7 +168,7 @@ class PositionImporterFailureTest extends TestCase
         $this->assertSame(0, $result->getCreated());
     }
 
-    /** @test */
+    #[Test]
     public function an_update_by_id_whose_save_fails_is_skipped_with_the_id_label(): void
     {
         // Row carries an ID but no position name, so the skip reason labels it
@@ -185,7 +185,7 @@ class PositionImporterFailureTest extends TestCase
         $this->assertSame(1, $result->getSkipped());
     }
 
-    /** @test */
+    #[Test]
     public function a_name_that_resolves_but_cannot_be_loaded_is_skipped(): void
     {
         // The lookup resolves the name to an ID, but the position fails to load
@@ -217,7 +217,7 @@ class PositionImporterFailureTest extends TestCase
         return $repo;
     }
 
-    /** @test */
+    #[Test]
     public function an_update_with_blank_columns_falls_back_to_the_existing_values(): void
     {
         // Row carries an ID but leaves the optional columns blank; the importer

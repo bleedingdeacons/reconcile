@@ -4,10 +4,13 @@ declare(strict_types=1);
 
 namespace Reconcile\Tests\Unit;
 
+use PHPUnit\Framework\Attributes\CoversClass;
+use PHPUnit\Framework\Attributes\Test;
+use PHPUnit\Framework\Attributes\DataProvider;
+use function Brain\Monkey\Functions\when;
 use Mockery;
 use BleedingDeacons\WpMocks\TestCase;
 use BleedingDeacons\WpMocks\WpState;
-use Brain\Monkey\Functions;
 use Reconcile\Position\PositionImporter;
 use Unity\Positions\Interfaces\Position;
 use Unity\Positions\Interfaces\PositionFactory;
@@ -15,9 +18,8 @@ use Unity\Positions\Interfaces\PositionRepository;
 
 /**
  * Tests for PositionImporter.
- *
- * @covers \Reconcile\Position\PositionImporter
  */
+#[CoversClass(\Reconcile\Position\PositionImporter::class)]
 class PositionImporterTest extends TestCase
 {
     /** @var PositionRepository&Mockery\MockInterface */
@@ -82,28 +84,21 @@ class PositionImporterTest extends TestCase
     ];
 
     // ─── dependency + column errors ─────────────────────────────────
-
-    /**
-     * @test
-     */
+    #[Test]
     public function null_repository_is_an_error(): void
     {
         $result = (new PositionImporter(null, $this->factory))->import($this->writeCsv(self::HEADERS, []));
         $this->assertTrue($result->hasErrors());
     }
 
-    /**
-     * @test
-     */
+    #[Test]
     public function null_factory_is_an_error(): void
     {
         $result = (new PositionImporter($this->repo, null))->import($this->writeCsv(self::HEADERS, []));
         $this->assertTrue($result->hasErrors());
     }
 
-    /**
-     * @test
-     */
+    #[Test]
     public function missing_identifier_columns_is_an_error(): void
     {
         // Only Summary — neither Position ID nor Position Name present.
@@ -112,10 +107,7 @@ class PositionImporterTest extends TestCase
     }
 
     // ─── dry run ────────────────────────────────────────────────────
-
-    /**
-     * @test
-     */
+    #[Test]
     public function dry_run_counts_an_existing_position_as_an_update(): void
     {
         $this->repo->shouldReceive('findById')->with(5)->andReturn($this->validPosition(5));
@@ -129,9 +121,7 @@ class PositionImporterTest extends TestCase
         $this->assertSame(0, $result->getCreated());
     }
 
-    /**
-     * @test
-     */
+    #[Test]
     public function dry_run_counts_an_unresolved_name_as_a_create(): void
     {
         // findAll returns [] (default) so the name resolves to nothing → create.
@@ -144,10 +134,7 @@ class PositionImporterTest extends TestCase
     }
 
     // ─── row skips ──────────────────────────────────────────────────
-
-    /**
-     * @test
-     */
+    #[Test]
     public function empty_id_and_name_row_is_skipped(): void
     {
         $result = $this->importer()->import(
@@ -157,9 +144,7 @@ class PositionImporterTest extends TestCase
         $this->assertSame(1, $result->getSkipped());
     }
 
-    /**
-     * @test
-     */
+    #[Test]
     public function non_numeric_id_is_skipped(): void
     {
         $result = $this->importer()->import(
@@ -169,9 +154,7 @@ class PositionImporterTest extends TestCase
         $this->assertSame(1, $result->getSkipped());
     }
 
-    /**
-     * @test
-     */
+    #[Test]
     public function id_that_does_not_exist_is_skipped(): void
     {
         $this->repo->shouldReceive('findById')->with(99)->andReturn(null);
@@ -184,10 +167,7 @@ class PositionImporterTest extends TestCase
     }
 
     // ─── real create / update ───────────────────────────────────────
-
-    /**
-     * @test
-     */
+    #[Test]
     public function updates_an_existing_position(): void
     {
         $this->repo->shouldReceive('findById')->with(5)->andReturn($this->validPosition(5));
@@ -201,9 +181,7 @@ class PositionImporterTest extends TestCase
         $this->assertSame(1, $result->getUpdated());
     }
 
-    /**
-     * @test
-     */
+    #[Test]
     public function creates_a_new_position_from_a_name(): void
     {
         WpState::$nextPostId = 77;
@@ -217,9 +195,7 @@ class PositionImporterTest extends TestCase
         $this->assertSame(1, $result->getCreated());
     }
 
-    /**
-     * @test
-     */
+    #[Test]
     public function a_merged_position_that_is_invalid_is_skipped(): void
     {
         $this->repo->shouldReceive('findById')->with(5)->andReturn($this->validPosition(5));
@@ -245,9 +221,7 @@ class PositionImporterTest extends TestCase
         $this->assertSame(1, $result->getSkipped());
     }
 
-    /**
-     * @test
-     */
+    #[Test]
     public function an_update_whose_save_fails_is_skipped(): void
     {
         $this->repo->shouldReceive('findById')->with(5)->andReturn($this->validPosition(5));
@@ -262,13 +236,11 @@ class PositionImporterTest extends TestCase
         $this->assertSame(0, $result->getUpdated());
     }
 
-    /**
-     * @test
-     */
+    #[Test]
     public function a_create_whose_post_insert_fails_is_skipped(): void
     {
         // wp_insert_post returns 0 → the row cannot be created.
-        Functions\when('wp_insert_post')->justReturn(0);
+        when('wp_insert_post')->justReturn(0);
         // See PositionImporterFailureTest: createNew() is reached before the
         // insert is attempted, so it needs an expectation. Without one the
         // row was skipped because Mockery threw and the importer caught it,
@@ -283,9 +255,7 @@ class PositionImporterTest extends TestCase
         $this->assertSame(0, $result->getCreated());
     }
 
-    /**
-     * @test
-     */
+    #[Test]
     public function a_create_whose_field_save_fails_is_skipped(): void
     {
         // Post inserts, but the field save fails afterwards.
@@ -301,9 +271,7 @@ class PositionImporterTest extends TestCase
         $this->assertSame(0, $result->getCreated());
     }
 
-    /**
-     * @test
-     */
+    #[Test]
     public function a_name_that_resolves_to_an_existing_position_updates_it(): void
     {
         // The internal lookup builds its cache from findAll(); a matching name
@@ -323,10 +291,8 @@ class PositionImporterTest extends TestCase
         $this->assertSame(0, $result->getCreated());
     }
 
-    /**
-     * @test
-     * @dataProvider invalidFieldProvider
-     */
+    #[DataProvider('invalidFieldProvider')]
+    #[Test]
     public function each_invalid_field_reports_the_row_as_skipped(array $getters): void
     {
         $this->repo->shouldReceive('findById')->with(5)->andReturn($this->validPosition(5));
@@ -366,9 +332,7 @@ class PositionImporterTest extends TestCase
         ];
     }
 
-    /**
-     * @test
-     */
+    #[Test]
     public function processes_multiple_rows_in_one_file(): void
     {
         // Row 1 updates (id 5), row 2 is skipped (empty), row 3 creates.

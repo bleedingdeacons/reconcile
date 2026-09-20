@@ -170,24 +170,16 @@ class SpreadsheetReader
 
         $zip->close();
 
-        // Disable external entity loading before parsing user-supplied XML
-        // to defend against XXE (billion-laughs / external-file reads).
-        $previousEntityLoader = null;
-        if (PHP_VERSION_ID < 80000 && function_exists('libxml_disable_entity_loader')) {
-            $previousEntityLoader = libxml_disable_entity_loader(true);
-        }
-
-        try {
-            $xml = simplexml_load_string(
-                $sheetXml,
-                'SimpleXMLElement',
-                LIBXML_NONET | LIBXML_NOENT
-            );
-        } finally {
-            if ($previousEntityLoader !== null && function_exists('libxml_disable_entity_loader')) {
-                libxml_disable_entity_loader($previousEntityLoader);
-            }
-        }
+        // User-supplied XML, so XXE is the risk: LIBXML_NONET blocks network
+        // access and libxml has not loaded external entities by default since
+        // 2.9. The libxml_disable_entity_loader() pair that used to guard this
+        // was a pre-8.0 shim -- the function has been a no-op since PHP 8.0 and
+        // the guard is unreachable now the floor is 8.4.
+        $xml = simplexml_load_string(
+            $sheetXml,
+            'SimpleXMLElement',
+            LIBXML_NONET | LIBXML_NOENT
+        );
 
         if ($xml === false) {
             throw new RuntimeException('Could not parse sheet1.xml.');
