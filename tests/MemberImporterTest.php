@@ -5,84 +5,101 @@ declare(strict_types=1);
 namespace Reconcile\Tests\Unit\Import;
 
 use Mockery\MockInterface;
-use PHPUnit\Framework\Attributes\Test;
-use PHPUnit\Framework\Attributes\DataProvider;
 use Reconcile\Group\GroupLookup;
 use Reconcile\Member\MemberImporter;
 use Mockery;
-use BleedingDeacons\WpMocks\TestCase;
 use Reconcile\Position\PositionLookup;
 use Unity\Core\Interfaces\Configuration;
 use Unity\Members\Interfaces\Member;
 use Unity\Members\Interfaces\MemberFactory;
 use Unity\Members\Interfaces\MemberRepository;
 
-/**
+/*
  * Unit tests for MemberImporter
  */
-class MemberImporterTest extends TestCase
+
+/**
+ * Helper: write a temporary CSV and return its path.
+ */
+function memberImportCsv(array $headers, array $rows): string
 {
-    private Configuration|MockInterface $configuration;
-    private MemberRepository|MockInterface $memberRepo;
-    private MemberFactory|MockInterface $memberFactory;
-    private GroupLookup|MockInterface $groupLookup;
-    private PositionLookup|MockInterface $positionLookup;
-    private MemberImporter $importer;
-
-    protected function setUp(): void
-    {
-        parent::setUp();
-
-        $this->configuration = Mockery::mock(Configuration::class);
-        $this->configuration->shouldReceive('getConfig')
-            ->with(Member::class)
-            ->andReturn([
-                'POST_TYPE' => 'intergroup-member',
-                'FIELD_ANONYMOUS_NAME' => 'about-layout-group_anonymous-name',
-                'FIELD_PERSONAL_EMAIL' => 'about-layout-group_personal-email',
-                'FIELD_MOBILE_NUMBER' => 'about-layout-group_mobile-number',
-            ])
-            ->byDefault();
-
-        $this->memberRepo = Mockery::mock(MemberRepository::class);
-        $this->memberFactory = Mockery::mock(MemberFactory::class);
-        $this->groupLookup = Mockery::mock(GroupLookup::class);
-        $this->positionLookup = Mockery::mock(PositionLookup::class);
-
-        $this->groupLookup->shouldReceive('resetUnresolved')->byDefault();
-        $this->positionLookup->shouldReceive('resetUnresolved')->byDefault();
-        $this->groupLookup->shouldReceive('getUnresolvedNames')->andReturn([])->byDefault();
-        $this->positionLookup->shouldReceive('getUnresolvedNames')->andReturn([])->byDefault();
-
-        $this->importer = new MemberImporter(
-            $this->configuration,
-            $this->memberRepo,
-            $this->memberFactory,
-            $this->groupLookup,
-            $this->positionLookup
-        );
+    $path = tempnam(sys_get_temp_dir(), 'import_test_') . '.csv';
+    $handle = fopen($path, 'w');
+    fputcsv($handle, $headers, ',', '"', '');
+    foreach ($rows as $row) {
+        fputcsv($handle, $row, ',', '"', '');
     }
+    fclose($handle);
 
-    /**
-     * Helper: write a temporary CSV and return its path.
-     */
-    private function writeCsv(array $headers, array $rows): string
-    {
-        $path = tempnam(sys_get_temp_dir(), 'import_test_') . '.csv';
-        $handle = fopen($path, 'w');
-        fputcsv($handle, $headers, ',', '"', '');
-        foreach ($rows as $row) {
-            fputcsv($handle, $row, ',', '"', '');
-        }
-        fclose($handle);
+    return $path;
+}
 
-        return $path;
-    }
+/**
+ * A minimal existing-member stub for update-path tests.
+ *
+ * The importer's create-path createNew() does not read the existing
+ * member (the revisor does, but these Mockery-only tests run without a
+ * revisor), so the stub only needs the id the importer reads while
+ * routing and reporting the update.
+ */
+function existingImportedMember(int $id = 1): Member
+{
+    $member = Mockery::mock(Member::class);
+    $member->shouldReceive('getId')->andReturn($id);
+    return $member;
+}
 
-    // ── Null dependency handling ────────────────────────────────────────
-    #[Test]
-    public function import_returns_error_when_member_repository_is_null(): void
-    {
+dataset('valid rotation dates', [
+    'yyyy/MM/dd' => ['2025/06/15'],
+    'yyyy-MM-dd' => ['2025-06-15'],
+    'yyyy.MM.dd' => ['2025.06.15'],
+    'dd/MM/yyyy' => ['15/06/2025'],
+    'dd-MM-yyyy' => ['15-06-2025'],
+    'dd/MM/yy'   => ['15/06/25'],
+]);
+
+dataset('GSR truthy values', [
+    'yes'   => ['yes'],
+    'Yes'   => ['Yes'],
+    'y'     => ['y'],
+    'true'  => ['true'],
+    '1'     => ['1'],
+]);
+
+beforeEach(function () {
+    $this->configuration = Mockery::mock(Configuration::class);
+    $this->configuration->shouldReceive('getConfig')
+        ->with(Member::class)
+        ->andReturn([
+            'POST_TYPE' => 'intergroup-member',
+            'FIELD_ANONYMOUS_NAME' => 'about-layout-group_anonymous-name',
+            'FIELD_PERSONAL_EMAIL' => 'about-layout-group_personal-email',
+            'FIELD_MOBILE_NUMBER' => 'about-layout-group_mobile-number',
+        ])
+        ->byDefault();
+
+    $this->memberRepo = Mockery::mock(MemberRepository::class);
+    $this->memberFactory = Mockery::mock(MemberFactory::class);
+    $this->groupLookup = Mockery::mock(GroupLookup::class);
+    $this->positionLookup = Mockery::mock(PositionLookup::class);
+
+    $this->groupLookup->shouldReceive('resetUnresolved')->byDefault();
+    $this->positionLookup->shouldReceive('resetUnresolved')->byDefault();
+    $this->groupLookup->shouldReceive('getUnresolvedNames')->andReturn([])->byDefault();
+    $this->positionLookup->shouldReceive('getUnresolvedNames')->andReturn([])->byDefault();
+
+    $this->importer = new MemberImporter(
+        $this->configuration,
+        $this->memberRepo,
+        $this->memberFactory,
+        $this->groupLookup,
+        $this->positionLookup
+    );
+});
+
+// ── Null dependency handling ────────────────────────────────────────
+describe('Null dependency handling', function () {
+    it('returns an error when the member repository is null', function () {
         $importer = new MemberImporter(
             $this->configuration,
             null,
@@ -93,13 +110,11 @@ class MemberImporterTest extends TestCase
 
         $result = $importer->import('/tmp/dummy.csv');
 
-        $this->assertTrue($result->hasErrors());
-        $this->assertStringContainsString('MemberRepository', $result->getErrors()[0]);
-    }
+        expect($result->hasErrors())->toBeTrue()
+            ->and($result->getErrors()[0])->toContain('MemberRepository');
+    });
 
-    #[Test]
-    public function import_returns_error_when_member_factory_is_null(): void
-    {
+    it('returns an error when the member factory is null', function () {
         $importer = new MemberImporter(
             $this->configuration,
             $this->memberRepo,
@@ -110,31 +125,31 @@ class MemberImporterTest extends TestCase
 
         $result = $importer->import('/tmp/dummy.csv');
 
-        $this->assertTrue($result->hasErrors());
-        $this->assertStringContainsString('MemberFactory', $result->getErrors()[0]);
-    }
+        expect($result->hasErrors())->toBeTrue()
+            ->and($result->getErrors()[0])->toContain('MemberFactory');
+    });
+});
 
-    // ── Missing / invalid columns ──────────────────────────────────────
-    #[Test]
-    public function import_returns_error_when_required_columns_missing(): void
-    {
-        $path = $this->writeCsv(['Anonymous Name', 'Random Column'], [
+// ── Missing / invalid columns ──────────────────────────────────────
+describe('Missing / invalid columns', function () {
+    it('returns an error when required columns are missing', function () {
+        $path = memberImportCsv(['Anonymous Name', 'Random Column'], [
             ['John D.', 'foo'],
         ]);
 
         $result = $this->importer->import($path);
 
-        $this->assertTrue($result->hasErrors());
-        $this->assertStringContainsString('Missing required columns', $result->getErrors()[0]);
+        expect($result->hasErrors())->toBeTrue()
+            ->and($result->getErrors()[0])->toContain('Missing required columns');
 
         unlink($path);
-    }
+    });
+});
 
-    // ── Dry run ────────────────────────────────────────────────────────
-    #[Test]
-    public function dry_run_counts_without_persisting(): void
-    {
-        $path = $this->writeCsv(
+// ── Dry run ────────────────────────────────────────────────────────
+describe('Dry run', function () {
+    it('counts without persisting', function () {
+        $path = memberImportCsv(
             ['Anonymous Name', 'Home Group', 'Personal Email', 'Mobile', 'GSR', 'Intergroup Position', 'Intergroup Position Rotation'],
             [
                 ['Alice A.', 'Group One', 'alice@example.com', '555-0001', 'yes', '', ''],
@@ -155,20 +170,20 @@ class MemberImporterTest extends TestCase
 
         $result = $this->importer->import($path, dryRun: true);
 
-        $this->assertTrue($result->isSuccess());
-        $this->assertEquals(2, $result->getTotalRows());
-        $this->assertEquals(2, $result->getCreated());
-        $this->assertEquals(0, $result->getUpdated());
-        $this->assertEquals(0, $result->getSkipped());
+        expect($result->isSuccess())->toBeTrue()
+            ->and($result->getTotalRows())->toEqual(2)
+            ->and($result->getCreated())->toEqual(2)
+            ->and($result->getUpdated())->toEqual(0)
+            ->and($result->getSkipped())->toEqual(0);
 
         unlink($path);
-    }
+    });
+});
 
-    // ── Row skipping ───────────────────────────────────────────────────
-    #[Test]
-    public function import_skips_row_with_empty_anonymous_name(): void
-    {
-        $path = $this->writeCsv(
+// ── Row skipping ───────────────────────────────────────────────────
+describe('Row skipping', function () {
+    it('skips a row with an empty anonymous name', function () {
+        $path = memberImportCsv(
             ['Anonymous Name', 'Home Group', 'Personal Email', 'Mobile', 'GSR', 'Intergroup Position', 'Intergroup Position Rotation'],
             [
                 ['', 'Group One', 'test@example.com', '555-0001', 'no', '', ''],
@@ -180,18 +195,16 @@ class MemberImporterTest extends TestCase
 
         $result = $this->importer->import($path, dryRun: true);
 
-        $this->assertEquals(1, $result->getSkipped());
+        expect($result->getSkipped())->toEqual(1);
         $skippedRows = $result->getSkippedRows();
-        $this->assertCount(1, $skippedRows);
-        $this->assertStringContainsString('Anonymous Name is empty', $skippedRows[0]['reason']);
+        expect($skippedRows)->toHaveCount(1)
+            ->and($skippedRows[0]['reason'])->toContain('Anonymous Name is empty');
 
         unlink($path);
-    }
+    });
 
-    #[Test]
-    public function import_skips_row_with_position_but_no_rotation(): void
-    {
-        $path = $this->writeCsv(
+    it('skips a row with a position but no rotation', function () {
+        $path = memberImportCsv(
             ['Anonymous Name', 'Home Group', 'Personal Email', 'Mobile', 'GSR', 'Intergroup Position', 'Intergroup Position Rotation'],
             [
                 ['Alice A.', 'Group One', 'alice@example.com', '555-0001', 'no', 'Secretary', ''],
@@ -204,16 +217,14 @@ class MemberImporterTest extends TestCase
 
         $result = $this->importer->import($path, dryRun: true);
 
-        $this->assertEquals(1, $result->getSkipped());
-        $this->assertStringContainsString('Rotation is empty', $result->getSkippedRows()[0]['reason']);
+        expect($result->getSkipped())->toEqual(1)
+            ->and($result->getSkippedRows()[0]['reason'])->toContain('Rotation is empty');
 
         unlink($path);
-    }
+    });
 
-    #[Test]
-    public function import_skips_row_with_invalid_date_format(): void
-    {
-        $path = $this->writeCsv(
+    it('skips a row with an invalid date format', function () {
+        $path = memberImportCsv(
             ['Anonymous Name', 'Home Group', 'Personal Email', 'Mobile', 'GSR', 'Intergroup Position', 'Intergroup Position Rotation'],
             [
                 ['Alice A.', 'Group One', 'alice@example.com', '555-0001', 'no', 'Secretary', 'not-a-date'],
@@ -226,18 +237,17 @@ class MemberImporterTest extends TestCase
 
         $result = $this->importer->import($path, dryRun: true);
 
-        $this->assertEquals(1, $result->getSkipped());
-        $this->assertStringContainsString('not a recognised date format', $result->getSkippedRows()[0]['reason']);
+        expect($result->getSkipped())->toEqual(1)
+            ->and($result->getSkippedRows()[0]['reason'])->toContain('not a recognised date format');
 
         unlink($path);
-    }
+    });
+});
 
-    // ── Date parsing ───────────────────────────────────────────────────
-    #[DataProvider('validDateProvider')]
-    #[Test]
-    public function import_accepts_valid_date_formats(string $input): void
-    {
-        $path = $this->writeCsv(
+// ── Date parsing ───────────────────────────────────────────────────
+describe('Date parsing', function () {
+    it('accepts valid date formats', function (string $input) {
+        $path = memberImportCsv(
             ['Anonymous Name', 'Home Group', 'Personal Email', 'Mobile', 'GSR', 'Intergroup Position', 'Intergroup Position Rotation'],
             [
                 ['Alice A.', 'Group One', 'alice@example.com', '555-0001', 'no', 'Secretary', $input],
@@ -250,50 +260,26 @@ class MemberImporterTest extends TestCase
 
         $result = $this->importer->import($path, dryRun: true);
 
-        $this->assertEquals(0, $result->getSkipped(), "Date '{$input}' should be accepted but was skipped");
-        $this->assertEquals(1, $result->getCreated());
+        expect($result->getSkipped())->toEqual(0, "Date '{$input}' should be accepted but was skipped")
+            ->and($result->getCreated())->toEqual(1);
 
         unlink($path);
-    }
+    })->with('valid rotation dates');
+});
 
-    public static function validDateProvider(): array
-    {
-        return [
-            'yyyy/MM/dd' => ['2025/06/15'],
-            'yyyy-MM-dd' => ['2025-06-15'],
-            'yyyy.MM.dd' => ['2025.06.15'],
-            'dd/MM/yyyy' => ['15/06/2025'],
-            'dd-MM-yyyy' => ['15-06-2025'],
-            'dd/MM/yy'   => ['15/06/25'],
-        ];
-    }
-
-    // ── GSR parsing ────────────────────────────────────────────────────
-    #[DataProvider('gsrTruthyProvider')]
-    #[Test]
-    public function import_parses_gsr_truthy_values(string $input): void
-    {
+// ── GSR parsing ────────────────────────────────────────────────────
+describe('GSR parsing', function () {
+    it('parses GSR truthy values', function (string $input) {
         // Verify the static method recognises these values
         $truthyValues = MemberImporter::getTruthyValues();
-        $this->assertContains(strtolower(trim($input)), $truthyValues);
-    }
+        expect($truthyValues)->toContain(strtolower(trim($input)));
+    })->with('GSR truthy values');
+});
 
-    public static function gsrTruthyProvider(): array
-    {
-        return [
-            'yes'   => ['yes'],
-            'Yes'   => ['Yes'],
-            'y'     => ['y'],
-            'true'  => ['true'],
-            '1'     => ['1'],
-        ];
-    }
-
-    // ── Unresolved group/position warnings ─────────────────────────────
-    #[Test]
-    public function import_warns_on_unresolved_group_names(): void
-    {
-        $path = $this->writeCsv(
+// ── Unresolved group/position warnings ─────────────────────────────
+describe('Unresolved group/position warnings', function () {
+    it('warns on unresolved group names', function () {
+        $path = memberImportCsv(
             ['Anonymous Name', 'Home Group', 'Personal Email', 'Mobile', 'GSR', 'Intergroup Position', 'Intergroup Position Rotation'],
             [
                 ['Alice A.', 'Unknown Group', 'alice@example.com', '555-0001', 'no', '', ''],
@@ -307,17 +293,15 @@ class MemberImporterTest extends TestCase
 
         $result = $this->importer->import($path, dryRun: true);
 
-        $this->assertTrue($result->hasWarnings());
+        expect($result->hasWarnings())->toBeTrue();
         $warnings = implode(' ', $result->getWarnings());
-        $this->assertStringContainsString('Unknown Group', $warnings);
+        expect($warnings)->toContain('Unknown Group');
 
         unlink($path);
-    }
+    });
 
-    #[Test]
-    public function import_warns_on_unresolved_position_names(): void
-    {
-        $path = $this->writeCsv(
+    it('warns on unresolved position names', function () {
+        $path = memberImportCsv(
             ['Anonymous Name', 'Home Group', 'Personal Email', 'Mobile', 'GSR', 'Intergroup Position', 'Intergroup Position Rotation'],
             [
                 ['Alice A.', 'Group One', 'alice@example.com', '555-0001', 'no', 'Fake Position', '2025/01/01'],
@@ -331,18 +315,18 @@ class MemberImporterTest extends TestCase
 
         $result = $this->importer->import($path, dryRun: true);
 
-        $this->assertTrue($result->hasWarnings());
+        expect($result->hasWarnings())->toBeTrue();
         $warnings = implode(' ', $result->getWarnings());
-        $this->assertStringContainsString('Fake Position', $warnings);
+        expect($warnings)->toContain('Fake Position');
 
         unlink($path);
-    }
+    });
+});
 
-    // ── Create vs update ───────────────────────────────────────────────
-    #[Test]
-    public function dry_run_detects_existing_members_as_updates(): void
-    {
-        $path = $this->writeCsv(
+// ── Create vs update ───────────────────────────────────────────────
+describe('Create vs update', function () {
+    it('detects existing members as updates on a dry run', function () {
+        $path = memberImportCsv(
             ['Anonymous Name', 'Home Group', 'Personal Email', 'Mobile', 'GSR', 'Intergroup Position', 'Intergroup Position Rotation'],
             [
                 ['Alice A.', 'Group One', 'alice@example.com', '555-0001', 'yes', '', ''],
@@ -365,37 +349,37 @@ class MemberImporterTest extends TestCase
 
         $result = $this->importer->import($path, dryRun: true);
 
-        $this->assertEquals(0, $result->getCreated());
-        $this->assertEquals(1, $result->getUpdated());
+        expect($result->getCreated())->toEqual(0)
+            ->and($result->getUpdated())->toEqual(1);
 
         unlink($path);
-    }
+    });
+});
 
-    // ── Accepted date format labels ────────────────────────────────────
-    #[Test]
-    public function getAcceptedDateFormats_returns_non_empty_array(): void
-    {
+// ── Accepted date format labels ────────────────────────────────────
+describe('Accepted date format labels', function () {
+    it('returns a non-empty array from getAcceptedDateFormats()', function () {
         $formats = MemberImporter::getAcceptedDateFormats();
 
-        $this->assertNotEmpty($formats);
-        $this->assertContains('yyyy/MM/dd', $formats);
-        $this->assertContains('dd/MM/yyyy', $formats);
-    }
+        expect($formats)->not->toBeEmpty()
+            ->toContain('yyyy/MM/dd')
+            ->toContain('dd/MM/yyyy');
+    });
+});
 
-    // ── File read errors ───────────────────────────────────────────────
-    #[Test]
-    public function import_returns_error_for_nonexistent_file(): void
-    {
+// ── File read errors ───────────────────────────────────────────────
+describe('File read errors', function () {
+    it('returns an error for a nonexistent file', function () {
         $result = $this->importer->import('/tmp/nonexistent_file_abc123.csv');
 
-        $this->assertTrue($result->hasErrors());
-    }
+        expect($result->hasErrors())->toBeTrue();
+    });
+});
 
-    // ── Member ID lookup ──────────────────────────────────────────────
-    #[Test]
-    public function import_uses_member_id_to_find_existing_member(): void
-    {
-        $path = $this->writeCsv(
+// ── Member ID lookup ──────────────────────────────────────────────
+describe('Member ID lookup', function () {
+    it('uses the member ID to find an existing member', function () {
+        $path = memberImportCsv(
             ['Member ID', 'Anonymous Name', 'Home Group', 'Personal Email', 'Mobile', 'GSR', 'Intergroup Position', 'Intergroup Position Rotation'],
             [
                 ['42', 'Alice A.', 'Group One', 'alice@example.com', '555-0001', 'yes', '', ''],
@@ -421,17 +405,15 @@ class MemberImporterTest extends TestCase
 
         $result = $this->importer->import($path, dryRun: true);
 
-        $this->assertEquals(0, $result->getCreated());
-        $this->assertEquals(1, $result->getUpdated());
-        $this->assertEquals(0, $result->getSkipped());
+        expect($result->getCreated())->toEqual(0)
+            ->and($result->getUpdated())->toEqual(1)
+            ->and($result->getSkipped())->toEqual(0);
 
         unlink($path);
-    }
+    });
 
-    #[Test]
-    public function import_skips_row_with_non_numeric_member_id(): void
-    {
-        $path = $this->writeCsv(
+    it('skips a row with a non-numeric member ID', function () {
+        $path = memberImportCsv(
             ['Member ID', 'Anonymous Name', 'Home Group', 'Personal Email', 'Mobile', 'GSR', 'Intergroup Position', 'Intergroup Position Rotation'],
             [
                 ['abc', 'Alice A.', 'Group One', 'alice@example.com', '555-0001', 'yes', '', ''],
@@ -443,16 +425,14 @@ class MemberImporterTest extends TestCase
 
         $result = $this->importer->import($path, dryRun: true);
 
-        $this->assertEquals(1, $result->getSkipped());
-        $this->assertStringContainsString('not a valid numeric ID', $result->getSkippedRows()[0]['reason']);
+        expect($result->getSkipped())->toEqual(1)
+            ->and($result->getSkippedRows()[0]['reason'])->toContain('not a valid numeric ID');
 
         unlink($path);
-    }
+    });
 
-    #[Test]
-    public function import_skips_row_when_member_id_does_not_match(): void
-    {
-        $path = $this->writeCsv(
+    it('skips a row when the member ID does not match', function () {
+        $path = memberImportCsv(
             ['Member ID', 'Anonymous Name', 'Home Group', 'Personal Email', 'Mobile', 'GSR', 'Intergroup Position', 'Intergroup Position Rotation'],
             [
                 ['999', 'Alice A.', 'Group One', 'alice@example.com', '555-0001', 'yes', '', ''],
@@ -466,16 +446,14 @@ class MemberImporterTest extends TestCase
 
         $result = $this->importer->import($path, dryRun: true);
 
-        $this->assertEquals(1, $result->getSkipped());
-        $this->assertStringContainsString('does not match an existing member', $result->getSkippedRows()[0]['reason']);
+        expect($result->getSkipped())->toEqual(1)
+            ->and($result->getSkippedRows()[0]['reason'])->toContain('does not match an existing member');
 
         unlink($path);
-    }
+    });
 
-    #[Test]
-    public function import_falls_back_to_anonymous_name_when_member_id_empty(): void
-    {
-        $path = $this->writeCsv(
+    it('falls back to the anonymous name when the member ID is empty', function () {
+        $path = memberImportCsv(
             ['Member ID', 'Anonymous Name', 'Home Group', 'Personal Email', 'Mobile', 'GSR', 'Intergroup Position', 'Intergroup Position Rotation'],
             [
                 ['', 'Alice A.', 'Group One', 'alice@example.com', '555-0001', 'yes', '', ''],
@@ -493,19 +471,19 @@ class MemberImporterTest extends TestCase
 
         $result = $this->importer->import($path, dryRun: true);
 
-        $this->assertEquals(1, $result->getCreated());
-        $this->assertEquals(0, $result->getUpdated());
+        expect($result->getCreated())->toEqual(1)
+            ->and($result->getUpdated())->toEqual(0);
 
         unlink($path);
-    }
+    });
+});
 
-    // ── 12th Stepper / Area / Accepts ──────────────────────────────────
-    #[Test]
-    public function import_works_when_new_optional_columns_are_absent(): void
-    {
+// ── 12th Stepper / Area / Accepts ──────────────────────────────────
+describe('12th Stepper / Area / Accepts', function () {
+    it('works when the new optional columns are absent', function () {
         // The existing column set must keep working unchanged — the three new
         // columns are optional and absent spreadsheets must not regress.
-        $path = $this->writeCsv(
+        $path = memberImportCsv(
             ['Anonymous Name', 'Home Group', 'Personal Email', 'Mobile', 'GSR', 'Intergroup Position', 'Intergroup Position Rotation'],
             [
                 ['Alice A.', 'Group One', 'alice@example.com', '555-0001', 'no', '', ''],
@@ -518,18 +496,16 @@ class MemberImporterTest extends TestCase
 
         $result = $this->importer->import($path, dryRun: true);
 
-        $this->assertTrue($result->isSuccess());
-        $this->assertEquals(1, $result->getCreated());
-        $this->assertEquals(0, $result->getSkipped());
-        $this->assertEmpty($result->getWarnings());
+        expect($result->isSuccess())->toBeTrue()
+            ->and($result->getCreated())->toEqual(1)
+            ->and($result->getSkipped())->toEqual(0)
+            ->and($result->getWarnings())->toBeEmpty();
 
         unlink($path);
-    }
+    });
 
-    #[Test]
-    public function import_parses_twelfth_stepper_with_area_and_accepts(): void
-    {
-        $path = $this->writeCsv(
+    it('parses 12th stepper with area and accepts', function () {
+        $path = memberImportCsv(
             ['Anonymous Name', 'Home Group', 'Personal Email', 'Mobile', 'GSR', 'Intergroup Position', 'Intergroup Position Rotation', '12th Stepper', 'Area', 'Accepts'],
             [
                 ['Alice A.', 'Group One', 'alice@example.com', '555-0001', 'no', '', '', 'yes', 'East London', 'Male|Female'],
@@ -544,7 +520,7 @@ class MemberImporterTest extends TestCase
         // counts without building), so createNew is exercised on a persisting
         // path. The parsed 12th-stepper/area/accepts values are computed the
         // same way whether the member is created or updated.
-        $this->memberRepo->shouldReceive('findAll')->andReturn([$this->existingMemberStub()]);
+        $this->memberRepo->shouldReceive('findAll')->andReturn([existingImportedMember()]);
         $this->memberRepo->shouldReceive('save')->andReturn(true);
 
         $capturedNamed = null;
@@ -556,15 +532,17 @@ class MemberImporterTest extends TestCase
 
         $result = $this->importer->import($path);
 
-        $this->assertEquals(1, $result->getUpdated());
-        $this->assertEquals(0, $result->getSkipped());
+        expect($result->getUpdated())->toEqual(1)
+            ->and($result->getSkipped())->toEqual(0);
 
         // PHP collapses named args into the variadic in positional order,
         // matching the interface signature: the trailing three values must
         // be the parsed 12th-stepper bool, area string, and accepts array.
-        $this->assertNotNull($capturedNamed, 'createNew should have been called.');
-        $this->assertContains(true, $capturedNamed, 'twelfthStepper=true should reach the factory.');
-        $this->assertContains('East London', $capturedNamed, 'Area string should reach the factory.');
+        expect($capturedNamed)->not->toBeNull('createNew should have been called.')
+            // twelfthStepper=true should reach the factory.
+            ->toContain(true)
+            // Area string should reach the factory.
+            ->toContain('East London');
 
         // Find the accepts array among the captured args.
         $acceptsArg = null;
@@ -574,16 +552,14 @@ class MemberImporterTest extends TestCase
                 break;
             }
         }
-        $this->assertNotNull($acceptsArg, 'Accepts array should reach the factory.');
-        $this->assertSame(['accepts-male', 'accepts-female'], $acceptsArg);
+        expect($acceptsArg)->not->toBeNull('Accepts array should reach the factory.')
+            ->toBe(['accepts-male', 'accepts-female']);
 
         unlink($path);
-    }
+    });
 
-    #[Test]
-    public function import_clears_area_and_accepts_with_warning_when_not_twelfth_stepper(): void
-    {
-        $path = $this->writeCsv(
+    it('clears area and accepts with a warning when not a 12th stepper', function () {
+        $path = memberImportCsv(
             ['Anonymous Name', 'Home Group', 'Personal Email', 'Mobile', 'GSR', 'Intergroup Position', 'Intergroup Position Rotation', '12th Stepper', 'Area', 'Accepts'],
             [
                 // 12th Stepper is "no" but Area and Accepts are populated —
@@ -599,23 +575,21 @@ class MemberImporterTest extends TestCase
 
         $result = $this->importer->import($path, dryRun: true);
 
-        $this->assertEquals(1, $result->getCreated());
-        $this->assertEquals(0, $result->getSkipped());
+        expect($result->getCreated())->toEqual(1)
+            ->and($result->getSkipped())->toEqual(0);
 
         $warnings = $result->getWarnings();
-        $this->assertNotEmpty($warnings, 'Expected a clearing warning to be raised.');
+        expect($warnings)->not->toBeEmpty('Expected a clearing warning to be raised.');
         $combined = implode("\n", $warnings);
-        $this->assertStringContainsString('12th Stepper is not set', $combined);
-        $this->assertStringContainsString('Area', $combined);
-        $this->assertStringContainsString('Accepts', $combined);
+        expect($combined)->toContain('12th Stepper is not set')
+            ->toContain('Area')
+            ->toContain('Accepts');
 
         unlink($path);
-    }
+    });
 
-    #[Test]
-    public function import_does_not_warn_when_not_twelfth_stepper_and_area_accepts_are_empty(): void
-    {
-        $path = $this->writeCsv(
+    it('does not warn when not a 12th stepper and area and accepts are empty', function () {
+        $path = memberImportCsv(
             ['Anonymous Name', 'Home Group', 'Personal Email', 'Mobile', 'GSR', 'Intergroup Position', 'Intergroup Position Rotation', '12th Stepper', 'Area', 'Accepts'],
             [
                 ['Alice A.', 'Group One', 'alice@example.com', '555-0001', 'no', '', '', 'no', '', ''],
@@ -628,19 +602,14 @@ class MemberImporterTest extends TestCase
 
         $result = $this->importer->import($path, dryRun: true);
 
-        $this->assertEquals(1, $result->getCreated());
-        $this->assertEmpty(
-            $result->getWarnings(),
-            'Did not expect a clearing warning when Area and Accepts are already empty.'
-        );
+        expect($result->getCreated())->toEqual(1)
+            ->and($result->getWarnings())->toBeEmpty('Did not expect a clearing warning when Area and Accepts are already empty.');
 
         unlink($path);
-    }
+    });
 
-    #[Test]
-    public function import_skips_row_with_unrecognised_accepts_value(): void
-    {
-        $path = $this->writeCsv(
+    it('skips a row with an unrecognised accepts value', function () {
+        $path = memberImportCsv(
             ['Anonymous Name', 'Home Group', 'Personal Email', 'Mobile', 'GSR', 'Intergroup Position', 'Intergroup Position Rotation', '12th Stepper', 'Area', 'Accepts'],
             [
                 ['Alice A.', 'Group One', 'alice@example.com', '555-0001', 'no', '', '', 'yes', 'East London', 'Male|Banana'],
@@ -653,18 +622,16 @@ class MemberImporterTest extends TestCase
 
         $result = $this->importer->import($path, dryRun: true);
 
-        $this->assertEquals(1, $result->getSkipped());
+        expect($result->getSkipped())->toEqual(1);
         $skipped = $result->getSkippedRows();
-        $this->assertStringContainsString('Banana', $skipped[0]['reason']);
-        $this->assertStringContainsString('Male, Female, Non-Binary, All', $skipped[0]['reason']);
+        expect($skipped[0]['reason'])->toContain('Banana')
+            ->toContain('Male, Female, Non-Binary, All');
 
         unlink($path);
-    }
+    });
 
-    #[Test]
-    public function import_accepts_labels_case_insensitively(): void
-    {
-        $path = $this->writeCsv(
+    it('accepts labels case-insensitively', function () {
+        $path = memberImportCsv(
             ['Anonymous Name', 'Home Group', 'Personal Email', 'Mobile', 'GSR', 'Intergroup Position', 'Intergroup Position Rotation', '12th Stepper', 'Area', 'Accepts'],
             [
                 ['Alice A.', 'Group One', 'alice@example.com', '555-0001', 'no', '', '', 'yes', 'East London', ' male | NON-binary '],
@@ -677,17 +644,15 @@ class MemberImporterTest extends TestCase
 
         $result = $this->importer->import($path, dryRun: true);
 
-        $this->assertEquals(1, $result->getCreated());
-        $this->assertEquals(0, $result->getSkipped());
-        $this->assertEmpty($result->getWarnings());
+        expect($result->getCreated())->toEqual(1)
+            ->and($result->getSkipped())->toEqual(0)
+            ->and($result->getWarnings())->toBeEmpty();
 
         unlink($path);
-    }
+    });
 
-    #[Test]
-    public function import_expands_accepts_all_to_every_concrete_value(): void
-    {
-        $path = $this->writeCsv(
+    it('expands accepts "all" to every concrete value', function () {
+        $path = memberImportCsv(
             ['Anonymous Name', 'Home Group', 'Personal Email', 'Mobile', 'GSR', 'Intergroup Position', 'Intergroup Position Rotation', '12th Stepper', 'Area', 'Accepts'],
             [
                 ['Alice A.', 'Group One', 'alice@example.com', '555-0001', 'no', '', '', 'yes', 'East London', 'All'],
@@ -696,7 +661,7 @@ class MemberImporterTest extends TestCase
 
         $this->groupLookup->shouldReceive('resolve')->andReturn(10);
         $this->positionLookup->shouldReceive('resolve')->andReturn(0);
-        $this->memberRepo->shouldReceive('findAll')->andReturn([$this->existingMemberStub()]);
+        $this->memberRepo->shouldReceive('findAll')->andReturn([existingImportedMember()]);
         $this->memberRepo->shouldReceive('save')->andReturn(true);
 
         $capturedArgs = null;
@@ -708,7 +673,7 @@ class MemberImporterTest extends TestCase
 
         $result = $this->importer->import($path);
 
-        $this->assertEquals(1, $result->getUpdated());
+        expect($result->getUpdated())->toEqual(1);
 
         $acceptsArg = null;
         foreach ($capturedArgs as $arg) {
@@ -717,19 +682,13 @@ class MemberImporterTest extends TestCase
                 break;
             }
         }
-        $this->assertSame(
-            ['accepts-male', 'accepts-female', 'accepts-non-binary'],
-            $acceptsArg,
-            '"All" should expand to every concrete accepts value.'
-        );
+        expect($acceptsArg)->toBe(['accepts-male', 'accepts-female', 'accepts-non-binary'], '"All" should expand to every concrete accepts value.');
 
         unlink($path);
-    }
+    });
 
-    #[Test]
-    public function import_dedupes_when_all_is_combined_with_concrete_values(): void
-    {
-        $path = $this->writeCsv(
+    it('dedupes when "all" is combined with concrete values', function () {
+        $path = memberImportCsv(
             ['Anonymous Name', 'Home Group', 'Personal Email', 'Mobile', 'GSR', 'Intergroup Position', 'Intergroup Position Rotation', '12th Stepper', 'Area', 'Accepts'],
             [
                 // "All|Female" is equivalent to "All" — the expansion already
@@ -740,7 +699,7 @@ class MemberImporterTest extends TestCase
 
         $this->groupLookup->shouldReceive('resolve')->andReturn(10);
         $this->positionLookup->shouldReceive('resolve')->andReturn(0);
-        $this->memberRepo->shouldReceive('findAll')->andReturn([$this->existingMemberStub()]);
+        $this->memberRepo->shouldReceive('findAll')->andReturn([existingImportedMember()]);
         $this->memberRepo->shouldReceive('save')->andReturn(true);
 
         $capturedArgs = null;
@@ -752,7 +711,7 @@ class MemberImporterTest extends TestCase
 
         $result = $this->importer->import($path);
 
-        $this->assertEquals(1, $result->getUpdated());
+        expect($result->getUpdated())->toEqual(1);
 
         $acceptsArg = null;
         foreach ($capturedArgs as $arg) {
@@ -761,26 +720,8 @@ class MemberImporterTest extends TestCase
                 break;
             }
         }
-        $this->assertSame(
-            ['accepts-male', 'accepts-female', 'accepts-non-binary'],
-            $acceptsArg
-        );
+        expect($acceptsArg)->toBe(['accepts-male', 'accepts-female', 'accepts-non-binary']);
 
         unlink($path);
-    }
-
-    /**
-     * A minimal existing-member stub for update-path tests.
-     *
-     * The importer's create-path createNew() does not read the existing
-     * member (the revisor does, but these Mockery-only tests run without a
-     * revisor), so the stub only needs the id the importer reads while
-     * routing and reporting the update.
-     */
-    private function existingMemberStub(int $id = 1): Member
-    {
-        $member = Mockery::mock(Member::class);
-        $member->shouldReceive('getId')->andReturn($id);
-        return $member;
-    }
-}
+    });
+});
