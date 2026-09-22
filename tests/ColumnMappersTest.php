@@ -4,25 +4,19 @@ declare(strict_types=1);
 
 namespace Reconcile\Tests\Unit;
 
-use PHPUnit\Framework\Attributes\CoversClass;
-use PHPUnit\Framework\Attributes\Test;
-use BleedingDeacons\WpMocks\TestCase;
 use Reconcile\Group\GroupColumnMapper;
 use Reconcile\Member\MemberColumnMapper;
 use Reconcile\Position\PositionColumnMapper;
 
-/**
+/*
  * Tests for the three spreadsheet column mappers.
  */
-#[CoversClass(\Reconcile\Member\MemberColumnMapper::class)]
-#[CoversClass(\Reconcile\Group\GroupColumnMapper::class)]
-#[CoversClass(\Reconcile\Position\PositionColumnMapper::class)]
-class ColumnMappersTest extends TestCase
-{
-    // ─── MemberColumnMapper ─────────────────────────────────────────
-    #[Test]
-    public function member_maps_normalised_aliases_to_canonical_properties(): void
-    {
+
+covers(MemberColumnMapper::class, GroupColumnMapper::class, PositionColumnMapper::class);
+
+// ─── MemberColumnMapper ─────────────────────────────────────────
+describe('MemberColumnMapper', function () {
+    it('maps normalised aliases to canonical properties', function () {
         $mapper = new MemberColumnMapper();
 
         $mapping = $mapper->mapHeaders([
@@ -30,147 +24,127 @@ class ColumnMappersTest extends TestCase
             'GSR', 'Intergroup Position', 'Unknown Column', '12th Stepper',
         ]);
 
-        $this->assertSame('anonymous_name', $mapping[0]);
-        $this->assertSame('home_group', $mapping[1]);
-        $this->assertSame('personal_email', $mapping[2]);
-        $this->assertSame('mobile_number', $mapping[3]);
-        $this->assertSame('is_gsr', $mapping[4]);
-        $this->assertSame('intergroup_position', $mapping[5]);
-        // Unknown headers are simply not mapped.
-        $this->assertArrayNotHasKey(6, $mapping);
-        $this->assertSame('is_twelfth_stepper', $mapping[7]);
-    }
+        expect($mapping[0])->toBe('anonymous_name')
+            ->and($mapping[1])->toBe('home_group')
+            ->and($mapping[2])->toBe('personal_email')
+            ->and($mapping[3])->toBe('mobile_number')
+            ->and($mapping[4])->toBe('is_gsr')
+            ->and($mapping[5])->toBe('intergroup_position')
+            // Unknown headers are simply not mapped.
+            ->and($mapping)->not->toHaveKey(6)
+            ->and($mapping[7])->toBe('is_twelfth_stepper');
+    });
 
-    #[Test]
-    public function member_validate_reports_missing_required_columns(): void
-    {
+    it('reports missing required columns on validate', function () {
         $mapper = new MemberColumnMapper();
 
         $missing = $mapper->validateMapping([0 => 'anonymous_name']);
 
-        $this->assertContains('home_group', $missing);
-        $this->assertContains('personal_email', $missing);
-        $this->assertNotContains('anonymous_name', $missing);
-    }
+        expect($missing)->toContain('home_group')
+            ->toContain('personal_email')
+            ->not->toContain('anonymous_name');
+    });
 
-    #[Test]
-    public function member_validate_passes_when_all_required_present(): void
-    {
+    it('passes validate when all required columns are present', function () {
         $mapper = new MemberColumnMapper();
         $full = ['anonymous_name', 'home_group', 'personal_email', 'mobile_number', 'is_gsr', 'intergroup_position'];
 
-        $this->assertSame([], $mapper->validateMapping(array_values($full)));
-    }
+        expect($mapper->validateMapping(array_values($full)))->toBe([]);
+    });
 
-    #[Test]
-    public function member_maps_the_landline_and_preferred_contact_columns(): void
-    {
+    it('maps the landline and preferred contact columns', function () {
         $mapper = new MemberColumnMapper();
 
         $mapping = $mapper->mapHeaders([
             'Landline Number', 'landline', 'Preferred Contact', 'preferred_contact',
         ]);
 
-        $this->assertSame('landline_number', $mapping[0]);
-        $this->assertSame('landline_number', $mapping[1]);
-        $this->assertSame('preferred_contact', $mapping[2]);
-        $this->assertSame('preferred_contact', $mapping[3]);
-    }
+        expect($mapping[0])->toBe('landline_number')
+            ->and($mapping[1])->toBe('landline_number')
+            ->and($mapping[2])->toBe('preferred_contact')
+            ->and($mapping[3])->toBe('preferred_contact');
+    });
 
-    /**
-     * Both columns must stay optional. Requiring either would reject every
-     * spreadsheet written before they existed.
-     */
-    #[Test]
-    public function the_landline_and_preferred_contact_columns_are_not_required(): void
-    {
+    // Both columns must stay optional. Requiring either would reject every
+    // spreadsheet written before they existed.
+    it('does not require the landline and preferred contact columns', function () {
         $mapper = new MemberColumnMapper();
         $withoutThem = ['anonymous_name', 'home_group', 'personal_email', 'mobile_number', 'is_gsr', 'intergroup_position'];
 
         $missing = $mapper->validateMapping($withoutThem);
 
-        $this->assertNotContains('landline_number', $missing);
-        $this->assertNotContains('preferred_contact', $missing);
-        $this->assertSame([], $missing);
-    }
+        expect($missing)->not->toContain('landline_number')
+            ->not->toContain('preferred_contact')
+            ->toBe([]);
+    });
 
-    #[Test]
-    public function member_exposes_labels_and_aliases(): void
-    {
-        $this->assertSame('Anonymous Name', MemberColumnMapper::getPropertyLabels()['anonymous_name']);
-        $this->assertArrayHasKey('member_id', MemberColumnMapper::getAcceptedHeaders());
-        $this->assertSame('Landline', MemberColumnMapper::getPropertyLabels()['landline_number']);
-        $this->assertSame('Preferred Contact', MemberColumnMapper::getPropertyLabels()['preferred_contact']);
-    }
+    it('exposes labels and aliases', function () {
+        expect(MemberColumnMapper::getPropertyLabels()['anonymous_name'])->toBe('Anonymous Name')
+            ->and(MemberColumnMapper::getAcceptedHeaders())->toHaveKey('member_id')
+            ->and(MemberColumnMapper::getPropertyLabels()['landline_number'])->toBe('Landline')
+            ->and(MemberColumnMapper::getPropertyLabels()['preferred_contact'])->toBe('Preferred Contact');
+    });
+});
 
-    // ─── GroupColumnMapper ──────────────────────────────────────────
-    #[Test]
-    public function group_maps_contact_and_identity_columns(): void
-    {
+// ─── GroupColumnMapper ──────────────────────────────────────────
+describe('GroupColumnMapper', function () {
+    it('maps contact and identity columns', function () {
         $mapper = new GroupColumnMapper();
 
         $mapping = $mapper->mapHeaders(['Group ID', 'Group Name', 'Group Email', 'Contact 1 Name']);
 
-        $this->assertSame('group_id', $mapping[0]);
-        $this->assertSame('group_name', $mapping[1]);
-        $this->assertSame('email', $mapping[2]);
-        $this->assertSame('contact_1_name', $mapping[3]);
-    }
+        expect($mapping[0])->toBe('group_id')
+            ->and($mapping[1])->toBe('group_name')
+            ->and($mapping[2])->toBe('email')
+            ->and($mapping[3])->toBe('contact_1_name');
+    });
 
-    #[Test]
-    public function group_validate_requires_email_and_one_identifier(): void
-    {
+    it('requires email and one identifier on validate', function () {
         $mapper = new GroupColumnMapper();
 
         // Neither identifier, no email.
         $missing = $mapper->validateMapping([0 => 'contact_1_name']);
-        $this->assertContains('email', $missing);
-        $this->assertContains('group_id', $missing);
-        $this->assertContains('group_name', $missing);
+        expect($missing)->toContain('email')
+            ->toContain('group_id')
+            ->toContain('group_name');
 
         // Email + one identifier satisfies the rule.
-        $this->assertSame([], $mapper->validateMapping([0 => 'email', 1 => 'group_id']));
-    }
+        expect($mapper->validateMapping([0 => 'email', 1 => 'group_id']))->toBe([]);
+    });
 
-    #[Test]
-    public function group_exposes_labels_and_aliases(): void
-    {
-        $this->assertSame('Group Email', GroupColumnMapper::getPropertyLabels()['email']);
-        $this->assertArrayHasKey('contact_3_phone', GroupColumnMapper::getAcceptedHeaders());
-    }
+    it('exposes labels and aliases', function () {
+        expect(GroupColumnMapper::getPropertyLabels()['email'])->toBe('Group Email')
+            ->and(GroupColumnMapper::getAcceptedHeaders())->toHaveKey('contact_3_phone');
+    });
+});
 
-    // ─── PositionColumnMapper ───────────────────────────────────────
-    #[Test]
-    public function position_maps_its_aliases(): void
-    {
+// ─── PositionColumnMapper ───────────────────────────────────────
+describe('PositionColumnMapper', function () {
+    it('maps its aliases', function () {
         $mapper = new PositionColumnMapper();
 
         $mapping = $mapper->mapHeaders(['Position Name', 'Sobriety', 'Term Length', 'Summary']);
 
-        $this->assertSame('position_name', $mapping[0]);
-        $this->assertSame('minimum_sobriety', $mapping[1]);
-        $this->assertSame('term_years', $mapping[2]);
-        $this->assertSame('summary', $mapping[3]);
-    }
+        expect($mapping[0])->toBe('position_name')
+            ->and($mapping[1])->toBe('minimum_sobriety')
+            ->and($mapping[2])->toBe('term_years')
+            ->and($mapping[3])->toBe('summary');
+    });
 
-    #[Test]
-    public function position_validate_requires_one_identifier_only(): void
-    {
+    it('requires one identifier only on validate', function () {
         $mapper = new PositionColumnMapper();
 
         // No identifier at all.
         $missing = $mapper->validateMapping([0 => 'summary']);
-        $this->assertContains('position_id', $missing);
-        $this->assertContains('position_name', $missing);
+        expect($missing)->toContain('position_id')
+            ->toContain('position_name');
 
         // One identifier is enough (email is not required for positions).
-        $this->assertSame([], $mapper->validateMapping([0 => 'position_name']));
-    }
+        expect($mapper->validateMapping([0 => 'position_name']))->toBe([]);
+    });
 
-    #[Test]
-    public function position_exposes_labels_and_aliases(): void
-    {
-        $this->assertSame('Minimum Sobriety', PositionColumnMapper::getPropertyLabels()['minimum_sobriety']);
-        $this->assertArrayHasKey('term_years', PositionColumnMapper::getAcceptedHeaders());
-    }
-}
+    it('exposes labels and aliases', function () {
+        expect(PositionColumnMapper::getPropertyLabels()['minimum_sobriety'])->toBe('Minimum Sobriety')
+            ->and(PositionColumnMapper::getAcceptedHeaders())->toHaveKey('term_years');
+    });
+});

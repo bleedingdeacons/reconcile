@@ -4,201 +4,185 @@ declare(strict_types=1);
 
 namespace Reconcile\Tests\Unit;
 
-use PHPUnit\Framework\Attributes\CoversClass;
-use PHPUnit\Framework\Attributes\Test;
-use PHPUnit\Framework\Attributes\DataProvider;
 use function Brain\Monkey\Functions\when;
 use Mockery;
-use BleedingDeacons\WpMocks\TestCase;
 use BleedingDeacons\WpMocks\WpState;
 use Reconcile\Position\PositionImporter;
 use Unity\Positions\Interfaces\Position;
 use Unity\Positions\Interfaces\PositionFactory;
 use Unity\Positions\Interfaces\PositionRepository;
 
-/**
+/*
  * Tests for PositionImporter.
  */
-#[CoversClass(\Reconcile\Position\PositionImporter::class)]
-class PositionImporterTest extends TestCase
+
+covers(PositionImporter::class);
+
+const POSITION_IMPORT_HEADERS = [
+    'Position ID', 'Position Name', 'Position Email',
+    'Minimum Sobriety', 'Term Years', 'Short Description', 'Summary',
+];
+
+/**
+ * @param array<int, array<int, string>> $rows
+ */
+function positionImportCsv(array $headers, array $rows): string
 {
-    /** @var PositionRepository&Mockery\MockInterface */
-    private $repo;
-    /** @var PositionFactory&Mockery\MockInterface */
-    private $factory;
-
-    protected function setUp(): void
-    {
-        parent::setUp();
-        $this->repo = Mockery::mock(PositionRepository::class);
-        $this->factory = Mockery::mock(PositionFactory::class);
-        // The internal PositionLookup builds its cache from findAll(); default to
-        // no positions so name resolution misses unless a test overrides it.
-        $this->repo->shouldReceive('findAll')->andReturn([])->byDefault();
+    $path = tempnam(sys_get_temp_dir(), 'pos_import_') . '.csv';
+    $handle = fopen($path, 'w');
+    fputcsv($handle, $headers, ',', '"', '');
+    foreach ($rows as $row) {
+        fputcsv($handle, $row, ',', '"', '');
     }
+    fclose($handle);
+    return $path;
+}
 
-    protected function tearDown(): void
-    {
-        Mockery::close();
-        parent::tearDown();
-    }
+/** @return Position&Mockery\MockInterface */
+function importedPosition(int $id = 5)
+{
+    $p = Mockery::mock(Position::class);
+    $p->shouldReceive('getId')->andReturn($id);
+    $p->shouldReceive('getEmail')->andReturn('chair@example.com');
+    $p->shouldReceive('getLongName')->andReturn('Chair');
+    $p->shouldReceive('getShortDescription')->andReturn('Chairs');
+    $p->shouldReceive('getSummary')->andReturn('Runs intergroup');
+    $p->shouldReceive('getMinimumSobriety')->andReturn(24);
+    $p->shouldReceive('getTermYears')->andReturn(3);
+    $p->shouldReceive('isValid')->andReturn(true);
+    return $p;
+}
 
-    /**
-     * @param array<int, array<int, string>> $rows
-     */
-    private function writeCsv(array $headers, array $rows): string
-    {
-        $path = tempnam(sys_get_temp_dir(), 'pos_import_') . '.csv';
-        $handle = fopen($path, 'w');
-        fputcsv($handle, $headers, ',', '"', '');
-        foreach ($rows as $row) {
-            fputcsv($handle, $row, ',', '"', '');
-        }
-        fclose($handle);
-        return $path;
-    }
-
-    private function importer(): PositionImporter
-    {
-        return new PositionImporter($this->repo, $this->factory);
-    }
-
-    /** @return Position&Mockery\MockInterface */
-    private function validPosition(int $id = 5)
-    {
-        $p = Mockery::mock(Position::class);
-        $p->shouldReceive('getId')->andReturn($id);
-        $p->shouldReceive('getEmail')->andReturn('chair@example.com');
-        $p->shouldReceive('getLongName')->andReturn('Chair');
-        $p->shouldReceive('getShortDescription')->andReturn('Chairs');
-        $p->shouldReceive('getSummary')->andReturn('Runs intergroup');
-        $p->shouldReceive('getMinimumSobriety')->andReturn(24);
-        $p->shouldReceive('getTermYears')->andReturn(3);
-        $p->shouldReceive('isValid')->andReturn(true);
-        return $p;
-    }
-
-    private const HEADERS = [
-        'Position ID', 'Position Name', 'Position Email',
-        'Minimum Sobriety', 'Term Years', 'Short Description', 'Summary',
+dataset('invalid position fields', function () {
+    $base = [
+        'getId' => 5, 'getEmail' => 'c@example.com', 'getLongName' => 'Chair',
+        'getShortDescription' => 'Chairs', 'getSummary' => 'Runs',
+        'getMinimumSobriety' => 24, 'getTermYears' => 3,
     ];
 
-    // ─── dependency + column errors ─────────────────────────────────
-    #[Test]
-    public function null_repository_is_an_error(): void
-    {
-        $result = (new PositionImporter(null, $this->factory))->import($this->writeCsv(self::HEADERS, []));
-        $this->assertTrue($result->hasErrors());
-    }
+    return [
+        'no email'        => [array_merge($base, ['getEmail' => ''])],
+        'no long name'    => [array_merge($base, ['getLongName' => ''])],
+        'no short desc'   => [array_merge($base, ['getShortDescription' => ''])],
+        'no summary'      => [array_merge($base, ['getSummary' => ''])],
+        'sobriety low'    => [array_merge($base, ['getMinimumSobriety' => 3])],
+        'term too short'  => [array_merge($base, ['getTermYears' => 0])],
+    ];
+});
 
-    #[Test]
-    public function null_factory_is_an_error(): void
-    {
-        $result = (new PositionImporter($this->repo, null))->import($this->writeCsv(self::HEADERS, []));
-        $this->assertTrue($result->hasErrors());
-    }
+beforeEach(function () {
+    $this->repo = Mockery::mock(PositionRepository::class);
+    $this->factory = Mockery::mock(PositionFactory::class);
+    // The internal PositionLookup builds its cache from findAll(); default to
+    // no positions so name resolution misses unless a test overrides it.
+    $this->repo->shouldReceive('findAll')->andReturn([])->byDefault();
 
-    #[Test]
-    public function missing_identifier_columns_is_an_error(): void
-    {
+    $this->importer = function (): PositionImporter {
+        return new PositionImporter($this->repo, $this->factory);
+    };
+});
+
+// ─── dependency + column errors ─────────────────────────────────
+describe('dependency + column errors', function () {
+    it('reports a null repository as an error', function () {
+        $result = (new PositionImporter(null, $this->factory))->import(positionImportCsv(POSITION_IMPORT_HEADERS, []));
+        expect($result->hasErrors())->toBeTrue();
+    });
+
+    it('reports a null factory as an error', function () {
+        $result = (new PositionImporter($this->repo, null))->import(positionImportCsv(POSITION_IMPORT_HEADERS, []));
+        expect($result->hasErrors())->toBeTrue();
+    });
+
+    it('reports missing identifier columns as an error', function () {
         // Only Summary — neither Position ID nor Position Name present.
-        $result = $this->importer()->import($this->writeCsv(['Summary'], [['x']]));
-        $this->assertTrue($result->hasErrors());
-    }
+        $result = ($this->importer)()->import(positionImportCsv(['Summary'], [['x']]));
+        expect($result->hasErrors())->toBeTrue();
+    });
+});
 
-    // ─── dry run ────────────────────────────────────────────────────
-    #[Test]
-    public function dry_run_counts_an_existing_position_as_an_update(): void
-    {
-        $this->repo->shouldReceive('findById')->with(5)->andReturn($this->validPosition(5));
+// ─── dry run ────────────────────────────────────────────────────
+describe('dry run', function () {
+    it('counts an existing position as an update', function () {
+        $this->repo->shouldReceive('findById')->with(5)->andReturn(importedPosition(5));
 
-        $result = $this->importer()->import(
-            $this->writeCsv(self::HEADERS, [['5', 'Chair', 'c@example.com', '24', '3', 'Chairs', 'Runs']]),
+        $result = ($this->importer)()->import(
+            positionImportCsv(POSITION_IMPORT_HEADERS, [['5', 'Chair', 'c@example.com', '24', '3', 'Chairs', 'Runs']]),
             true
         );
 
-        $this->assertSame(1, $result->getUpdated());
-        $this->assertSame(0, $result->getCreated());
-    }
+        expect($result->getUpdated())->toBe(1)
+            ->and($result->getCreated())->toBe(0);
+    });
 
-    #[Test]
-    public function dry_run_counts_an_unresolved_name_as_a_create(): void
-    {
+    it('counts an unresolved name as a create', function () {
         // findAll returns [] (default) so the name resolves to nothing → create.
-        $result = $this->importer()->import(
-            $this->writeCsv(self::HEADERS, [['', 'Brand New', 'n@example.com', '12', '2', 'New', 'Summary']]),
+        $result = ($this->importer)()->import(
+            positionImportCsv(POSITION_IMPORT_HEADERS, [['', 'Brand New', 'n@example.com', '12', '2', 'New', 'Summary']]),
             true
         );
 
-        $this->assertSame(1, $result->getCreated());
-    }
+        expect($result->getCreated())->toBe(1);
+    });
+});
 
-    // ─── row skips ──────────────────────────────────────────────────
-    #[Test]
-    public function empty_id_and_name_row_is_skipped(): void
-    {
-        $result = $this->importer()->import(
-            $this->writeCsv(self::HEADERS, [['', '', 'e@example.com', '12', '2', 'x', 'y']])
+// ─── row skips ──────────────────────────────────────────────────
+describe('row skips', function () {
+    it('skips a row with an empty ID and name', function () {
+        $result = ($this->importer)()->import(
+            positionImportCsv(POSITION_IMPORT_HEADERS, [['', '', 'e@example.com', '12', '2', 'x', 'y']])
         );
 
-        $this->assertSame(1, $result->getSkipped());
-    }
+        expect($result->getSkipped())->toBe(1);
+    });
 
-    #[Test]
-    public function non_numeric_id_is_skipped(): void
-    {
-        $result = $this->importer()->import(
-            $this->writeCsv(self::HEADERS, [['abc', 'Chair', 'e@example.com', '12', '2', 'x', 'y']])
+    it('skips a non-numeric ID', function () {
+        $result = ($this->importer)()->import(
+            positionImportCsv(POSITION_IMPORT_HEADERS, [['abc', 'Chair', 'e@example.com', '12', '2', 'x', 'y']])
         );
 
-        $this->assertSame(1, $result->getSkipped());
-    }
+        expect($result->getSkipped())->toBe(1);
+    });
 
-    #[Test]
-    public function id_that_does_not_exist_is_skipped(): void
-    {
+    it('skips an ID that does not exist', function () {
         $this->repo->shouldReceive('findById')->with(99)->andReturn(null);
 
-        $result = $this->importer()->import(
-            $this->writeCsv(self::HEADERS, [['99', 'Chair', 'e@example.com', '12', '2', 'x', 'y']])
+        $result = ($this->importer)()->import(
+            positionImportCsv(POSITION_IMPORT_HEADERS, [['99', 'Chair', 'e@example.com', '12', '2', 'x', 'y']])
         );
 
-        $this->assertSame(1, $result->getSkipped());
-    }
+        expect($result->getSkipped())->toBe(1);
+    });
+});
 
-    // ─── real create / update ───────────────────────────────────────
-    #[Test]
-    public function updates_an_existing_position(): void
-    {
-        $this->repo->shouldReceive('findById')->with(5)->andReturn($this->validPosition(5));
-        $this->factory->shouldReceive('createNew')->andReturn($this->validPosition(5));
+// ─── real create / update ───────────────────────────────────────
+describe('real create / update', function () {
+    it('updates an existing position', function () {
+        $this->repo->shouldReceive('findById')->with(5)->andReturn(importedPosition(5));
+        $this->factory->shouldReceive('createNew')->andReturn(importedPosition(5));
         $this->repo->shouldReceive('save')->once()->andReturn(true);
 
-        $result = $this->importer()->import(
-            $this->writeCsv(self::HEADERS, [['5', 'Chair', 'c@example.com', '24', '3', 'Chairs', 'Runs']])
+        $result = ($this->importer)()->import(
+            positionImportCsv(POSITION_IMPORT_HEADERS, [['5', 'Chair', 'c@example.com', '24', '3', 'Chairs', 'Runs']])
         );
 
-        $this->assertSame(1, $result->getUpdated());
-    }
+        expect($result->getUpdated())->toBe(1);
+    });
 
-    #[Test]
-    public function creates_a_new_position_from_a_name(): void
-    {
+    it('creates a new position from a name', function () {
         WpState::$nextPostId = 77;
-        $this->factory->shouldReceive('createNew')->andReturn($this->validPosition(77));
+        $this->factory->shouldReceive('createNew')->andReturn(importedPosition(77));
         $this->repo->shouldReceive('save')->once()->andReturn(true);
 
-        $result = $this->importer()->import(
-            $this->writeCsv(self::HEADERS, [['', 'Brand New', 'n@example.com', '12', '2', 'New', 'Summary']])
+        $result = ($this->importer)()->import(
+            positionImportCsv(POSITION_IMPORT_HEADERS, [['', 'Brand New', 'n@example.com', '12', '2', 'New', 'Summary']])
         );
 
-        $this->assertSame(1, $result->getCreated());
-    }
+        expect($result->getCreated())->toBe(1);
+    });
 
-    #[Test]
-    public function a_merged_position_that_is_invalid_is_skipped(): void
-    {
-        $this->repo->shouldReceive('findById')->with(5)->andReturn($this->validPosition(5));
+    it('skips a merged position that is invalid', function () {
+        $this->repo->shouldReceive('findById')->with(5)->andReturn(importedPosition(5));
 
         // The factory yields a position missing its email, so the importer
         // reports the specific invalid field rather than attempting a save.
@@ -214,88 +198,77 @@ class PositionImporterTest extends TestCase
         // save must never be reached.
         $this->repo->shouldReceive('save')->never();
 
-        $result = $this->importer()->import(
-            $this->writeCsv(self::HEADERS, [['5', 'Chair', '', '24', '3', 'Chairs', 'Runs']])
+        $result = ($this->importer)()->import(
+            positionImportCsv(POSITION_IMPORT_HEADERS, [['5', 'Chair', '', '24', '3', 'Chairs', 'Runs']])
         );
 
-        $this->assertSame(1, $result->getSkipped());
-    }
+        expect($result->getSkipped())->toBe(1);
+    });
 
-    #[Test]
-    public function an_update_whose_save_fails_is_skipped(): void
-    {
-        $this->repo->shouldReceive('findById')->with(5)->andReturn($this->validPosition(5));
-        $this->factory->shouldReceive('createNew')->andReturn($this->validPosition(5));
+    it('skips an update whose save fails', function () {
+        $this->repo->shouldReceive('findById')->with(5)->andReturn(importedPosition(5));
+        $this->factory->shouldReceive('createNew')->andReturn(importedPosition(5));
         $this->repo->shouldReceive('save')->once()->andReturn(false);
 
-        $result = $this->importer()->import(
-            $this->writeCsv(self::HEADERS, [['5', 'Chair', 'c@example.com', '24', '3', 'Chairs', 'Runs']])
+        $result = ($this->importer)()->import(
+            positionImportCsv(POSITION_IMPORT_HEADERS, [['5', 'Chair', 'c@example.com', '24', '3', 'Chairs', 'Runs']])
         );
 
-        $this->assertSame(1, $result->getSkipped());
-        $this->assertSame(0, $result->getUpdated());
-    }
+        expect($result->getSkipped())->toBe(1)
+            ->and($result->getUpdated())->toBe(0);
+    });
 
-    #[Test]
-    public function a_create_whose_post_insert_fails_is_skipped(): void
-    {
+    it('skips a create whose post insert fails', function () {
         // wp_insert_post returns 0 → the row cannot be created.
         when('wp_insert_post')->justReturn(0);
         // See PositionImporterFailureTest: createNew() is reached before the
         // insert is attempted, so it needs an expectation. Without one the
         // row was skipped because Mockery threw and the importer caught it,
         // not because wp_insert_post returned 0.
-        $this->factory->shouldReceive('createNew')->andReturn($this->validPosition(77))->byDefault();
+        $this->factory->shouldReceive('createNew')->andReturn(importedPosition(77))->byDefault();
 
-        $result = $this->importer()->import(
-            $this->writeCsv(self::HEADERS, [['', 'Brand New', 'n@example.com', '12', '2', 'New', 'Summary']])
+        $result = ($this->importer)()->import(
+            positionImportCsv(POSITION_IMPORT_HEADERS, [['', 'Brand New', 'n@example.com', '12', '2', 'New', 'Summary']])
         );
 
-        $this->assertSame(1, $result->getSkipped());
-        $this->assertSame(0, $result->getCreated());
-    }
+        expect($result->getSkipped())->toBe(1)
+            ->and($result->getCreated())->toBe(0);
+    });
 
-    #[Test]
-    public function a_create_whose_field_save_fails_is_skipped(): void
-    {
+    it('skips a create whose field save fails', function () {
         // Post inserts, but the field save fails afterwards.
         WpState::$nextPostId = 77;
-        $this->factory->shouldReceive('createNew')->andReturn($this->validPosition(77));
+        $this->factory->shouldReceive('createNew')->andReturn(importedPosition(77));
         $this->repo->shouldReceive('save')->once()->andReturn(false);
 
-        $result = $this->importer()->import(
-            $this->writeCsv(self::HEADERS, [['', 'Brand New', 'n@example.com', '12', '2', 'New', 'Summary']])
+        $result = ($this->importer)()->import(
+            positionImportCsv(POSITION_IMPORT_HEADERS, [['', 'Brand New', 'n@example.com', '12', '2', 'New', 'Summary']])
         );
 
-        $this->assertSame(1, $result->getSkipped());
-        $this->assertSame(0, $result->getCreated());
-    }
+        expect($result->getSkipped())->toBe(1)
+            ->and($result->getCreated())->toBe(0);
+    });
 
-    #[Test]
-    public function a_name_that_resolves_to_an_existing_position_updates_it(): void
-    {
+    it('updates the existing position a name resolves to', function () {
         // The internal lookup builds its cache from findAll(); a matching name
         // resolves to an existing id, taking the update path (not create).
-        $match = $this->validPosition(5);
+        $match = importedPosition(5);
         $match->shouldReceive('getLongName')->andReturn('Chair');
         $this->repo->shouldReceive('findAll')->andReturn([$match]);
-        $this->repo->shouldReceive('findById')->with(5)->andReturn($this->validPosition(5));
-        $this->factory->shouldReceive('createNew')->andReturn($this->validPosition(5));
+        $this->repo->shouldReceive('findById')->with(5)->andReturn(importedPosition(5));
+        $this->factory->shouldReceive('createNew')->andReturn(importedPosition(5));
         $this->repo->shouldReceive('save')->once()->andReturn(true);
 
-        $result = $this->importer()->import(
-            $this->writeCsv(self::HEADERS, [['', 'Chair', 'c@example.com', '24', '3', 'Chairs', 'Runs']])
+        $result = ($this->importer)()->import(
+            positionImportCsv(POSITION_IMPORT_HEADERS, [['', 'Chair', 'c@example.com', '24', '3', 'Chairs', 'Runs']])
         );
 
-        $this->assertSame(1, $result->getUpdated());
-        $this->assertSame(0, $result->getCreated());
-    }
+        expect($result->getUpdated())->toBe(1)
+            ->and($result->getCreated())->toBe(0);
+    });
 
-    #[DataProvider('invalidFieldProvider')]
-    #[Test]
-    public function each_invalid_field_reports_the_row_as_skipped(array $getters): void
-    {
-        $this->repo->shouldReceive('findById')->with(5)->andReturn($this->validPosition(5));
+    it('reports the row as skipped for each invalid field', function (array $getters) {
+        $this->repo->shouldReceive('findById')->with(5)->andReturn(importedPosition(5));
 
         $merged = Mockery::mock(Position::class);
         foreach ($getters as $method => $value) {
@@ -304,52 +277,29 @@ class PositionImporterTest extends TestCase
         $this->factory->shouldReceive('createNew')->andReturn($merged);
         $this->repo->shouldReceive('save')->never();
 
-        $result = $this->importer()->import(
-            $this->writeCsv(self::HEADERS, [['5', 'Chair', 'c@example.com', '24', '3', 'Chairs', 'Runs']])
+        $result = ($this->importer)()->import(
+            positionImportCsv(POSITION_IMPORT_HEADERS, [['5', 'Chair', 'c@example.com', '24', '3', 'Chairs', 'Runs']])
         );
 
-        $this->assertSame(1, $result->getSkipped());
-    }
+        expect($result->getSkipped())->toBe(1);
+    })->with('invalid position fields');
 
-    /**
-     * @return array<string, array{array<string, mixed>}>
-     */
-    public static function invalidFieldProvider(): array
-    {
-        $base = [
-            'getId' => 5, 'getEmail' => 'c@example.com', 'getLongName' => 'Chair',
-            'getShortDescription' => 'Chairs', 'getSummary' => 'Runs',
-            'getMinimumSobriety' => 24, 'getTermYears' => 3,
-        ];
-
-        return [
-            'no email'        => [array_merge($base, ['getEmail' => ''])],
-            'no long name'    => [array_merge($base, ['getLongName' => ''])],
-            'no short desc'   => [array_merge($base, ['getShortDescription' => ''])],
-            'no summary'      => [array_merge($base, ['getSummary' => ''])],
-            'sobriety low'    => [array_merge($base, ['getMinimumSobriety' => 3])],
-            'term too short'  => [array_merge($base, ['getTermYears' => 0])],
-        ];
-    }
-
-    #[Test]
-    public function processes_multiple_rows_in_one_file(): void
-    {
+    it('processes multiple rows in one file', function () {
         // Row 1 updates (id 5), row 2 is skipped (empty), row 3 creates.
-        $this->repo->shouldReceive('findById')->with(5)->andReturn($this->validPosition(5));
-        $this->factory->shouldReceive('createNew')->andReturn($this->validPosition(5));
+        $this->repo->shouldReceive('findById')->with(5)->andReturn(importedPosition(5));
+        $this->factory->shouldReceive('createNew')->andReturn(importedPosition(5));
         $this->repo->shouldReceive('save')->andReturn(true);
         WpState::$nextPostId = 90;
 
-        $result = $this->importer()->import($this->writeCsv(self::HEADERS, [
+        $result = ($this->importer)()->import(positionImportCsv(POSITION_IMPORT_HEADERS, [
             ['5', 'Chair', 'c@example.com', '24', '3', 'Chairs', 'Runs'],
             ['', '', 'x@example.com', '12', '2', 'x', 'y'],
             ['', 'Fresh', 'f@example.com', '12', '2', 'Fresh', 'Summary'],
         ]));
 
-        $this->assertSame(3, $result->getTotalRows());
-        $this->assertSame(1, $result->getUpdated());
-        $this->assertSame(1, $result->getCreated());
-        $this->assertSame(1, $result->getSkipped());
-    }
-}
+        expect($result->getTotalRows())->toBe(3)
+            ->and($result->getUpdated())->toBe(1)
+            ->and($result->getCreated())->toBe(1)
+            ->and($result->getSkipped())->toBe(1);
+    });
+});

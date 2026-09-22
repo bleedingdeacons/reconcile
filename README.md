@@ -203,10 +203,13 @@ composer install
 
 | Command | Description |
 |---|---|
-| `composer test` | Run the PHPUnit test suite |
+| `composer test` | Run the Pest test suite |
 | `composer phpstan` | Run PHPStan static analysis |
 
-The suite uses **PHPUnit** with **Mockery** for mocking. It covers the
+The suite is written in [**Pest**](https://pestphp.com) (on PHPUnit) with **Mockery** and
+[**bleedingdeacons/wp-mocks**](https://github.com/bleedingdeacons/wp-mocks) —
+the suite's shared WordPress test doubles, a state-backed stub layer over Brain
+Monkey. It covers the
 spreadsheet reader (CSV and XLSX), the column mappers and name lookups, the
 CSV exporters, the AJAX import and admin-post export handlers, the
 temp-upload handling, and the member/group/position importers. Line coverage

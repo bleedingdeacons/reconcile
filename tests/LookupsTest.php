@@ -4,10 +4,7 @@ declare(strict_types=1);
 
 namespace Reconcile\Tests\Unit;
 
-use PHPUnit\Framework\Attributes\CoversClass;
-use PHPUnit\Framework\Attributes\Test;
 use Mockery;
-use BleedingDeacons\WpMocks\TestCase;
 use Reconcile\Group\GroupLookup;
 use Reconcile\Position\PositionLookup;
 use Unity\Groups\Interfaces\Group;
@@ -15,149 +12,127 @@ use Unity\Groups\Interfaces\GroupRepository;
 use Unity\Positions\Interfaces\Position;
 use Unity\Positions\Interfaces\PositionRepository;
 
-/**
+/*
  * Tests for the group and position name→ID lookups.
  */
-#[CoversClass(\Reconcile\Group\GroupLookup::class)]
-#[CoversClass(\Reconcile\Position\PositionLookup::class)]
-class LookupsTest extends TestCase
+
+covers(GroupLookup::class, PositionLookup::class);
+
+function lookupGroup(int $id, string $title): Group
 {
-    protected function tearDown(): void
-    {
-        Mockery::close();
-        parent::tearDown();
-    }
+    $g = Mockery::mock(Group::class);
+    $g->shouldReceive('getId')->andReturn($id);
+    $g->shouldReceive('getTitle')->andReturn($title);
+    return $g;
+}
 
-    private function group(int $id, string $title): Group
-    {
-        $g = Mockery::mock(Group::class);
-        $g->shouldReceive('getId')->andReturn($id);
-        $g->shouldReceive('getTitle')->andReturn($title);
-        return $g;
-    }
+function lookupPosition(int $id, string $name): Position
+{
+    $p = Mockery::mock(Position::class);
+    $p->shouldReceive('getId')->andReturn($id);
+    $p->shouldReceive('getLongName')->andReturn($name);
+    return $p;
+}
 
-    private function position(int $id, string $name): Position
-    {
-        $p = Mockery::mock(Position::class);
-        $p->shouldReceive('getId')->andReturn($id);
-        $p->shouldReceive('getLongName')->andReturn($name);
-        return $p;
-    }
-
-    // ─── GroupLookup ────────────────────────────────────────────────
-    #[Test]
-    public function group_resolve_matches_case_insensitively_and_caches(): void
-    {
+// ─── GroupLookup ────────────────────────────────────────────────
+describe('GroupLookup', function () {
+    it('resolves case-insensitively and caches', function () {
         $repo = Mockery::mock(GroupRepository::class);
         // findAll must be hit only once thanks to the cache.
         $repo->shouldReceive('findAll')->once()->andReturn([
-            $this->group(10, 'Tuesday Group'),
-            $this->group(20, 'Thursday Group'),
+            lookupGroup(10, 'Tuesday Group'),
+            lookupGroup(20, 'Thursday Group'),
         ]);
 
         $lookup = new GroupLookup($repo);
 
-        $this->assertSame(10, $lookup->resolve('tuesday group'));
-        $this->assertSame(20, $lookup->resolve('  THURSDAY GROUP '));
-        // Second resolve of the same value does not rebuild the cache.
-        $this->assertSame(10, $lookup->resolve('Tuesday Group'));
-    }
+        expect($lookup->resolve('tuesday group'))->toBe(10)
+            ->and($lookup->resolve('  THURSDAY GROUP '))->toBe(20)
+            // Second resolve of the same value does not rebuild the cache.
+            ->and($lookup->resolve('Tuesday Group'))->toBe(10);
+    });
 
-    #[Test]
-    public function group_resolve_returns_zero_for_empty_or_unknown_and_records_unresolved(): void
-    {
+    it('returns zero for an empty or unknown name and records it as unresolved', function () {
         $repo = Mockery::mock(GroupRepository::class);
-        $repo->shouldReceive('findAll')->andReturn([$this->group(10, 'Known')]);
+        $repo->shouldReceive('findAll')->andReturn([lookupGroup(10, 'Known')]);
 
         $lookup = new GroupLookup($repo);
 
-        $this->assertSame(0, $lookup->resolve('   '));
-        $this->assertSame(0, $lookup->resolve('Unknown Group'));
-        $this->assertSame(['Unknown Group'], $lookup->getUnresolvedNames());
+        expect($lookup->resolve('   '))->toBe(0)
+            ->and($lookup->resolve('Unknown Group'))->toBe(0)
+            ->and($lookup->getUnresolvedNames())->toBe(['Unknown Group']);
 
         $lookup->resetUnresolved();
-        $this->assertSame([], $lookup->getUnresolvedNames());
-    }
+        expect($lookup->getUnresolvedNames())->toBe([]);
+    });
 
-    #[Test]
-    public function group_lookup_tolerates_a_null_repository(): void
-    {
+    it('tolerates a null repository', function () {
         $lookup = new GroupLookup(null);
 
-        $this->assertSame(0, $lookup->resolve('Anything'));
-    }
+        expect($lookup->resolve('Anything'))->toBe(0);
+    });
 
-    #[Test]
-    public function group_lookup_survives_a_repository_exception(): void
-    {
+    it('survives a repository exception', function () {
         $repo = Mockery::mock(GroupRepository::class);
         $repo->shouldReceive('findAll')->andThrow(new \RuntimeException('db down'));
 
         $lookup = new GroupLookup($repo);
 
-        $this->assertSame(0, $lookup->resolve('Anything'));
-    }
+        expect($lookup->resolve('Anything'))->toBe(0);
+    });
 
-    #[Test]
-    public function group_invalidate_cache_forces_a_rebuild(): void
-    {
+    it('rebuilds after invalidateCache()', function () {
         $repo = Mockery::mock(GroupRepository::class);
-        $repo->shouldReceive('findAll')->twice()->andReturn([$this->group(10, 'Known')]);
+        $repo->shouldReceive('findAll')->twice()->andReturn([lookupGroup(10, 'Known')]);
 
         $lookup = new GroupLookup($repo);
-        $this->assertSame(10, $lookup->resolve('Known'));
+        expect($lookup->resolve('Known'))->toBe(10);
 
         $lookup->invalidateCache();
         // A second findAll happens because the cache was invalidated.
-        $this->assertSame(10, $lookup->resolve('Known'));
-    }
+        expect($lookup->resolve('Known'))->toBe(10);
+    });
+});
 
-    // ─── PositionLookup ─────────────────────────────────────────────
-    #[Test]
-    public function position_resolve_matches_by_long_name(): void
-    {
+// ─── PositionLookup ─────────────────────────────────────────────
+describe('PositionLookup', function () {
+    it('resolves by long name', function () {
         $repo = Mockery::mock(PositionRepository::class);
         $repo->shouldReceive('findAll')->once()->andReturn([
-            $this->position(5, 'Intergroup Chair'),
+            lookupPosition(5, 'Intergroup Chair'),
         ]);
 
         $lookup = new PositionLookup($repo);
 
-        $this->assertSame(5, $lookup->resolve('intergroup chair'));
-        $this->assertSame(0, $lookup->resolve('Nonexistent'));
-        $this->assertSame(['Nonexistent'], $lookup->getUnresolvedNames());
-    }
+        expect($lookup->resolve('intergroup chair'))->toBe(5)
+            ->and($lookup->resolve('Nonexistent'))->toBe(0)
+            ->and($lookup->getUnresolvedNames())->toBe(['Nonexistent']);
+    });
 
-    #[Test]
-    public function position_lookup_tolerates_a_null_repository(): void
-    {
-        $this->assertSame(0, (new PositionLookup(null))->resolve('Chair'));
-    }
+    it('tolerates a null repository', function () {
+        expect((new PositionLookup(null))->resolve('Chair'))->toBe(0);
+    });
 
-    #[Test]
-    public function position_lookup_survives_a_repository_exception(): void
-    {
+    it('survives a repository exception', function () {
         $repo = Mockery::mock(PositionRepository::class);
         $repo->shouldReceive('findAll')->andThrow(new \RuntimeException('db down'));
 
-        $this->assertSame(0, (new PositionLookup($repo))->resolve('Chair'));
-    }
+        expect((new PositionLookup($repo))->resolve('Chair'))->toBe(0);
+    });
 
-    #[Test]
-    public function position_lookup_reset_and_invalidate_behave(): void
-    {
+    it('resets unresolved names and rebuilds after invalidateCache()', function () {
         $repo = Mockery::mock(PositionRepository::class);
-        $repo->shouldReceive('findAll')->twice()->andReturn([$this->position(5, 'Chair')]);
+        $repo->shouldReceive('findAll')->twice()->andReturn([lookupPosition(5, 'Chair')]);
 
         $lookup = new PositionLookup($repo);
 
-        $this->assertSame(0, $lookup->resolve('Unknown'));
-        $this->assertSame(['Unknown'], $lookup->getUnresolvedNames());
+        expect($lookup->resolve('Unknown'))->toBe(0)
+            ->and($lookup->getUnresolvedNames())->toBe(['Unknown']);
         $lookup->resetUnresolved();
-        $this->assertSame([], $lookup->getUnresolvedNames());
+        expect($lookup->getUnresolvedNames())->toBe([]);
 
         // invalidateCache forces a second findAll on the next resolve.
         $lookup->invalidateCache();
-        $this->assertSame(5, $lookup->resolve('Chair'));
-    }
-}
+        expect($lookup->resolve('Chair'))->toBe(5);
+    });
+});

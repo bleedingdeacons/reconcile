@@ -4,103 +4,84 @@ declare(strict_types=1);
 
 namespace Reconcile\Tests\Unit;
 
-use PHPUnit\Framework\Attributes\CoversClass;
-use PHPUnit\Framework\Attributes\Test;
-use BleedingDeacons\WpMocks\TestCase;
 use Reconcile\Core\OperationResult;
 
-/**
+/*
  * Tests for OperationResult.
  */
-#[CoversClass(\Reconcile\Core\OperationResult::class)]
-class OperationResultTest extends TestCase
-{
-    #[Test]
-    public function counters_and_getters_track_state(): void
-    {
-        $result = new OperationResult();
-        $result->setTotalRows(10);
-        $result->incrementCreated();
-        $result->incrementCreated();
-        $result->incrementUpdated();
-        $result->incrementSkipped();
 
-        $this->assertSame(10, $result->getTotalRows());
-        $this->assertSame(2, $result->getCreated());
-        $this->assertSame(1, $result->getUpdated());
-        $this->assertSame(1, $result->getSkipped());
-    }
+covers(OperationResult::class);
 
-    #[Test]
-    public function a_clean_run_is_a_success_with_a_readable_summary(): void
-    {
-        $result = new OperationResult();
-        $result->setTotalRows(3);
-        $result->incrementCreated();
-        $result->incrementUpdated();
+it('tracks state through its counters and getters', function () {
+    $result = new OperationResult();
+    $result->setTotalRows(10);
+    $result->incrementCreated();
+    $result->incrementCreated();
+    $result->incrementUpdated();
+    $result->incrementSkipped();
 
-        $this->assertTrue($result->isSuccess());
-        $this->assertFalse($result->hasErrors());
-        $this->assertSame('3 row(s) processed, 1 created, 1 updated.', $result->getSummary());
-    }
+    expect($result->getTotalRows())->toBe(10)
+        ->and($result->getCreated())->toBe(2)
+        ->and($result->getUpdated())->toBe(1)
+        ->and($result->getSkipped())->toBe(1);
+});
 
-    #[Test]
-    public function skipped_rows_appear_in_the_summary_and_structured_list(): void
-    {
-        $result = new OperationResult();
-        $result->setTotalRows(2);
-        $result->skipRow(4, 'Bad data', ['Email' => 'nope']);
+it('reports a clean run as a success with a readable summary', function () {
+    $result = new OperationResult();
+    $result->setTotalRows(3);
+    $result->incrementCreated();
+    $result->incrementUpdated();
 
-        $this->assertSame(1, $result->getSkipped());
-        $this->assertStringContainsString('1 skipped', $result->getSummary());
-        $this->assertSame(
-            [['row' => 4, 'reason' => 'Bad data', 'details' => ['Email' => 'nope']]],
-            $result->getSkippedRows()
-        );
-    }
+    expect($result->isSuccess())->toBeTrue()
+        ->and($result->hasErrors())->toBeFalse()
+        ->and($result->getSummary())->toBe('3 row(s) processed, 1 created, 1 updated.');
+});
 
-    #[Test]
-    public function errors_make_the_run_a_failure(): void
-    {
-        $result = new OperationResult();
-        $result->addError('Missing required columns');
+it('lists skipped rows in the summary and the structured list', function () {
+    $result = new OperationResult();
+    $result->setTotalRows(2);
+    $result->skipRow(4, 'Bad data', ['Email' => 'nope']);
 
-        $this->assertFalse($result->isSuccess());
-        $this->assertTrue($result->hasErrors());
-        $this->assertSame(['Missing required columns'], $result->getErrors());
-        $this->assertStringContainsString('Import failed', $result->getSummary());
-    }
+    expect($result->getSkipped())->toBe(1)
+        ->and($result->getSummary())->toContain('1 skipped')
+        ->and($result->getSkippedRows())->toBe([['row' => 4, 'reason' => 'Bad data', 'details' => ['Email' => 'nope']]]);
+});
 
-    #[Test]
-    public function warnings_are_tracked_independently_of_errors(): void
-    {
-        $result = new OperationResult();
-        $result->addWarning('Two members resolved to the same group');
+it('makes the run a failure when there are errors', function () {
+    $result = new OperationResult();
+    $result->addError('Missing required columns');
 
-        $this->assertTrue($result->hasWarnings());
-        $this->assertSame(['Two members resolved to the same group'], $result->getWarnings());
+    expect($result->isSuccess())->toBeFalse()
+        ->and($result->hasErrors())->toBeTrue()
+        ->and($result->getErrors())->toBe(['Missing required columns'])
+        ->and($result->getSummary())->toContain('Import failed');
+});
+
+it('tracks warnings independently of errors', function () {
+    $result = new OperationResult();
+    $result->addWarning('Two members resolved to the same group');
+
+    expect($result->hasWarnings())->toBeTrue()
+        ->and($result->getWarnings())->toBe(['Two members resolved to the same group'])
         // Warnings alone do not fail the run.
-        $this->assertTrue($result->isSuccess());
-    }
+        ->and($result->isSuccess())->toBeTrue();
+});
 
-    #[Test]
-    public function to_array_serialises_every_field(): void
-    {
-        $result = new OperationResult();
-        $result->setTotalRows(5);
-        $result->incrementCreated();
-        $result->skipRow(2, 'dupe');
-        $result->addWarning('w');
+it('serialises every field in toArray()', function () {
+    $result = new OperationResult();
+    $result->setTotalRows(5);
+    $result->incrementCreated();
+    $result->skipRow(2, 'dupe');
+    $result->addWarning('w');
 
-        $array = $result->toArray();
+    $array = $result->toArray();
 
-        $this->assertTrue($array['success']);
-        $this->assertSame(5, $array['total_rows']);
-        $this->assertSame(1, $array['created']);
-        $this->assertSame(0, $array['updated']);
-        $this->assertSame(1, $array['skipped']);
-        $this->assertCount(1, $array['skipped_rows']);
-        $this->assertSame(['w'], $array['warnings']);
-        $this->assertArrayHasKey('summary', $array);
-    }
-}
+    expect($array['success'])->toBeTrue()
+        ->and($array['total_rows'])->toBe(5)
+        ->and($array['created'])->toBe(1)
+        ->and($array['updated'])->toBe(0)
+        ->and($array['skipped'])->toBe(1)
+        ->and($array['skipped_rows'])->toHaveCount(1)
+        ->and($array['warnings'])->toBe(['w'])
+        ->and($array)->toHaveKey('summary');
+});

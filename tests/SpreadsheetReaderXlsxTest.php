@@ -4,46 +4,45 @@ declare(strict_types=1);
 
 namespace Reconcile\Tests\Unit;
 
-use PHPUnit\Framework\Attributes\CoversClass;
-use PHPUnit\Framework\Attributes\RequiresPhpExtension;
-use PHPUnit\Framework\Attributes\Test;
-use BleedingDeacons\WpMocks\TestCase;
 use Reconcile\Core\SpreadsheetReader;
 use RuntimeException;
 
-/**
+/*
  * Tests for SpreadsheetReader's XLSX path (the CSV path is covered by
  * SpreadsheetReaderTest). A minimal .xlsx is assembled with ZipArchive so no
  * fixture files or PhpSpreadsheet are required.
  */
-#[CoversClass(\Reconcile\Core\SpreadsheetReader::class)]
-#[RequiresPhpExtension('zip')]
-class SpreadsheetReaderXlsxTest extends TestCase
+
+covers(SpreadsheetReader::class);
+
+const XLSX_NS = 'http://schemas.openxmlformats.org/spreadsheetml/2006/main';
+
+function xlsxSharedStrings(array $strings): string
 {
-    /** @var string[] */
-    private array $cleanup = [];
+    $items = '';
+    foreach ($strings as $s) {
+        $items .= '<si><t>' . htmlspecialchars($s) . '</t></si>';
+    }
+    return '<?xml version="1.0"?><sst xmlns="' . XLSX_NS . '">' . $items . '</sst>';
+}
 
-    private SpreadsheetReader $reader;
+function xlsxSheet(string $rows): string
+{
+    return '<?xml version="1.0"?><worksheet xmlns="' . XLSX_NS . '"><sheetData>'
+        . $rows . '</sheetData></worksheet>';
+}
 
-    protected function setUp(): void
-    {
-        parent::setUp();
-        $this->reader = new SpreadsheetReader();
+beforeEach(function () {
+    // Was #[RequiresPhpExtension('zip')] on the class: every test here builds
+    // its workbook with ZipArchive.
+    if (!extension_loaded('zip')) {
+        $this->markTestSkipped('Requires the zip extension.');
     }
 
-    protected function tearDown(): void
-    {
-        foreach ($this->cleanup as $path) {
-            if (is_file($path)) {
-                @unlink($path);
-            }
-        }
-        $this->cleanup = [];
-        parent::tearDown();
-    }
+    $this->reader = new SpreadsheetReader();
+    $this->cleanup = [];
 
-    private function writeXlsx(?string $sharedStrings, ?string $sheet): string
-    {
+    $this->writeXlsx = function (?string $sharedStrings, ?string $sheet): string {
         $base = tempnam(sys_get_temp_dir(), 'xlsx_');
         // ZipArchive needs to create the archive itself; a pre-existing empty
         // (non-zip) file trips up OVERWRITE on some builds.
@@ -64,109 +63,84 @@ class SpreadsheetReaderXlsxTest extends TestCase
         $zip->close();
 
         return $path;
-    }
+    };
+});
 
-    private const NS = 'http://schemas.openxmlformats.org/spreadsheetml/2006/main';
-
-    private function sst(array $strings): string
-    {
-        $items = '';
-        foreach ($strings as $s) {
-            $items .= '<si><t>' . htmlspecialchars($s) . '</t></si>';
+afterEach(function () {
+    foreach ($this->cleanup as $path) {
+        if (is_file($path)) {
+            @unlink($path);
         }
-        return '<?xml version="1.0"?><sst xmlns="' . self::NS . '">' . $items . '</sst>';
     }
+    $this->cleanup = [];
+});
 
-    private function sheet(string $rows): string
-    {
-        return '<?xml version="1.0"?><worksheet xmlns="' . self::NS . '"><sheetData>'
-            . $rows . '</sheetData></worksheet>';
-    }
+it('reads shared string cells', function () {
+    $path = ($this->writeXlsx)(
+        xlsxSharedStrings(['Name', 'Email', 'Alice', 'alice@example.com']),
+        xlsxSheet(
+            '<row r="1"><c r="A1" t="s"><v>0</v></c><c r="B1" t="s"><v>1</v></c></row>'
+            . '<row r="2"><c r="A2" t="s"><v>2</v></c><c r="B2" t="s"><v>3</v></c></row>'
+        )
+    );
 
-    #[Test]
-    public function it_reads_shared_string_cells(): void
-    {
-        $path = $this->writeXlsx(
-            $this->sst(['Name', 'Email', 'Alice', 'alice@example.com']),
-            $this->sheet(
-                '<row r="1"><c r="A1" t="s"><v>0</v></c><c r="B1" t="s"><v>1</v></c></row>'
-                . '<row r="2"><c r="A2" t="s"><v>2</v></c><c r="B2" t="s"><v>3</v></c></row>'
-            )
-        );
+    $data = $this->reader->read($path);
 
-        $data = $this->reader->read($path);
+    expect($data['headers'])->toBe(['Name', 'Email'])
+        ->and($data['rows'])->toBe([['Alice', 'alice@example.com']]);
+});
 
-        $this->assertSame(['Name', 'Email'], $data['headers']);
-        $this->assertSame([['Alice', 'alice@example.com']], $data['rows']);
-    }
+it('reads inline strings and fills sparse columns', function () {
+    // Row 2 omits column A, so a value in column B must land in index 1.
+    $path = ($this->writeXlsx)(
+        null,
+        xlsxSheet(
+            '<row r="1"><c r="A1" t="inlineStr"><is><t>Col A</t></is></c>'
+            . '<c r="B1" t="inlineStr"><is><t>Col B</t></is></c></row>'
+            . '<row r="2"><c r="B2" t="inlineStr"><is><t>only B</t></is></c></row>'
+        )
+    );
 
-    #[Test]
-    public function it_reads_inline_strings_and_fills_sparse_columns(): void
-    {
-        // Row 2 omits column A, so a value in column B must land in index 1.
-        $path = $this->writeXlsx(
-            null,
-            $this->sheet(
-                '<row r="1"><c r="A1" t="inlineStr"><is><t>Col A</t></is></c>'
-                . '<c r="B1" t="inlineStr"><is><t>Col B</t></is></c></row>'
-                . '<row r="2"><c r="B2" t="inlineStr"><is><t>only B</t></is></c></row>'
-            )
-        );
+    $data = $this->reader->read($path);
 
-        $data = $this->reader->read($path);
-
-        $this->assertSame(['Col A', 'Col B'], $data['headers']);
+    expect($data['headers'])->toBe(['Col A', 'Col B'])
         // Column A gap-filled with '' before the B value.
-        $this->assertSame([['', 'only B']], $data['rows']);
-    }
+        ->and($data['rows'])->toBe([['', 'only B']]);
+});
 
-    #[Test]
-    public function it_concatenates_rich_text_shared_strings(): void
-    {
-        $sst = '<?xml version="1.0"?><sst xmlns="' . self::NS . '">'
-            . '<si><r><t>Rich</t></r><r><t>Text</t></r></si>'
-            . '<si><t>Plain</t></si>'
-            . '</sst>';
+it('concatenates rich-text shared strings', function () {
+    $sst = '<?xml version="1.0"?><sst xmlns="' . XLSX_NS . '">'
+        . '<si><r><t>Rich</t></r><r><t>Text</t></r></si>'
+        . '<si><t>Plain</t></si>'
+        . '</sst>';
 
-        $path = $this->writeXlsx(
-            $sst,
-            $this->sheet(
-                '<row r="1"><c r="A1" t="s"><v>0</v></c><c r="B1" t="s"><v>1</v></c></row>'
-                . '<row r="2"><c r="A2"><v>x</v></c><c r="B2"><v>y</v></c></row>'
-            )
-        );
+    $path = ($this->writeXlsx)(
+        $sst,
+        xlsxSheet(
+            '<row r="1"><c r="A1" t="s"><v>0</v></c><c r="B1" t="s"><v>1</v></c></row>'
+            . '<row r="2"><c r="A2"><v>x</v></c><c r="B2"><v>y</v></c></row>'
+        )
+    );
 
-        $data = $this->reader->read($path);
+    $data = $this->reader->read($path);
 
-        // The rich-text runs are joined into a single header value.
-        $this->assertSame(['RichText', 'Plain'], $data['headers']);
-    }
+    // The rich-text runs are joined into a single header value.
+    expect($data['headers'])->toBe(['RichText', 'Plain']);
+});
 
-    #[Test]
-    public function an_empty_worksheet_is_an_error(): void
-    {
-        $path = $this->writeXlsx(null, $this->sheet(''));
+it('reports an empty worksheet as an error', function () {
+    $path = ($this->writeXlsx)(null, xlsxSheet(''));
 
-        $this->expectException(RuntimeException::class);
-        $this->expectExceptionMessage('empty or has no header row');
-        $this->reader->read($path);
-    }
+    $this->reader->read($path);
+})->throws(RuntimeException::class, 'empty or has no header row');
 
-    #[Test]
-    public function a_missing_worksheet_is_an_error(): void
-    {
-        // sharedStrings present but no sheet1.xml.
-        $path = $this->writeXlsx($this->sst(['x']), null);
+it('reports a missing worksheet as an error', function () {
+    // sharedStrings present but no sheet1.xml.
+    $path = ($this->writeXlsx)(xlsxSharedStrings(['x']), null);
 
-        $this->expectException(RuntimeException::class);
-        $this->reader->read($path);
-    }
+    $this->reader->read($path);
+})->throws(RuntimeException::class);
 
-    #[Test]
-    public function an_unreadable_file_is_an_error(): void
-    {
-        $this->expectException(RuntimeException::class);
-        $this->expectExceptionMessage('File not found');
-        $this->reader->read('/no/such/file.xlsx');
-    }
-}
+it('reports an unreadable file as an error', function () {
+    $this->reader->read('/no/such/file.xlsx');
+})->throws(RuntimeException::class, 'File not found');

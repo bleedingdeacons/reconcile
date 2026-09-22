@@ -4,10 +4,7 @@ declare(strict_types=1);
 
 namespace Reconcile\Tests\Unit;
 
-use PHPUnit\Framework\Attributes\CoversClass;
-use PHPUnit\Framework\Attributes\Test;
 use Mockery;
-use BleedingDeacons\WpMocks\TestCase;
 use Reconcile\Group\GroupExporter;
 use Reconcile\Member\MemberExporter;
 use Reconcile\Position\PositionExporter;
@@ -20,24 +17,15 @@ use Unity\Members\PreferredContact;
 use Unity\Positions\Interfaces\Position;
 use Unity\Positions\Interfaces\PositionRepository;
 
-/**
+/*
  * Tests for the three CSV exporters.
  */
-#[CoversClass(\Reconcile\Member\MemberExporter::class)]
-#[CoversClass(\Reconcile\Group\GroupExporter::class)]
-#[CoversClass(\Reconcile\Position\PositionExporter::class)]
-class ExportersTest extends TestCase
-{
-    protected function tearDown(): void
-    {
-        Mockery::close();
-        parent::tearDown();
-    }
 
-    // ─── MemberExporter ─────────────────────────────────────────────
-    #[Test]
-    public function member_export_writes_a_header_and_resolves_related_names(): void
-    {
+covers(MemberExporter::class, GroupExporter::class, PositionExporter::class);
+
+// ─── MemberExporter ─────────────────────────────────────────────
+describe('MemberExporter', function () {
+    it('member export writes a header and resolves related names', function () {
         $member = Mockery::mock(Member::class);
         $member->shouldReceive('getId')->andReturn(1);
         $member->shouldReceive('getAnonymousName')->andReturn('Jane D.');
@@ -70,26 +58,24 @@ class ExportersTest extends TestCase
 
         $csv = (new MemberExporter($memberRepo, $groupRepo, $positionRepo))->export();
 
-        $this->assertStringContainsString('Anonymous Name', $csv);
-        $this->assertStringContainsString('Jane D.', $csv);
-        // The export is the import's own column set, so both new columns
-        // appear in the header and carry a value.
-        $this->assertStringContainsString('Landline Number', $csv);
-        $this->assertStringContainsString('Preferred Contact', $csv);
-        $this->assertStringContainsString('0117 496 0000', $csv);
-        $this->assertStringContainsString('Landline', $csv);
-        // IDs resolved to names.
-        $this->assertStringContainsString('Tuesday Group', $csv);
-        $this->assertStringContainsString('Chair', $csv);
-        // Accepts labels joined with a pipe.
-        $this->assertStringContainsString('Male|Female', $csv);
-        // Boolean flags rendered as Yes/No.
-        $this->assertStringContainsString('Yes', $csv);
-    }
+        expect($csv)->toContain('Anonymous Name')
+            ->toContain('Jane D.')
+            // The export is the import's own column set, so both new columns
+            // appear in the header and carry a value.
+            ->toContain('Landline Number')
+            ->toContain('Preferred Contact')
+            ->toContain('0117 496 0000')
+            ->toContain('Landline')
+            // IDs resolved to names.
+            ->toContain('Tuesday Group')
+            ->toContain('Chair')
+            // Accepts labels joined with a pipe.
+            ->toContain('Male|Female')
+            // Boolean flags rendered as Yes/No.
+            ->toContain('Yes');
+    });
 
-    #[Test]
-    public function member_export_sanitises_formula_injection_and_passes_unknown_accepts_through(): void
-    {
+    it('member export sanitises formula injection and passes unknown accepts through', function () {
         $member = Mockery::mock(Member::class);
         $member->shouldReceive('getId')->andReturn(2);
         // A name beginning with '=' is a CSV formula-injection vector.
@@ -113,21 +99,18 @@ class ExportersTest extends TestCase
         $csv = (new MemberExporter($memberRepo, null, null))->export();
 
         // The formula is neutralised with a leading single quote.
-        $this->assertStringContainsString("'=SUM(A1)", $csv);
-        $this->assertStringContainsString('accepts-mystery', $csv);
-    }
+        expect($csv)->toContain("'=SUM(A1)")
+            ->toContain('accepts-mystery');
+    });
 
-    #[Test]
-    public function member_export_throws_without_a_repository(): void
-    {
-        $this->expectException(\RuntimeException::class);
+    it('member export throws without a repository', function () {
         (new MemberExporter(null, null, null))->export();
-    }
+    })->throws(\RuntimeException::class);
+});
 
-    // ─── GroupExporter ──────────────────────────────────────────────
-    #[Test]
-    public function group_export_writes_contacts(): void
-    {
+// ─── GroupExporter ──────────────────────────────────────────────
+describe('GroupExporter', function () {
+    it('group export writes contacts', function () {
         $contact = Mockery::mock(Contact::class);
         $contact->shouldReceive('getName')->andReturn('Alice');
         $contact->shouldReceive('getEmail')->andReturn('alice@example.com');
@@ -144,22 +127,19 @@ class ExportersTest extends TestCase
 
         $csv = (new GroupExporter($repo))->export();
 
-        $this->assertStringContainsString('Tuesday Group', $csv);
-        $this->assertStringContainsString('group@example.com', $csv);
-        $this->assertStringContainsString('Alice', $csv);
-    }
+        expect($csv)->toContain('Tuesday Group')
+            ->toContain('group@example.com')
+            ->toContain('Alice');
+    });
 
-    #[Test]
-    public function group_export_throws_without_a_repository(): void
-    {
-        $this->expectException(\RuntimeException::class);
+    it('group export throws without a repository', function () {
         (new GroupExporter(null))->export();
-    }
+    })->throws(\RuntimeException::class);
+});
 
-    // ─── PositionExporter ───────────────────────────────────────────
-    #[Test]
-    public function position_export_writes_position_rows(): void
-    {
+// ─── PositionExporter ───────────────────────────────────────────
+describe('PositionExporter', function () {
+    it('position export writes position rows', function () {
         $position = Mockery::mock(Position::class);
         $position->shouldReceive('getId')->andReturn(5);
         $position->shouldReceive('getLongName')->andReturn('Chair');
@@ -174,15 +154,12 @@ class ExportersTest extends TestCase
 
         $csv = (new PositionExporter($repo))->export();
 
-        $this->assertStringContainsString('Chair', $csv);
-        $this->assertStringContainsString('chair@example.com', $csv);
-        $this->assertStringContainsString('Runs intergroup', $csv);
-    }
+        expect($csv)->toContain('Chair')
+            ->toContain('chair@example.com')
+            ->toContain('Runs intergroup');
+    });
 
-    #[Test]
-    public function position_export_throws_without_a_repository(): void
-    {
-        $this->expectException(\RuntimeException::class);
+    it('position export throws without a repository', function () {
         (new PositionExporter(null))->export();
-    }
-}
+    })->throws(\RuntimeException::class);
+});
